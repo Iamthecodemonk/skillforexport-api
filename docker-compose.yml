@@ -1,0 +1,53 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3011:3011"
+    env_file:
+      - .env
+    environment:
+      - PORT=3011
+      - DATABASE_HOST=mysql
+      - DATABASE_PORT=3306
+      - DATABASE_USER=root
+      - DATABASE_PASSWORD=skillforexport123
+      - DATABASE_NAME=skillforexport
+      - DEPLOYMENT_ENV=docker
+      - NODE_ENV=development
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./src:/usr/src/app/src
+      - ./package.json:/usr/src/app/package.json
+      - ./package-lock.json:/usr/src/app/package-lock.json
+      - ./wait-for-db.js:/usr/src/app/wait-for-db.js
+      - ./schema.sql:/usr/src/app/schema.sql
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    command: sh -c "node wait-for-db.js && npm run dev"
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: skillforexport123
+      MYSQL_DATABASE: skillforexport
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pskillforexport123"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 15s
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+volumes:
+  mysql-data:

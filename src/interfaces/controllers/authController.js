@@ -1,4 +1,5 @@
 import logger from '../../utils/logger.js';
+import jwt from 'jsonwebtoken';
 
 const authLogger = logger.child('AUTH_CONTROLLER');
 
@@ -78,9 +79,18 @@ export function makeAuthController({ useCase }) {
 
         // password is optional here because a temporary hashed password may be stored with the OTP
         const { user, token } = await useCase.CompleteRegistration({ email, otpCode, password });
+        const decoded = jwt.decode(token) || {};
+        const now = Math.floor(Date.now() / 1000);
+        const expiresIn = decoded.exp ? Math.max(0, decoded.exp - now) : 0;
+        // expose authenticated subject on request for downstream handlers in same request lifecycle
+        try {
+          req.user = (user && typeof user.toPlainObject === 'function') ? user.toPlainObject() : (user || null);
+        } catch (e) {
+          req.user = user || null;
+        }
         return reply.code(201).send({
           success: true,
-          data: { token, user: user.toPlainObject() }
+          data: { accessToken: token, tokenType: 'Bearer', expiresIn }
         });
       } catch (err) {
         if (err.message === 'invalid_or_expired_otp') {
@@ -143,9 +153,17 @@ export function makeAuthController({ useCase }) {
         }
 
         const { user, token } = await useCase.LoginWithEmailPassword({ email, password });
+        const decoded = jwt.decode(token) || {};
+        const now = Math.floor(Date.now() / 1000);
+        const expiresIn = decoded.exp ? Math.max(0, decoded.exp - now) : 0;
+        try {
+          req.user = (user && typeof user.toPlainObject === 'function') ? user.toPlainObject() : (user || null);
+        } catch (e) {
+          req.user = user || null;
+        }
         return reply.code(200).send({
           success: true,
-          data: { token, user: user.toPlainObject() }
+          data: { accessToken: token, tokenType: 'Bearer', expiresIn }
         });
       } catch (err) {
         // Domain validation: invalid email format
@@ -272,9 +290,17 @@ export function makeAuthController({ useCase }) {
         }
 
         const { user, token } = await useCase.VerifyOtp({ email, otpCode, purpose });
+        const decoded = jwt.decode(token) || {};
+        const now = Math.floor(Date.now() / 1000);
+        const expiresIn = decoded.exp ? Math.max(0, decoded.exp - now) : 0;
+        try {
+          req.user = (user && typeof user.toPlainObject === 'function') ? user.toPlainObject() : (user || null);
+        } catch (e) {
+          req.user = user || null;
+        }
         return reply.code(200).send({
           success: true,
-          data: { token, user: user.toPlainObject() }
+          data: { accessToken: token, tokenType: 'Bearer', expiresIn }
         });
       } catch (err) {
         if (err.message === 'invalid_or_expired_otp') {
@@ -407,9 +433,17 @@ export function makeAuthController({ useCase }) {
         }
 
         const result = await useCase.LoginWithGoogle({ profile: { idToken } });
+        const decoded = jwt.decode(result.token) || {};
+        const now = Math.floor(Date.now() / 1000);
+        const expiresIn = decoded.exp ? Math.max(0, decoded.exp - now) : 0;
+        try {
+          req.user = (result.user && typeof result.user.toPlainObject === 'function') ? result.user.toPlainObject() : (result.user || null);
+        } catch (e) {
+          req.user = result.user || null;
+        }
         return reply.code(200).send({
           success: true,
-          data: { token: result.token, user: result.user.toPlainObject() }
+          data: { accessToken: result.token, tokenType: 'Bearer', expiresIn }
         });
       } catch (err) {
         authLogger.error('TokenSignIn error', { message: err.message, stack: err.stack });

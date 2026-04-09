@@ -9,9 +9,11 @@ export function makePostInteractionController({ useCase = null }) {
     toggleSave: async (req, reply) => {
       try {
         const { id: postId } = req.params;
-        const { userId } = req.body || {};
-        if (!userId) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
-        const res = await useCase.toggleSave({ postId, userId });
+        const body = req.body || {};
+        const actorId = (req.user && req.user.id) || body.userId;
+        if (!actorId) 
+            return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        const res = await useCase.toggleSave({ postId, userId: actorId });
         return reply.send({ success: true, data: res });
       } catch (err) {
         piLogger.error('toggleSave error', { message: err.message });
@@ -23,9 +25,11 @@ export function makePostInteractionController({ useCase = null }) {
     reportPost: async (req, reply) => {
       try {
         const { id: postId } = req.params;
-        const { userId, reason, details } = req.body || {};
-        if (!userId) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
-        const rep = await useCase.reportPost({ postId, userId, reason, details });
+        const body = req.body || {};
+        const actorId = (req.user && req.user.id) || body.userId;
+        const { reason, details } = body;
+        if (!actorId) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        const rep = await useCase.reportPost({ postId, userId: actorId, reason, details });
         return reply.code(201).send({ success: true, data: rep });
       } catch (err) {
         piLogger.error('reportPost error', { message: err.message });

@@ -9,11 +9,12 @@ export default class MysqlPostRepository {
       id,
       user_id: post.user_id || post.userId,
       community_id: post.community_id || post.communityId || null,
+      title: post.title || post.title || null,
       content: post.content,
       created_at: now,
       updated_at: now
     });
-    return { id, user_id: post.user_id || post.userId, community_id: post.community_id || post.communityId || null, content: post.content, created_at: now, updated_at: now };
+    return { id, user_id: post.user_id || post.userId, community_id: post.community_id || post.communityId || null, title: post.title || null, content: post.content, created_at: now, updated_at: now };
   }
 
   async findById(id) {
@@ -29,8 +30,10 @@ export default class MysqlPostRepository {
   async update(id, updates) {
     const now = new Date();
     const payload = {};
+    if (typeof updates.title !== 'undefined')
+      payload.title = updates.title;
     if (typeof updates.content !== 'undefined') 
-        payload.content = updates.content;
+      payload.content = updates.content;
     if (typeof updates.community_id !== 'undefined') 
         payload.community_id = updates.community_id;
     if (Object.keys(payload).length === 0) return null;

@@ -312,6 +312,7 @@ export default async function registerRoutes(fastify, deps) {
     } 
   }, handler('getUserProfile'));
   fastify.post('/users/:id/profile', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'createUserProfile',
       tags: ['Users'],
@@ -331,11 +332,13 @@ export default async function registerRoutes(fastify, deps) {
       },
       response: {
         201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } },
+        409: { type: 'object', properties: { success: { type: 'boolean' }, error: { type: 'object' } } },
         422: { type: 'object' }
       }
     }
   }, handler('createProfile'));
   fastify.post('/users/:id/profile/avatar', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'uploadUserAvatar',
       tags: ['Users'],
@@ -358,6 +361,7 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('uploadAvatar'));
   fastify.post('/users/:id/profile/banner', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'uploadUserBanner',
       tags: ['Users'],
@@ -391,15 +395,16 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('getCloudinarySignature'));
 
   fastify.post('/media/register', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'registerMedia',
       tags: ['Media'],
       description: 'Register a direct client upload by Cloudinary public id so server can validate and create asset record. If kind=avatar|banner and image already exists, pass replace=true or clear it first using PUT /users/:id/profile with { avatar: null } or { banner: null }.',
       body: {
         type: 'object',
-        required: ['publicId','userId'],
+        required: ['publicId'],
         properties: { publicId: { type: 'string' }, userId: { type: 'string' }, kind: { type: 'string' }, replace: { type: 'boolean' } },
-        example: { publicId: 'avatars/abcd1234', userId: 'user-uuid', kind: 'avatar' }
+        example: { publicId: 'avatars/abcd1234', kind: 'avatar' }
       },
       response: { 202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 409: { type: 'object' } }
     }
@@ -452,6 +457,7 @@ export default async function registerRoutes(fastify, deps) {
 
   // Multipart upload endpoint
   fastify.post('/users/:id/profile/avatar-file', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'uploadUserAvatarFile',
       tags: ['Media', 'Users'],
@@ -488,6 +494,7 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('uploadAvatarFile'));
   fastify.put('/users/:id/profile', { 
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: { 
       operationId: 'updateUserProfile', tags: ['Users'],
       description: 'Update profile fields. You can clear avatar or banner by sending null values.',
@@ -521,6 +528,7 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('listUserSkills'));
 
   fastify.post('/users/:id/skills', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'addUserSkill',
       tags: ['Users'],
@@ -534,7 +542,7 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('addUserSkill'));
 
   fastify.delete('/users/:id/skills/:skillId', 
-    { schema: { 
+    { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { 
       operationId: 
       'deleteUserSkill', 
       tags: ['Users'] 
@@ -558,6 +566,7 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('listUserPortfolios'));
   fastify.post('/users/:id/portfolios', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'addUserPortfolio',
       tags: ['Users'],
@@ -570,15 +579,15 @@ export default async function registerRoutes(fastify, deps) {
       response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 422: { type: 'object' } }
     }
   }, handler('addUserPortfolio'));
-  fastify.delete('/users/:id/portfolios/:portfolioId', { schema: { operationId: 'deleteUserPortfolio', tags: ['Users'], response: { 204: { type: 'null' } } } }, handler('deletePortfolio'));
+  fastify.delete('/users/:id/portfolios/:portfolioId', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'deleteUserPortfolio', tags: ['Users'], response: { 204: { type: 'null' } } } }, handler('deletePortfolio'));
 
   fastify.post('/users/:id/follow', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'followUser',
       tags: ['Users'],
-      body: {
+        body: {
         type: 'object',
-        required: ['followerId'],
         properties: { followerId: { type: 'string' } },
         example: { followerId: 'uuid-or-id' }
       },
@@ -603,6 +612,7 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('listLoginHistory'));
 
   fastify.post('/users/:id/oauth-accounts', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'createOauthAccount',
       tags: ['Users'],
@@ -634,6 +644,7 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('listCertifications'));
 
   fastify.post('/users/:id/certifications', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'addCertification',
       tags: ['Users'],
@@ -651,6 +662,7 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('addCertification'));
 
   fastify.delete('/users/:id/certifications/:certId', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'deleteCertification',
       tags: ['Users'],
@@ -670,6 +682,7 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('listEducation'));
 
   fastify.post('/users/:id/education', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'addEducation',
       tags: ['Users'],
@@ -684,6 +697,7 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('addEducation'));
 
   fastify.delete('/users/:id/education/:eduId', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: { operationId: 'deleteEducation', tags: ['Users'], response: { 204: { type: 'null' } } }
   }, handler('deleteEducation'));
 
@@ -693,6 +707,7 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('listExperiences'));
 
   fastify.post('/users/:id/experiences', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'addExperience',
       tags: ['Users'],
@@ -706,15 +721,15 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('addExperience'));
 
-  fastify.delete('/users/:id/experiences/:expId', { schema: { operationId: 'deleteExperience', tags: ['Users'], response: { 204: { type: 'null' } } } }, handler('deleteExperience'));
+  fastify.delete('/users/:id/experiences/:expId', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'deleteExperience', tags: ['Users'], response: { 204: { type: 'null' } } } }, handler('deleteExperience'));
 
   // ========== Posts ==========
   fastify.post('/posts', {
-    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.createPost : undefined,
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.createPost, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
       operationId: 'createPost',
       tags: ['Posts'],
-      description: 'Create a new post. Provide `userId` and `content` in body. Optional `communityId`.',
+      description: 'Create a new post. Provide `title` and `content` in body. Optional `communityId`. Server will use authenticated user when available; `userId` in body is a fallback.',
       body: schemas.PostCreateBody,
       response: {
         201: {
@@ -746,30 +761,30 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('getPost'));
 
   fastify.put('/posts/:id', {
-    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.interactions : undefined,
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.interactions, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
       operationId: 'updatePost',
       tags: ['Posts'],
       description: 'Update a post. Provide `userId` and `content` in body.',
-      body: { type: 'object', required: ['userId','content'], properties: { userId: { type: 'string' }, content: { type: 'string' } } },
+      body: { type: 'object', properties: { userId: { type: 'string' }, content: { type: 'string' } } },
       response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 403: { type: 'object' }, 404: { type: 'object' } }
     }
   }, handler('updatePost'));
 
   fastify.delete('/posts/:id', {
-    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.interactions : undefined,
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.interactions, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
       operationId: 'deletePost',
       tags: ['Posts'],
       description: 'Delete a post. Provide `userId` in body to verify ownership.',
-      body: { type: 'object', required: ['userId'], properties: { userId: { type: 'string' } } },
+      body: { type: 'object', properties: { userId: { type: 'string' } } },
       response: { 204: { type: 'null' }, 403: { type: 'object' }, 404: { type: 'object' } }
     }
   }, handler('deletePost'));
 
   // Post media endpoints
   fastify.post('/posts/:id/media', {
-    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.mediaFile : undefined,
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.mediaFile, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
       operationId: 'attachPostMedia',
       tags: ['Posts','Media'],
@@ -785,7 +800,7 @@ export default async function registerRoutes(fastify, deps) {
 
   // ========== Comments ==========
   fastify.post('/posts/:id/comments', {
-    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.comments : undefined,
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.comments, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
       operationId: 'createComment',
       tags: ['Posts','Comments'],
@@ -807,7 +822,7 @@ export default async function registerRoutes(fastify, deps) {
 
   // ========== Reactions ==========
   fastify.post('/posts/:id/reactions', {
-    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.reactions : undefined,
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.reactions, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
       operationId: 'togglePostReaction',
       tags: ['Posts','Reactions'],
@@ -819,7 +834,7 @@ export default async function registerRoutes(fastify, deps) {
 
   // Save and report endpoints for posts
   fastify.post('/posts/:id/save', {
-    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.interactions : undefined,
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.interactions, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
       operationId: 'toggleSave',
       tags: ['Posts','Interactions'],
@@ -830,7 +845,7 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('toggleSave'));
 
   fastify.post('/posts/:id/report', {
-    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.interactions : undefined,
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.interactions, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
       operationId: 'reportPost',
       tags: ['Posts','Moderation'],
@@ -841,7 +856,7 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('reportPost'));
 
   fastify.post('/comments/:id/reactions', {
-    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.reactions : undefined,
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.reactions, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
       operationId: 'toggleCommentReaction',
       tags: ['Comments','Reactions'],

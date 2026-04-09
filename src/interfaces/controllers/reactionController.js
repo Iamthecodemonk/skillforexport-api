@@ -9,9 +9,12 @@ export function makeReactionController({ useCase = null }) {
     togglePostReaction: async (req, reply) => {
       try {
         const { id: postId } = req.params;
-        const { userId, type } = req.body || {};
-        if (!userId) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
-        const res = await useCase.togglePostReaction({ postId, userId, type });
+        const body = req.body || {};
+        const actorId = (req.user && req.user.id) || body.userId;
+        const { type } = body;
+        if (!actorId) 
+            return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        const res = await useCase.togglePostReaction({ postId, userId: actorId, type });
         return reply.send({ success: true, data: res });
       } catch (err) {
         reactionLogger.error('togglePostReaction error', { message: err.message });
@@ -23,9 +26,12 @@ export function makeReactionController({ useCase = null }) {
     toggleCommentReaction: async (req, reply) => {
       try {
         const { id: commentId } = req.params;
-        const { userId, type } = req.body || {};
-        if (!userId) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
-        const res = await useCase.toggleCommentReaction({ commentId, userId, type });
+        const body = req.body || {};
+        const actorId = (req.user && req.user.id) || body.userId;
+        const { type } = body;
+        if (!actorId) 
+            return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        const res = await useCase.toggleCommentReaction({ commentId, userId: actorId, type });
         return reply.send({ success: true, data: res });
       } catch (err) {
         reactionLogger.error('toggleCommentReaction error', { message: err.message });

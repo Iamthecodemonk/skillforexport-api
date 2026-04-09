@@ -11,11 +11,13 @@ export function makePostController({ useCase = null }) {
   return {
     createPost: async (req, reply) => {
       try {
-        const { userId, communityId, content } = req.body || {};
-        if (!userId || !content) {
+        const body = req.body || {};
+        const actorId = (req.user && req.user.id) || body.userId;
+        const { communityId, title, content } = body;
+        if (!actorId || !title || !content) {
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         }
-        const created = await useCase.CreatePost({ userId, communityId, content });
+        const created = await useCase.CreatePost({ userId: actorId, communityId, title, content });
         return reply.code(201).send({ success: true, data: created });
       } catch (err) {
         postLogger.error('createPost error', { message: err.message, stack: err.stack });
@@ -53,10 +55,12 @@ export function makePostController({ useCase = null }) {
     updatePost: async (req, reply) => {
       try {
         const { id } = req.params;
-        const { userId, content } = req.body || {};
-        if (!userId || typeof content === 'undefined') 
-            return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
-        const updated = await useCase.UpdatePost({ id, userId, content });
+      const body = req.body || {};
+      const actorId = (req.user && req.user.id) || body.userId;
+      const { title, content } = body;
+      if (!actorId || (typeof title === 'undefined' && typeof content === 'undefined')) 
+        return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+      const updated = await useCase.UpdatePost({ id, userId: actorId, title, content });
         return reply.send({ success: true, data: updated });
       } catch (err) {
         postLogger.error('updatePost error', { message: err.message, stack: err.stack });
@@ -71,10 +75,11 @@ export function makePostController({ useCase = null }) {
     deletePost: async (req, reply) => {
       try {
         const { id } = req.params;
-        const { userId } = req.body || {};
-        if (!userId) 
-            return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
-        await useCase.DeletePost({ id, userId });
+        const body = req.body || {};
+        const actorId = (req.user && req.user.id) || body.userId;
+        if (!actorId) 
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        await useCase.DeletePost({ id, userId: actorId });
         return reply.code(204).send();
       } catch (err) {
         postLogger.error('deletePost error', { message: err.message, stack: err.stack });

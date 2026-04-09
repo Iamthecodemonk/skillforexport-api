@@ -103,14 +103,15 @@ export const RegisterBody = {
 
 export const PostCreateBody = {
   type: 'object',
-  required: ['userId','content'],
+  required: ['title','content'],
   properties: {
     userId: { type: 'string' },
     communityId: { type: 'string' },
+    title: { type: 'string' },
     content: { type: 'string' }
   }
 };
-PostCreateBody.example = { userId: 'user-uuid', communityId: null, content: 'Hello world — this is a test post.' };
+PostCreateBody.example = { communityId: null, title: 'Hello world', content: 'Hello world — this is a test post.' };
 
 export const PostResponse = {
   type: 'object',
@@ -118,12 +119,13 @@ export const PostResponse = {
     id: { type: 'string' },
     user_id: { type: 'string' },
     community_id: { type: ['string','null'] },
+    title: { type: 'string' },
     content: { type: 'string' },
     created_at: { type: 'string' },
     updated_at: { type: 'string' }
   }
 };
-PostResponse.example = { id: 'post-uuid', user_id: 'user-uuid', community_id: null, content: 'Hello world — this is a test post.', created_at: '2026-04-09T12:00:00Z', updated_at: '2026-04-09T12:00:00Z' };
+PostResponse.example = { id: 'post-uuid', user_id: 'user-uuid', community_id: null, title: 'Hello world', content: 'Hello world — this is a test post.', created_at: '2026-04-09T12:00:00Z', updated_at: '2026-04-09T12:00:00Z' };
 
 export const PostListResponse = {
   type: 'array',
@@ -146,7 +148,7 @@ PostMediaResponse.example = { id: 'media-uuid', post_id: 'post-uuid', media_type
 
 export const CommentCreateBody = {
   type: 'object',
-  required: ['userId','content'],
+  required: ['content'],
   properties: { userId: { type: 'string' }, content: { type: 'string' }, parentCommentId: { type: ['string','null'] } }
 };
 
@@ -159,7 +161,6 @@ export const CommentListResponse = { type: 'array', items: CommentResponse };
 
 export const ReactionBody = {
   type: 'object',
-  required: ['userId'],
   properties: { userId: { type: 'string' }, type: { type: 'string', enum: ['like','love','clap','dislike'], example: 'like' } }
 };
 
@@ -170,15 +171,13 @@ export const ReactionToggleResponse = {
 
 export const PostSaveBody = {
   type: 'object',
-  required: ['userId'],
   properties: { userId: { type: 'string' } }
 };
 
 export const PostReportBody = {
   type: 'object',
-  required: ['userId'],
   properties: { userId: { type: 'string' }, reason: { type: 'string' }, details: { type: 'string' } },
-  example: { userId: 'user-uuid', reason: 'spam', details: 'This post contains unsolicited ads' }
+  example: { reason: 'spam', details: 'This post contains unsolicited ads' }
 };
 
 export const PostReportResponse = {

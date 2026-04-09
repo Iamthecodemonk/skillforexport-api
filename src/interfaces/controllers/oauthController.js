@@ -1,4 +1,5 @@
 import { OAuth2Client } from 'google-auth-library';
+import jwt from 'jsonwebtoken';
 
 function getClient() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -35,7 +36,10 @@ export function makeOauthController({ useCase }) {
         const payload = ticket.getPayload();
         const profile = { email: payload.email, name: payload.name, googleId: payload.sub };
         const result = await useCase.LoginWithGoogle({ profile });
-        return reply.send(result);
+        const decoded = jwt.decode(result.token) || {};
+        const now = Math.floor(Date.now() / 1000);
+        const expiresIn = decoded.exp ? Math.max(0, decoded.exp - now) : 0;
+        return reply.code(200).send({ success: true, data: { accessToken: result.token, tokenType: 'Bearer', expiresIn } });
       } catch (err) {
         req.log && req.log.error && req.log.error(err);
         return reply.code(500).send({ error: 'oauth_error' });
@@ -55,7 +59,10 @@ export function makeOauthController({ useCase }) {
         const payload = ticket.getPayload();
         const profile = { email: payload.email, name: payload.name, googleId: payload.sub };
         const result = await useCase.LoginWithGoogle({ profile });
-        return reply.send(result);
+        const decoded = jwt.decode(result.token) || {};
+        const now = Math.floor(Date.now() / 1000);
+        const expiresIn = decoded.exp ? Math.max(0, decoded.exp - now) : 0;
+        return reply.code(200).send({ success: true, data: { accessToken: result.token, tokenType: 'Bearer', expiresIn } });
       } catch (err) {
         req.log && req.log.error && req.log.error(err);
         return reply.code(400).send({ error: 'invalid_id_token' });

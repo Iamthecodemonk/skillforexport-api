@@ -182,13 +182,14 @@ export function makeUserController({ useCase = null }) {
     followUser: async (req, reply) => {
       try {
         const { id } = req.params; // target user id
-        const { followerId } = req.body ;
-        if (!followerId)
+        const body = req.body || {};
+        const actorId = (req.user && req.user.id) || body.followerId;
+        if (!actorId)
           return reply.code(422).send({
             success: false,
             error: { code: 'validation_failed' }
           });
-        const created = await useCase.followUser(id, followerId);
+        const created = await useCase.followUser(id, actorId);
         return reply.code(201).send({ success: true, data: created.toPlainObject() });
       } catch (err) {
         userLogger.error('followUser error', { message: err.message, stack: err.stack });
@@ -232,6 +233,9 @@ export function makeUserController({ useCase = null }) {
         }
         if (err && err.message === 'profile_already_exists') {
           return reply.code(409).send({ success: false, error: { code: 'profile_already_exists' } });
+        }
+        if (err && err.message === 'username_taken') {
+          return reply.code(409).send({ success: false, error: { code: 'username_taken', message: 'Username already taken' } });
         }
         // Handle duplicate key errors (e.g., unique username)
         if (err) {

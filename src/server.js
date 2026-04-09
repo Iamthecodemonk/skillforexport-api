@@ -46,6 +46,9 @@ import logger from './utils/logger.js';
 import cloudinary from './utils/cloudinary.js';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
+import authRequired from './interfaces/middleware/authRequired.js';
+import makePopulateUser from './interfaces/middleware/populateUser.js';
+import errorHandler from './interfaces/middleware/errorHandler.js';
 
 import CommentUseCase from './application/use-cases/commentUseCase.js';
 import ReactionUseCase from './application/use-cases/reactionUseCase.js';
@@ -86,17 +89,8 @@ export default async function startServer() {
 
   // NOTE: auth wiring has a single outer try/catch below that handles non-fatal sub-operation errors
 
-  // Global error handler to log all errors
-  app.setErrorHandler((error, request, reply) => {
-    serverLogger.error('Unhandled error', {
-      message: error.message,
-      stack: error.stack,
-      method: request.method,
-      url: request.url
-    });
-    app.log.error(error);
-    reply.code(500).send({ error: 'internal_error', message: error.message });
-  });
+  // Register global error handler from interfaces/middleware
+  app.setErrorHandler(errorHandler(serverLogger));
 
   // create infrastructure & use-cases (simple manual DI)
   // Items feature removed
@@ -474,9 +468,13 @@ export default async function startServer() {
   } catch (err) {
     app.log.warn('Swagger registration failed', err && err.message);
   }
+  // Populate `req.user` using centralized middleware
+  app.addHook('preHandler', makePopulateUser({ userRepository: userRepo, jwtSecret: process.env.JWT_SECRET }));
+
+  // authRequired is provided from interfaces/middleware/authRequired.js
 
   serverLogger.debug('Registering API routes...');
-  await registerRoutes(app, { controllers, rateLimiters });
+  await registerRoutes(app, { controllers, rateLimiters, authRequired });
   serverLogger.debug('API routes registered');
 
   // Email queue already initialized above

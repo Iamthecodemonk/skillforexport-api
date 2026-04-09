@@ -9,9 +9,12 @@ export function makeCommentController({ useCase = null }) {
     createComment: async (req, reply) => {
       try {
         const { id: postId } = req.params;
-        const { userId, content, parentCommentId } = req.body || {};
-        if (!userId || !content) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
-        const created = await useCase.createComment({ postId, userId, parentCommentId, content });
+        const body = req.body || {};
+        const actorId = (req.user && req.user.id) || body.userId;
+        const { content, parentCommentId } = body;
+        if (!actorId || !content) 
+            return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        const created = await useCase.createComment({ postId, userId: actorId, parentCommentId, content });
         return reply.code(201).send({ success: true, data: created });
       } catch (err) {
         commentLogger.error('createComment error', { message: err.message });

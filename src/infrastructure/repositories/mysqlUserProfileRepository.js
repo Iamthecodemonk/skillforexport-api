@@ -5,6 +5,11 @@ export default class MysqlUserProfileRepository {
     return db('user_profiles').where({ user_id: userId }).first();
   }
 
+  async findByUsername(username) {
+    if (!username) return null;
+    return db('user_profiles').where({ username }).first();
+  }
+
   async create(record) {
     const now = new Date();
     const payload = { ...record, created_at: now };

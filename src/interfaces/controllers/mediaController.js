@@ -40,7 +40,7 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
       try {
         const body = req.body || {};
         const publicId = body.publicId;
-        const userId = body.userId;
+        const userId = (req.user && req.user.id) || body.userId;
         const kind = body.kind || 'other';
 
         if (!publicId || !userId) {

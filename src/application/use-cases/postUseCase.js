@@ -8,13 +8,15 @@ export default class PostUseCase {
     this.postRepository = postRepository;
   }
 
-  async CreatePost({ userId, communityId = null, content }) {
+  async CreatePost({ userId, communityId = null, title, content }) {
     if (!userId) throw new Error('user_required');
+    if (!title || String(title).trim() === '') throw new Error('title_required');
     if (!content || String(content).trim() === '') throw new Error('content_required');
     const post = {
       id: uuidv4(),
       user_id: userId,
       community_id: communityId,
+      title: String(title),
       content: String(content)
     };
     return this.postRepository.create(post);
@@ -31,12 +33,12 @@ export default class PostUseCase {
     return this.postRepository.list({ limit, offset });
   }
 
-  async UpdatePost({ id, userId, content }) {
+  async UpdatePost({ id, userId, title, content }) {
     if (!id) throw new Error('id_required');
     const existing = await this.postRepository.findById(id);
     if (!existing) throw new Error('post_not_found');
     if (existing.user_id !== userId) throw new Error('not_authorized');
-    return this.postRepository.update(id, { content });
+    return this.postRepository.update(id, { title, content });
   }
 
   async DeletePost({ id, userId }) {

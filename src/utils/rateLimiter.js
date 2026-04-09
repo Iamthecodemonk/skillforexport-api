@@ -1,6 +1,9 @@
 import { RateLimiterRedis } from 'rate-limiter-flexible';
 import Redis from 'ioredis';
 import jwt from 'jsonwebtoken';
+import logger from '../utils/logger.js';
+
+const rlLog = logger.child('RATE_LIMITER');
 
 // Create named rate limiters using a shared ioredis client
 export function createRateLimiters(redisClient, deps = {}) {
@@ -86,20 +89,22 @@ export function createRateLimiters(redisClient, deps = {}) {
         if (userId) {
           // If a userRepository is provided, verify token version matches current user token_version
           if (userRepository && typeof userRepository.findById === 'function') {
-            try {
-              const user = await userRepository.findById(userId);
-              const currentTv = user && (user.tokenVersion || 0);
-              if (Number(currentTv) === Number(tokenVersion)) return `user:${userId}`;
-              // token version mismatch -> treat as unauthenticated (fall through to IP)
-            } catch (dbErr) {
-              // On DB errors, ignore and fall back to IP to avoid blocking requests
-            }
+              try {
+                const user = await userRepository.findById(userId);
+                const currentTv = user && (user.tokenVersion || 0);
+                if (Number(currentTv) === Number(tokenVersion)) return `user:${userId}`;
+                // token version mismatch -> treat as unauthenticated (fall through to IP)
+              } catch (dbErr) {
+                rlLog.warn('Error resolving user in rate limiter', { message: dbErr && dbErr.message, stack: dbErr && dbErr.stack });
+                // On DB errors, ignore and fall back to IP to avoid blocking requests
+              }
           } else {
             return `user:${userId}`;
           }
         }
       }
     } catch (e) {
+      rlLog.debug('Token verification failed during rate key resolution', { message: e && e.message });
       // ignore token errors and fall back to IP
     }
 

@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS users (
   id CHAR(36) NOT NULL PRIMARY KEY,
   email VARCHAR(255) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
+  token_version INT DEFAULT 0,
   role ENUM('user', 'admin') DEFAULT 'user',
   email_verified_at TIMESTAMP NULL,
   created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
@@ -118,6 +119,32 @@ CREATE TABLE IF NOT EXISTS jobs (
   INDEX idx_employer_id (employer_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Post saves table (user bookmarks)
+CREATE TABLE IF NOT EXISTS post_saves (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  post_id CHAR(36) NOT NULL,
+  user_id CHAR(36) NOT NULL,
+  created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE KEY uk_user_post_save (user_id, post_id),
+  INDEX idx_post_saves_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Post reports table (moderation reports)
+CREATE TABLE IF NOT EXISTS post_reports (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  post_id CHAR(36) NOT NULL,
+  user_id CHAR(36) NOT NULL,
+  reason VARCHAR(255) DEFAULT NULL,
+  details TEXT DEFAULT NULL,
+  created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_post_reports_post (post_id),
+  INDEX idx_post_reports_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Job Applications table
 CREATE TABLE IF NOT EXISTS job_applications (
   id CHAR(36) NOT NULL PRIMARY KEY,
@@ -175,6 +202,22 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at TIMESTAMP NULL,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Password resets table (secure token storage — store only hashed tokens)
+CREATE TABLE IF NOT EXISTS password_resets (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  user_id CHAR(36) NOT NULL,
+  token_hash VARCHAR(128) NOT NULL,
+  is_used BOOLEAN DEFAULT FALSE,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  used_at TIMESTAMP NULL,
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_user_unused (user_id, is_used),
+  INDEX idx_token_hash (token_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Posts table

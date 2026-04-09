@@ -1,5 +1,6 @@
 import { Queue, Worker } from 'bullmq';
 import { fileTypeFromFile } from 'file-type';
+import { v4 as uuidv4 } from 'uuid';
 import logger from '../../utils/logger.js';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
@@ -15,7 +16,7 @@ export function createMediaQueue(redisConnection) {
   return new Queue('media', { connection: redisConnection });
 }
 
-export function createMediaWorker(redisConnection, { cloudinary, profileRepository = null, assetAdapter = null, concurrency = 2 } = {}) {
+export function createMediaWorker(redisConnection, { cloudinary, profileRepository = null, assetAdapter = null, postMediaAdapter = null, concurrency = 2 } = {}) {
   const safeCreateAsset = async (asset) => {
     if (!assetAdapter) return null;
     try {
@@ -222,6 +223,21 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
             }
           }
           return info;
+        }
+
+        if (name === 'post_media_url') {
+          const { postId, url, mediaType = 'image', displayOrder = 0 } = data;
+          if (!url) throw new Error('url_required');
+          // upload to cloudinary
+          const folder = process.env.CLOUDINARY_FOLDER_POSTS || 'posts';
+          const result = await cloudinary.uploadFromUrl(url, { folder });
+          // persist post media record
+          if (postMediaAdapter) {
+            const mediaId = data.mediaId || uuidv4();
+            await postMediaAdapter.create({ id: mediaId, post_id: postId, media_type: mediaType, url: result.secure_url || result.url, thumbnail_url: result.secure_url || result.url, display_order: displayOrder });
+            queueLogger.info('Post media record created', { mediaId });
+          }
+          return result;
         }
 
         throw new Error(`Unknown job name: ${name}`);

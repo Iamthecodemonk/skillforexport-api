@@ -46,6 +46,7 @@ export default async function registerRoutes(fastify, deps) {
 
   // ========== Auth ==========
   fastify.post('/auth/register', {
+    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.guests : undefined,
     schema: {
       operationId: 'registerUser',
       tags: ['Auth'],
@@ -106,17 +107,13 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('CompleteRegistration'));
 
   fastify.post('/auth/login', {
+    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.guests : undefined,
     schema: {
       operationId: 'loginUser',
       tags: ['Auth'],
       description: 'Login with email and password',
-      body: {
-        type: 'object',
-        required: ['email', 'password'],
-        properties: { email: { type: 'string' }, password: { type: 'string' } },
-        example: { email: 'user@example.com', password: 'P@ssw0rd' }
-      },
-      response: { 
+      body: schemas.LoginBody,
+      response: {
         200: {
           type: 'object',
           properties: {
@@ -126,24 +123,32 @@ export default async function registerRoutes(fastify, deps) {
               properties: { accessToken: { type: 'string' }, tokenType: { type: 'string' }, expiresIn: { type: 'number' } }
             }
           }
-        }, 
-        401: { type: 'object' },
+        },
+        401: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            error: { type: 'object', properties: { code: { type: 'string' }, message: { type: 'string' } } }
+          },
+          examples: [
+            {
+              summary: 'Invalid credentials',
+              value: { success: false, error: { code: 'invalid_credentials', message: 'Invalid email or password' } }
+            }
+          ]
+        },
         422: { type: 'object' }
       }
     }
   }, handler('LoginUserWithEmailPassword'));
 
   fastify.post('/auth/request-otp', {
+    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.guests : undefined,
     schema: {
       operationId: 'requestOtp',
       tags: ['Auth'],
       description: 'Request an OTP for email verification',
-      body: {
-        type: 'object',
-        required: ['email'],
-        properties: { email: { type: 'string' }, purpose: { type: 'string' } },
-        example: { email: 'user@example.com', purpose: 'registration' }
-      },
+      body: schemas.RequestOtpBody,
       response: {
         200: {
           type: 'object',
@@ -163,12 +168,7 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'verifyOtp',
       tags: ['Auth'],
       description: 'Verify OTP and get access token',
-      body: {
-        type: 'object',
-        required: ['email', 'otpCode'],
-        properties: { email: { type: 'string' }, otpCode: { type: 'string' }, purpose: { type: 'string' } },
-        example: { email: 'user@example.com', otpCode: '123456', purpose: 'registration' }
-      },
+      body: schemas.VerifyOtpBody,
       response: { 
         200: {
           type: 'object',
@@ -191,19 +191,20 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'resetPassword',
       tags: ['Auth'],
       description: 'Reset password with OTP verification',
-      body: {
-        type: 'object',
-        required: ['email', 'newPassword'],
-        properties: { email: { type: 'string' }, newPassword: { type: 'string' } },
-        example: { email: 'user@example.com', newPassword: 'N3wP@ss!' }
-      },
+      body: schemas.ResetPasswordBody,
       response: {
         200: {
           type: 'object',
           properties: {
             success: { type: 'boolean' },
             data: { type: 'object', properties: { id: { type: 'string' } } }
-          }
+          },
+          examples: [
+            {
+              summary: 'Password reset successful',
+              value: { success: true, data: { id: 'user-uuid' } }
+            }
+          ]
         },
         400: { type: 'object' },
         422: { type: 'object' }
@@ -707,5 +708,167 @@ export default async function registerRoutes(fastify, deps) {
 
   fastify.delete('/users/:id/experiences/:expId', { schema: { operationId: 'deleteExperience', tags: ['Users'], response: { 204: { type: 'null' } } } }, handler('deleteExperience'));
 
+  // ========== Posts ==========
+  fastify.post('/posts', {
+    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.createPost : undefined,
+    schema: {
+      operationId: 'createPost',
+      tags: ['Posts'],
+      description: 'Create a new post. Provide `userId` and `content` in body. Optional `communityId`.',
+      body: schemas.PostCreateBody,
+      response: {
+        201: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.PostResponse }
+        },
+        422: { type: 'object' }
+      }
+    }
+  }, handler('createPost'));
+
+  fastify.get('/posts', {
+    schema: {
+      operationId: 'listPosts',
+      tags: ['Posts'],
+      description: 'List posts (feed). Supports `limit` and `offset` query params.',
+      parameters: [ { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } } ],
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PostListResponse } } }
+    }
+  }, handler('listPosts'));
+
+  fastify.get('/posts/:id', {
+    schema: {
+      operationId: 'getPost',
+      tags: ['Posts'],
+      description: 'Get a single post by id',
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PostResponse } }, 404: { type: 'object' } }
+    }
+  }, handler('getPost'));
+
+  fastify.put('/posts/:id', {
+    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.interactions : undefined,
+    schema: {
+      operationId: 'updatePost',
+      tags: ['Posts'],
+      description: 'Update a post. Provide `userId` and `content` in body.',
+      body: { type: 'object', required: ['userId','content'], properties: { userId: { type: 'string' }, content: { type: 'string' } } },
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 403: { type: 'object' }, 404: { type: 'object' } }
+    }
+  }, handler('updatePost'));
+
+  fastify.delete('/posts/:id', {
+    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.interactions : undefined,
+    schema: {
+      operationId: 'deletePost',
+      tags: ['Posts'],
+      description: 'Delete a post. Provide `userId` in body to verify ownership.',
+      body: { type: 'object', required: ['userId'], properties: { userId: { type: 'string' } } },
+      response: { 204: { type: 'null' }, 403: { type: 'object' }, 404: { type: 'object' } }
+    }
+  }, handler('deletePost'));
+
+  // Post media endpoints
+  fastify.post('/posts/:id/media', {
+    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.mediaFile : undefined,
+    schema: {
+      operationId: 'attachPostMedia',
+      tags: ['Posts','Media'],
+      description: 'Attach media to a post by URL (server enqueues background validation/upload).',
+      body: schemas.PostMediaAttachBody,
+      response: {
+        202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { jobId: { type: 'string' } } } } },
+        422: { type: 'object' },
+        503: { type: 'object' }
+      }
+    }
+  }, handler('attachMediaByUrl'));
+
+  // ========== Comments ==========
+  fastify.post('/posts/:id/comments', {
+    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.comments : undefined,
+    schema: {
+      operationId: 'createComment',
+      tags: ['Posts','Comments'],
+      description: 'Create a comment on a post',
+      body: schemas.CommentCreateBody,
+      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.CommentResponse } }, 422: { type: 'object' } }
+    }
+  }, handler('createComment'));
+
+  fastify.get('/posts/:id/comments', {
+    schema: {
+      operationId: 'listComments',
+      tags: ['Posts','Comments'],
+      description: 'List comments for a post',
+      parameters: [ { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } } ],
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.CommentListResponse } } }
+    }
+  }, handler('listComments'));
+
+  // ========== Reactions ==========
+  fastify.post('/posts/:id/reactions', {
+    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.reactions : undefined,
+    schema: {
+      operationId: 'togglePostReaction',
+      tags: ['Posts','Reactions'],
+      description: 'Toggle reaction on a post (one reaction per user). Omitting `type` defaults to `like`.',
+      body: schemas.ReactionBody,
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.ReactionToggleResponse } }, 422: { type: 'object' } }
+    }
+  }, handler('togglePostReaction'));
+
+  // Save and report endpoints for posts
+  fastify.post('/posts/:id/save', {
+    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.interactions : undefined,
+    schema: {
+      operationId: 'toggleSave',
+      tags: ['Posts','Interactions'],
+      description: 'Toggle save for a post (save/unsave).',
+      body: schemas.PostSaveBody,
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 422: { type: 'object' } }
+    }
+  }, handler('toggleSave'));
+
+  fastify.post('/posts/:id/report', {
+    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.interactions : undefined,
+    schema: {
+      operationId: 'reportPost',
+      tags: ['Posts','Moderation'],
+      description: 'Report a post for moderation.',
+      body: schemas.PostReportBody,
+      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PostReportResponse } }, 422: { type: 'object' } }
+    }
+  }, handler('reportPost'));
+
+  fastify.post('/comments/:id/reactions', {
+    preHandler: deps && deps.rateLimiters ? deps.rateLimiters.reactions : undefined,
+    schema: {
+      operationId: 'toggleCommentReaction',
+      tags: ['Comments','Reactions'],
+      description: 'Toggle reaction on a comment (one reaction per user). Omitting `type` defaults to `like`.',
+      body: schemas.ReactionBody,
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.ReactionToggleResponse } }, 422: { type: 'object' } }
+    }
+  }, handler('toggleCommentReaction'));
+
+  fastify.get('/posts/:id/media', {
+    schema: {
+      operationId: 'listPostMedia',
+      tags: ['Posts','Media'],
+      description: 'List media attached to a post',
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: schemas.PostMediaResponse } } } }
+    }
+  }, handler('listPostMedia'));
+
+  fastify.delete('/posts/media/:id', {
+    schema: {
+      operationId: 'deletePostMedia',
+      tags: ['Posts','Media'],
+      description: 'Delete a post media item by id',
+      response: { 204: { type: 'null' } }
+    }
+  }, handler('deletePostMedia'));
+
   routesLogger.info('Routes registered');
 }
+

@@ -11,6 +11,7 @@ export default class User {
     this.email = email;
     this.password = password;
     this.role = role;
+    this.tokenVersion = null;
     // Handle both camelCase and snake_case from Prisma
     this.createdAt = createdAt || (created_at ? new Date(created_at) : null);
     this.updatedAt = updatedAt || (updated_at ? new Date(updated_at) : null);
@@ -26,6 +27,7 @@ export default class User {
       id: this.id,
       email: this.email,
       password: this.password,
+      token_version: this.tokenVersion || 0,
       role: this.role,
       created_at: this.createdAt,
       updated_at: this.updatedAt

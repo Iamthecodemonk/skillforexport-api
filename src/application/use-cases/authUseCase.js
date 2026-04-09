@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import User from '../../domain/entities/User.js';
 import logger from '../../utils/logger.js';
@@ -7,12 +8,13 @@ import logger from '../../utils/logger.js';
 const authLogger = logger.child('AUTH_USECASE');
 
 export default class AuthUseCase {
-  constructor({ userRepository, profileRepository = null, emailQueue, jwtSecret, jwtExpiresIn }) {
+  constructor({ userRepository, profileRepository = null, emailQueue, jwtSecret, jwtExpiresIn, passwordResetRepository = null }) {
     this.userRepository = userRepository;
     this.profileRepository = profileRepository;
     this.emailQueue = emailQueue;
     this.jwtSecret = jwtSecret || process.env.JWT_SECRET || 'secret';
     this.jwtExpiresIn = jwtExpiresIn || '7d';
+    this.passwordResetRepository = passwordResetRepository;
   }
 
   async RegisterWithEmailPassword({ email, password }) {
@@ -101,8 +103,8 @@ export default class AuthUseCase {
       const createdUser = await this.userRepository.create(user);
       // Delete the OTP row so temporary data can't be accessed (errors handled by outer catch)
       await this.userRepository.deleteOtp(entry.id);
-      // Generate token
-      const token = jwt.sign({ sub: createdUser.id, email: createdUser.email }, this.jwtSecret, { expiresIn: this.jwtExpiresIn });
+      // Generate token (include token version for revocation)
+      const token = jwt.sign({ sub: createdUser.id, email: createdUser.email, tv: (createdUser.tokenVersion || 0) }, this.jwtSecret, { expiresIn: this.jwtExpiresIn });
       return { user: createdUser, token };
     } catch (err) {
       if (err.message === 'invalid_email_format')
@@ -118,7 +120,7 @@ export default class AuthUseCase {
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) 
         throw new Error('invalid_credentials');
-    const token = jwt.sign({ sub: user.id, email: user.email }, this.jwtSecret, { expiresIn: this.jwtExpiresIn });
+    const token = jwt.sign({ sub: user.id, email: user.email, tv: (user.tokenVersion || 0) }, this.jwtSecret, { expiresIn: this.jwtExpiresIn });
     return { user, token };
   }
 
@@ -126,6 +128,53 @@ export default class AuthUseCase {
     const user = await this.userRepository.findByEmail(email);
     if (!user) 
         throw new Error('user_not_found');
+
+    // Special handling for password reset: generate a secure token, store only its hash
+    if (purpose === 'password_reset') {
+      if (!this.passwordResetRepository) {
+        throw new Error('password_reset_not_configured');
+      }
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      const reset = {
+        id: uuidv4(),
+        userId: user.id,
+        tokenHash,
+        expiresAt: new Date(Date.now() + ttlMinutes * 60 * 1000),
+        createdAt: new Date(),
+      };
+      await this.passwordResetRepository.create({ id: reset.id, userId: reset.userId, tokenHash: reset.tokenHash, expiresAt: reset.expiresAt });
+
+      if (this.emailQueue) {
+        try {
+          const appUrl = process.env.APP_URL || 'http://localhost:3011';
+          const resetLink = `${appUrl.replace(/\/$/, '')}/auth/reset-password?token=${encodeURIComponent(rawToken)}&email=${encodeURIComponent(email)}`;
+          const expiresInHours = Math.max(1, Math.ceil(ttlMinutes / 60));
+          await this.emailQueue.add('password_reset', {
+            type: 'passwordReset',
+            to: email,
+            resetLink,
+            expiresInHours
+          }, {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 2000 },
+            removeOnComplete: true
+          });
+          authLogger.info('Password reset email queued', { email });
+          // For security, do not return raw token in responses when queued
+          return { otpId: reset.id };
+        } catch (queueErr) {
+          authLogger.warn('Failed to queue password reset email', { error: queueErr.message });
+          // Avoid returning the raw token even on queue failure in production; return sanitized response
+          return { otpId: reset.id, warning: 'Email queuing failed' };
+        }
+      }
+
+      // No email queue configured — still avoid returning raw token by default
+      return { otpId: reset.id };
+    }
+
+    // Default / login-style OTP
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     const otp = {
       id: uuidv4(),
@@ -175,16 +224,44 @@ export default class AuthUseCase {
     const user = await this.userRepository.findById(entry.user_id);
     if (!user) 
         throw new Error('user_not_found');
-    const token = jwt.sign({ sub: user.id, email: user.email }, this.jwtSecret, { expiresIn: this.jwtExpiresIn });
+    const token = jwt.sign({ sub: user.id, email: user.email, tv: (user.tokenVersion || 0) }, this.jwtSecret, { expiresIn: this.jwtExpiresIn });
     return { user, token };
   }
 
-  async ResetPassword({ email, newPassword }) {
-    const user = await this.userRepository.findByEmail(email);
-    if (!user) 
-        throw new Error('user_not_found');
+  async ResetPassword({ email, otpCode, newPassword }) {
+    // Validate email format
+    if (!email || !User.isValidEmail(email)) {
+      throw new Error('invalid_email_format');
+    }
+
+    // First try password_resets repository if available (token-based resets)
+    if (this.passwordResetRepository) {
+      const tokenHash = crypto.createHash('sha256').update(String(otpCode)).digest('hex');
+      const entry = await this.passwordResetRepository.findValidByHash(tokenHash);
+      if (!entry) {
+        throw new Error('invalid_or_expired_otp');
+      }
+      const userId = entry.user_id || entry.userId;
+      if (!userId) throw new Error('invalid_or_expired_otp');
+      const user = await this.userRepository.findById(userId);
+      if (!user) throw new Error('user_not_found');
+      const hashed = await bcrypt.hash(newPassword, 10);
+      await this.passwordResetRepository.markUsed(entry.id);
+      await this.userRepository.updatePassword(user.id, hashed);
+      return user;
+    }
+
+    // Fallback: legacy OTP table behaviour
+    const entry = await this.userRepository.findValidOtp(email, otpCode, 'password_reset');
+    if (!entry) throw new Error('invalid_or_expired_otp');
+    const userId = entry.user_id || entry.userId;
+    if (!userId) throw new Error('invalid_or_expired_otp');
+    const user = await this.userRepository.findById(userId);
+    if (!user) throw new Error('user_not_found');
     const hashed = await bcrypt.hash(newPassword, 10);
-    return this.userRepository.updatePassword(user.id, hashed);
+    await this.userRepository.markOtpUsed(entry.id);
+    await this.userRepository.updatePassword(user.id, hashed);
+    return user;
   }
 
   async LoginWithGoogle({ profile }) {
@@ -195,7 +272,24 @@ export default class AuthUseCase {
       const newUser = new User({ id: uuidv4(), email: profile.email, password: null, createdAt: new Date() });
       user = await this.userRepository.create(newUser);
     }
-    const token = jwt.sign({ sub: user.id, email: user.email }, this.jwtSecret, { expiresIn: this.jwtExpiresIn });
+    const token = jwt.sign({ sub: user.id, email: user.email, tv: (user.tokenVersion || 0) }, this.jwtSecret, { expiresIn: this.jwtExpiresIn });
+
+    // Record login history if repository is available
+    try {
+      if (this.loginHistoryRepository && typeof this.loginHistoryRepository.create === 'function') {
+        await this.loginHistoryRepository.create({
+          id: uuidv4(),
+          user_id: user.id,
+          login_method: 'google_oauth',
+          ip_address: null,
+          user_agent: null,
+          login_at: new Date()
+        });
+      }
+    } catch (e) {
+      authLogger.warn('Failed to record google login history', { message: e.message });
+    }
+
     return { user, token };
   }
 }

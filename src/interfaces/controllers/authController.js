@@ -6,7 +6,7 @@ export function makeAuthController({ useCase }) {
   return {
     RegisterUserWithEmailPassword: async (req, reply) => {
       try {
-        const { email, password, fullName } = req.body ;
+        const { email, password, fullName } = req.body;
         const validationErrors = {};
         if (!email) validationErrors.email = ['email is required'];
         if (!password) validationErrors.password = ['password is required'];
@@ -126,7 +126,7 @@ export function makeAuthController({ useCase }) {
 
     LoginUserWithEmailPassword: async (req, reply) => {
       try {
-        const { email, password } = req.body ;
+        const { email, password } = req.body;
         const validationErrors = {};
         if (!email) validationErrors.email = ['email is required'];
         if (!password) validationErrors.password = ['password is required'];
@@ -148,22 +148,35 @@ export function makeAuthController({ useCase }) {
           data: { token, user: user.toPlainObject() }
         });
       } catch (err) {
-        authLogger.error('LoginUserWithEmailPassword error', { message: err.message, stack: err.stack });
-        if (err.message === 'invalid_email_format') {
-          return reply.code(422).send({
+        // Domain validation: invalid email format
+        if (err.message === 'invalid_email_format') return reply.code(422).send({
+          success: false,
+          error: {
+            code: 'validation_failed',
+            message: 'Validation failed',
+            details: { email: ['email must be a valid email address'] }
+          }
+        });
+
+        // Authentication failure: log at WARN level and return structured 401
+        if (err.message === 'invalid_credentials') {
+          authLogger.warn('Login failed: invalid credentials', { email: req.body && req.body.email });
+          return reply.code(401).send({
             success: false,
             error: {
-              code: 'validation_failed',
-              message: 'Validation failed',
-              details: { email: ['email must be a valid email address'] }
+              code: 'invalid_credentials',
+              message: 'Invalid email or password'
             }
           });
         }
-        return reply.code(401).send({
+
+        // Unexpected errors: log details server-side but do not expose internals to users
+        authLogger.error('LoginUserWithEmailPassword error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({
           success: false,
           error: {
-            code: 'invalid_credentials',
-            message: 'Invalid email or password'
+            code: 'internal_error',
+            message: 'An unexpected error occurred'
           }
         });
       }
@@ -171,7 +184,7 @@ export function makeAuthController({ useCase }) {
 
     RequestOtp: async (req, reply) => {
       try {
-        const { email, purpose } = req.body ;
+        const { email, purpose } = req.body;
         if (!email) {
           return reply.code(422).send({
             success: false,
@@ -200,6 +213,17 @@ export function makeAuthController({ useCase }) {
             }
           });
         }
+
+        // For password reset requests, do not reveal whether the email exists.
+        // Return a generic success message so callers cannot enumerate accounts.
+        const reqPurpose = (req.body && req.body.purpose) || undefined;
+        if (err.message === 'user_not_found' && reqPurpose === 'password_reset') {
+          return reply.code(200).send({
+            success: true,
+            data: { message: 'If an account with that email exists, a reset token will be sent.' }
+          });
+        }
+
         if (err.message === 'user_not_found') {
           return reply.code(404).send({
             success: false,
@@ -209,6 +233,7 @@ export function makeAuthController({ useCase }) {
             }
           });
         }
+
         return reply.code(500).send({
           success: false,
           error: {
@@ -285,9 +310,10 @@ export function makeAuthController({ useCase }) {
 
     ResetPassword: async (req, reply) => {
       try {
-        const { email, newPassword } = req.body ;
+        const { email, otpCode, newPassword } = req.body || {};
         const validationErrors = {};
         if (!email) validationErrors.email = ['email is required'];
+        if (!otpCode) validationErrors.otpCode = ['otpCode is required'];
         if (!newPassword) validationErrors.newPassword = ['newPassword is required'];
 
         if (Object.keys(validationErrors).length > 0) {
@@ -301,13 +327,14 @@ export function makeAuthController({ useCase }) {
           });
         }
 
-        const user = await useCase.ResetPassword({ email, newPassword });
+        const user = await useCase.ResetPassword({ email, otpCode, newPassword });
         return reply.code(200).send({
           success: true,
           data: { id: user.id }
         });
       } catch (err) {
         authLogger.error('ResetPassword error', { message: err.message, stack: err.stack });
+        // Domain-level validation
         if (err.message === 'invalid_email_format') {
           return reply.code(422).send({
             success: false,
@@ -318,6 +345,19 @@ export function makeAuthController({ useCase }) {
             }
           });
         }
+
+        if (err.message === 'invalid_or_expired_otp') {
+          authLogger.warn('ResetPassword invalid or expired OTP', { email: req.body && req.body.email });
+          return reply.code(401).send({
+            success: false,
+            error: {
+              code: 'invalid_or_expired_otp',
+              message: 'OTP is invalid or expired'
+            }
+          });
+        }
+
+        // Known domain error: user not found
         if (err.message === 'user_not_found') {
           return reply.code(404).send({
             success: false,
@@ -327,11 +367,26 @@ export function makeAuthController({ useCase }) {
             }
           });
         }
+
+        // Map common infrastructure errors to user-friendly messages without leaking internals
+        const msg = String(err.message || '').toLowerCase();
+        if (err.code === 'ECONNREFUSED' || msg.includes('ecconnrefused')
+          || msg.includes('connect') || msg.includes('connection')) {
+          return reply.code(503).send({
+            success: false,
+            error: {
+              code: 'service_unavailable',
+              message: 'Service temporarily unavailable. Please try again later.'
+            }
+          });
+        }
+
+        // Fallback: do not expose raw DB or stack details to clients
         return reply.code(500).send({
           success: false,
           error: {
-            code: 'internal_error',
-            message: 'An unexpected error occurred'
+            code: 'reset_failed',
+            message: 'Unable to reset password. Please try again later.'
           }
         });
       }
@@ -339,7 +394,7 @@ export function makeAuthController({ useCase }) {
 
     TokenSignIn: async (req, reply) => {
       try {
-        const { idToken } = req.body ;
+        const { idToken } = req.body;
         if (!idToken) {
           return reply.code(422).send({
             success: false,

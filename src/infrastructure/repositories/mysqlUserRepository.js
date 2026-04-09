@@ -4,12 +4,18 @@ import User from '../../domain/entities/User.js';
 export default class MysqlUserRepository {
   async findByEmail(email) {
     const user = await db('users').where({ email }).first();
-    return user ? new User(user) : null;
+    if (!user) return null;
+    const u = new User(user);
+    u.tokenVersion = user.token_version || 0;
+    return u;
   }
 
   async findById(id) {
     const user = await db('users').where({ id }).first();
-    return user ? new User(user) : null;
+    if (!user) return null;
+    const u = new User(user);
+    u.tokenVersion = user.token_version || 0;
+    return u;
   }
 
   async create(user) {
@@ -19,6 +25,7 @@ export default class MysqlUserRepository {
       id: record.id,
       email: record.email,
       password: record.password,
+      token_version: record.token_version || 0,
       role: record.role || 'user',
       created_at: now,
       updated_at: now,
@@ -31,6 +38,13 @@ export default class MysqlUserRepository {
       created_at: now,
       updated_at: now,
     });
+  }
+
+  async incrementTokenVersion(userId) {
+    // Atomically increment token_version
+    await db('users').where({ id: userId }).increment('token_version', 1);
+    const row = await db('users').where({ id: userId }).first();
+    return row ? (row.token_version || 0) : null;
   }
 
   async createOtp(otp) {

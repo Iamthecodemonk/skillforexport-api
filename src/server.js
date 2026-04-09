@@ -10,6 +10,7 @@ import fastifySwaggerUi from '@fastify/swagger-ui';
 import registerRoutes from './interfaces/routes/index.js';
 import { makeHealthController } from './interfaces/controllers/healthController.js';
 import { Queue, Worker } from 'bullmq';
+import Redis from 'ioredis';
 import { MysqlUserRepository } from './infrastructure/repositories/index.js';
 import { UserRepositoryImpl } from './domain/repositories/userRepository.js';
 import { MysqlUserProfileRepository, MysqlUserAssetRepository, MysqlUserSkillRepository, MysqlUserPortfolioRepository, MysqlFollowerRepository, MysqlUserOauthRepository, MysqlUserLoginHistoryRepository, MysqlUserCertificationRepository, MysqlUserEducationRepository, MysqlUserExperienceRepository } from './infrastructure/repositories/index.js';
@@ -23,19 +24,40 @@ import { UserCertificationRepositoryImpl } from './domain/repositories/userCerti
 import { UserEducationRepositoryImpl } from './domain/repositories/userEducationRepository.js';
 import { UserExperienceRepositoryImpl } from './domain/repositories/userExperienceRepository.js';
 import { makeUserController } from './interfaces/controllers/userController.js';
+import { makePostController } from './interfaces/controllers/postController.js';
+import PostUseCase from './application/use-cases/postUseCase.js';
+import MysqlPostRepository from './infrastructure/repositories/mysqlPostRepository.js';
+import { PostRepositoryImpl } from './domain/repositories/postRepository.js';
+import MysqlPostMediaRepository from './infrastructure/repositories/mysqlPostMediaRepository.js';
+import { makePostMediaController } from './interfaces/controllers/postController.js';
+import PostMediaUseCase from './application/use-cases/postMediaUseCase.js';
 import AuthUseCase from './application/use-cases/authUseCase.js';
+import MysqlPasswordResetRepository from './infrastructure/repositories/mysqlPasswordResetRepository.js';
 import { makeAuthController } from './interfaces/controllers/authController.js';
 import { makeOauthController } from './interfaces/controllers/oauthController.js';
 import UserUseCase from './application/use-cases/userUseCase.js';
 import { createEmailQueue, createEmailWorker } from './infrastructure/queue/emailQueue.js';
 import { createMediaQueue, createMediaWorker } from './infrastructure/queue/mediaQueue.js';
 import { makeMediaController } from './interfaces/controllers/mediaController.js';
+import { createRateLimiters, createRedisClient } from './utils/rateLimiter.js';
 import fastifyMultipart from '@fastify/multipart';
 import { verifyEmailConfig } from './utils/emailService.js';
 import logger from './utils/logger.js';
 import cloudinary from './utils/cloudinary.js';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
+
+import CommentUseCase from './application/use-cases/commentUseCase.js';
+import ReactionUseCase from './application/use-cases/reactionUseCase.js';
+import { makeCommentController } from './interfaces/controllers/commentController.js';
+import { makeReactionController } from './interfaces/controllers/reactionController.js';
+import MysqlCommentRepository from './infrastructure/repositories/mysqlCommentRepository.js';
+import MysqlPostReactionRepository from './infrastructure/repositories/mysqlPostReactionRepository.js';
+import MysqlCommentReactionRepository from './infrastructure/repositories/mysqlCommentReactionRepository.js';
+import MysqlPostSaveRepository from './infrastructure/repositories/mysqlPostSaveRepository.js';
+import MysqlPostReportRepository from './infrastructure/repositories/mysqlPostReportRepository.js';
+import PostInteractionUseCase from './application/use-cases/postInteractionUseCase.js';
+import { makePostInteractionController } from './interfaces/controllers/postInteractionController.js';
 
 const serverLogger = logger.child('SERVER');
 const queueLogger = logger.child('EMAIL_QUEUE');
@@ -90,6 +112,7 @@ export default async function startServer() {
   const redisHostDefault = deploymentEnv === 'docker' ? 'redis' : 'localhost';
   const redisHost = process.env.REDIS_HOST;
   const redisPort = parseInt(process.env.REDIS_PORT);
+  let redisClientForLimits = null;
 
   if (redisHost) {
     try {
@@ -126,6 +149,16 @@ export default async function startServer() {
     }
   } else {
     queueLogger.warn('Redis not configured - email queue disabled');
+  }
+
+  // Create a persistent ioredis client for rate limiters (connection pooling)
+  try {
+    if (redisHost) {
+      redisClientForLimits = createRedisClient({ host: redisHost, port: redisPort });
+      serverLogger.info('Rate limiter Redis client created');
+    }
+  } catch (e) {
+    serverLogger.warn('Failed to create rate limiter Redis client', { message: e.message });
   }
 
   // Verify SMTP configuration
@@ -167,7 +200,8 @@ export default async function startServer() {
     const cleanupHours = parseInt(process.env.OTP_CLEANUP_HOURS || '24', 10);
     const removed = await userRepo.deleteExpiredOtps(cleanupHours);
     serverLogger.info('Expired OTP cleanup completed', { removed });
-    const authUseCase = new AuthUseCase({ userRepository: userRepo, profileRepository: profileRepo, emailQueue: emailQueue, jwtSecret: process.env.JWT_SECRET, jwtExpiresIn: process.env.JWT_EXPIRES_IN });
+    const passwordResetAdapter = new MysqlPasswordResetRepository();
+    const authUseCase = new AuthUseCase({ userRepository: userRepo, profileRepository: profileRepo, emailQueue: emailQueue, jwtSecret: process.env.JWT_SECRET, jwtExpiresIn: process.env.JWT_EXPIRES_IN, passwordResetRepository: passwordResetAdapter });
     authController = makeAuthController({ useCase: authUseCase });
     // oauth controller (Google)
     const oauthController = makeOauthController({ useCase: authUseCase });
@@ -178,6 +212,16 @@ export default async function startServer() {
 
   // register app routes
   const controllers = { ...healthController };
+  // create rate limiters if Redis client available
+  let rateLimiters = null;
+  try {
+    if (redisClientForLimits) {
+      rateLimiters = createRateLimiters(redisClientForLimits, { userRepository: userRepo });
+      serverLogger.info('Rate limiters initialized');
+    }
+  } catch (e) {
+    serverLogger.warn('Rate limiter initialization failed', { message: e.message });
+  }
   // expose queues from server instance for controllers to use (e.g., mediaQueue)
   app.decorate('mediaQueue', mediaQueue);
   // profileRepository is decorated after initialization below
@@ -205,6 +249,14 @@ export default async function startServer() {
     const followerRepo = new FollowerRepositoryImpl({ adapter: followerAdapter });
     const oauthRepo = new UserOauthRepositoryImpl({ adapter: oauthAdapter });
     loginHistoryRepo = loginHistoryRepo || new UserLoginHistoryRepositoryImpl({ adapter: loginHistoryAdapter });
+    // If auth use-case exists, attach login history repo so it can record logins
+    try {
+      if (typeof authUseCase !== 'undefined' && authUseCase && loginHistoryRepo) {
+        authUseCase.loginHistoryRepository = loginHistoryRepo;
+      }
+    } catch (attachErr) {
+      serverLogger.warn('Could not attach loginHistoryRepo to authUseCase', attachErr && attachErr.message);
+    }
     const certRepo = new UserCertificationRepositoryImpl({ adapter: certAdapter });
     const eduRepo = new UserEducationRepositoryImpl({ adapter: eduAdapter });
     const expRepo = new UserExperienceRepositoryImpl({ adapter: expAdapter });
@@ -213,12 +265,13 @@ export default async function startServer() {
     userRepo = userRepo || new UserRepositoryImpl({ adapter: userAdapter });
 
     // Start media worker now that profileRepo exists (so worker can update profiles)
-    try {
-      // instantiate asset adapter for worker and controllers
+      try {
+      // instantiate adapters for worker and controllers
       const assetAdapter = new MysqlUserAssetRepository();
+      const postMediaAdapter = new MysqlPostMediaRepository();
 
       if (mediaQueue && !mediaWorker && redisConnection) {
-        mediaWorker = createMediaWorker(redisConnection, { cloudinary, profileRepository: profileRepo, assetAdapter, concurrency });
+        mediaWorker = createMediaWorker(redisConnection, { cloudinary, profileRepository: profileRepo, assetAdapter, postMediaAdapter, concurrency });
       }
 
       // media controller (signature + multipart upload) - create after adapters exist
@@ -256,6 +309,54 @@ export default async function startServer() {
         experienceRepository: expRepo
       });
       Object.assign(controllers, userController);
+      // Posts wiring
+      try {
+        const postAdapter = new MysqlPostRepository();
+        const postRepo = new PostRepositoryImpl({ adapter: postAdapter });
+        const postUseCase = new PostUseCase({ postRepository: postRepo });
+        const postController = makePostController({ useCase: postUseCase });
+        Object.assign(controllers, postController);
+          // Post interactions wiring (save/report)
+          try {
+            const postSaveAdapter = new MysqlPostSaveRepository();
+            const postReportAdapter = new MysqlPostReportRepository();
+            const postInteractionUseCase = new PostInteractionUseCase({ postSaveRepository: postSaveAdapter, postReportRepository: postReportAdapter });
+            const postInteractionController = makePostInteractionController({ useCase: postInteractionUseCase });
+            Object.assign(controllers, postInteractionController);
+          } catch (piErr) {
+            serverLogger.warn('Post interaction wiring failed', piErr && piErr.message);
+          }
+        // Comments wiring
+        try {
+          const commentAdapter = new MysqlCommentRepository();
+          const commentUseCase = new CommentUseCase({ commentRepository: commentAdapter });
+          const commentController = makeCommentController({ useCase: commentUseCase });
+          Object.assign(controllers, commentController);
+        } catch (cErr) {
+          serverLogger.warn('Comments wiring failed', cErr && cErr.message);
+        }
+        // Reactions wiring
+        try {
+          const postReactionAdapter = new MysqlPostReactionRepository();
+          const commentReactionAdapter = new MysqlCommentReactionRepository();
+          const reactionUseCase = new ReactionUseCase({ postReactionRepository: postReactionAdapter, commentReactionRepository: commentReactionAdapter });
+          const reactionController = makeReactionController({ useCase: reactionUseCase });
+          Object.assign(controllers, reactionController);
+        } catch (rErr) {
+          serverLogger.warn('Reactions wiring failed', rErr && rErr.message);
+        }
+        // post media use-case and controller (no direct repo injection into controllers)
+        try {
+          const postMediaAdapter = new MysqlPostMediaRepository();
+          const postMediaUseCase = new PostMediaUseCase({ postMediaRepository: postMediaAdapter, mediaQueue });
+          const postMediaController = makePostMediaController({ useCase: postMediaUseCase });
+          Object.assign(controllers, postMediaController);
+        } catch (pmErr) {
+          serverLogger.warn('Post media wiring failed', pmErr && pmErr.message);
+        }
+      } catch (postErr) {
+        serverLogger.warn('Posts module wiring failed', postErr && postErr.message);
+      }
     } catch (err) {
       serverLogger.warn('User use-case wiring failed, falling back to repo-based controller', err && err.message);
       const userController = makeUserController({
@@ -310,6 +411,15 @@ export default async function startServer() {
             user_agent: req.headers['user-agent'] || null,
             login_at: new Date()
           });
+
+          // Revoke existing tokens by bumping user's token_version
+          try {
+            if (userRepo && typeof userRepo.incrementTokenVersion === 'function') {
+              await userRepo.incrementTokenVersion(userId);
+            }
+          } catch (revErr) {
+            serverLogger.warn('Failed to increment token version on logout', { message: revErr.message });
+          }
 
           return reply.code(200).send({ success: true });
         } catch (err) {
@@ -366,7 +476,7 @@ export default async function startServer() {
   }
 
   serverLogger.debug('Registering API routes...');
-  await registerRoutes(app, { controllers });
+  await registerRoutes(app, { controllers, rateLimiters });
   serverLogger.debug('API routes registered');
 
   // Email queue already initialized above

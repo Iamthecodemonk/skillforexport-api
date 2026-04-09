@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@fastify/multipart": "^10.0.0",
+    "@fastify/rate-limit": "^10.3.0",
     "@fastify/swagger": "^9.7.0",
     "@fastify/swagger-ui": "^5.2.5",
     "bcryptjs": "^2.4.3",
@@ -22,6 +23,7 @@
     "knex": "^3.2.9",
     "mysql2": "^3.0.0",
     "nodemailer": "^8.0.4",
+    "rate-limiter-flexible": "^11.0.0",
     "uuid": "^9.0.0"
   },
   "devDependencies": {

@@ -1,5 +1,6 @@
 import logger from '../../utils/logger.js';
 import jwt from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
 
 const authLogger = logger.child('AUTH_CONTROLLER');
 
@@ -88,6 +89,17 @@ export function makeAuthController({ useCase }) {
         } catch (e) {
           req.user = user || null;
         }
+        // Record login history (controllers have request context)
+        if (useCase && useCase.loginHistoryRepository && typeof useCase.loginHistoryRepository.create === 'function') {
+          await useCase.loginHistoryRepository.create({
+            id: uuidv4(),
+            user_id: user.id,
+            login_method: 'email_password',
+            ip_address: req.ip,
+            user_agent: req.headers['user-agent'] || null,
+            login_at: new Date()
+          });
+        }
         return reply.code(201).send({
           success: true,
           data: { accessToken: token, tokenType: 'Bearer', expiresIn }
@@ -160,6 +172,17 @@ export function makeAuthController({ useCase }) {
           req.user = (user && typeof user.toPlainObject === 'function') ? user.toPlainObject() : (user || null);
         } catch (e) {
           req.user = user || null;
+        }
+        // Record login history (controllers have request context)
+        if (useCase && useCase.loginHistoryRepository && typeof useCase.loginHistoryRepository.create === 'function') {
+          await useCase.loginHistoryRepository.create({
+            id: uuidv4(),
+            user_id: user.id,
+            login_method: 'email_password',
+            ip_address: req.ip,
+            user_agent: req.headers['user-agent'] || null,
+            login_at: new Date()
+          });
         }
         return reply.code(200).send({
           success: true,
@@ -297,6 +320,17 @@ export function makeAuthController({ useCase }) {
           req.user = (user && typeof user.toPlainObject === 'function') ? user.toPlainObject() : (user || null);
         } catch (e) {
           req.user = user || null;
+        }
+        // Record login history (controllers have request context)
+        if (useCase && useCase.loginHistoryRepository && typeof useCase.loginHistoryRepository.create === 'function') {
+          await useCase.loginHistoryRepository.create({
+            id: uuidv4(),
+            user_id: user.id,
+            login_method: purpose === 'registration' ? 'registration' : 'otp',
+            ip_address: req.ip,
+            user_agent: req.headers['user-agent'] || null,
+            login_at: new Date()
+          });
         }
         return reply.code(200).send({
           success: true,
@@ -440,6 +474,17 @@ export function makeAuthController({ useCase }) {
           req.user = (result.user && typeof result.user.toPlainObject === 'function') ? result.user.toPlainObject() : (result.user || null);
         } catch (e) {
           req.user = result.user || null;
+        }
+        // Record login history (controllers have request context)
+        if (useCase && useCase.loginHistoryRepository && typeof useCase.loginHistoryRepository.create === 'function') {
+          await useCase.loginHistoryRepository.create({
+            id: uuidv4(),
+            user_id: result.user.id,
+            login_method: 'google_oauth',
+            ip_address: req.ip,
+            user_agent: req.headers['user-agent'] || null,
+            login_at: new Date()
+          });
         }
         return reply.code(200).send({
           success: true,

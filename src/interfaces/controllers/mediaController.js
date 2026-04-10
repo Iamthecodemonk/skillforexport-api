@@ -40,11 +40,14 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
       try {
         const body = req.body || {};
         const publicId = body.publicId;
-        const userId = (req.user && req.user.id) || body.userId;
+        const userId = req.user && req.user.id;
         const kind = body.kind || 'other';
 
-        if (!publicId || !userId) {
+        if (!publicId) {
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        }
+        if (!userId) {
+          return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         }
 
         if (!mediaQueue) {

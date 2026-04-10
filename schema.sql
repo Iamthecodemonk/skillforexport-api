@@ -317,7 +317,7 @@ CREATE TABLE `user_experiences` (
 CREATE TABLE `user_login_history` (
   `id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `user_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `login_method` enum('email_password','google_oauth','otp') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `login_method` enum('email_password','google_oauth','otp','logout') COLLATE utf8mb4_unicode_ci NOT NULL,
   `ip_address` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `user_agent` text COLLATE utf8mb4_unicode_ci,
   `login_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
@@ -399,9 +399,13 @@ CREATE TABLE `user_profiles` (
   `updated_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),
+  UNIQUE KEY `uk_user_id` (`user_id`),
   KEY `idx_user_id` (`user_id`),
   CONSTRAINT `user_profiles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- For existing databases, run:
+-- ALTER TABLE `user_profiles` ADD UNIQUE INDEX `uk_user_id` (`user_id`);
 
 
 -- skillforexport.user_skills definition
@@ -610,3 +614,6 @@ CREATE TABLE `comment_reactions` (
   CONSTRAINT `comment_reactions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `comment_reactions_ibfk_2` FOREIGN KEY (`comment_id`) REFERENCES `comments` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- If this database is already deployed, run the following to add the new enum value:
+-- ALTER TABLE `user_login_history` MODIFY `login_method` ENUM('email_password','google_oauth','otp','logout') NOT NULL;

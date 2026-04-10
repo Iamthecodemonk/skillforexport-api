@@ -274,22 +274,6 @@ export default class AuthUseCase {
     }
     const token = jwt.sign({ sub: user.id, email: user.email, tv: (user.tokenVersion || 0) }, this.jwtSecret, { expiresIn: this.jwtExpiresIn });
 
-    // Record login history if repository is available
-    try {
-      if (this.loginHistoryRepository && typeof this.loginHistoryRepository.create === 'function') {
-        await this.loginHistoryRepository.create({
-          id: uuidv4(),
-          user_id: user.id,
-          login_method: 'google_oauth',
-          ip_address: null,
-          user_agent: null,
-          login_at: new Date()
-        });
-      }
-    } catch (e) {
-      authLogger.warn('Failed to record google login history', { message: e.message });
-    }
-
     return { user, token };
   }
 }

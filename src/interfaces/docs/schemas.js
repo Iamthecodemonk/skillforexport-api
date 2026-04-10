@@ -140,6 +140,52 @@ export const PostMediaAttachBody = {
 };
 PostMediaAttachBody.example = { url: 'https://example.com/image.jpg', mediaType: 'image', displayOrder: 0 };
 
+export const UserProfileBody = {
+  type: 'object',
+  properties: {
+    username: { type: 'string' },
+    bio: { type: 'string' },
+    location: { type: 'string' },
+    avatar: { type: ['string','null'] },
+    banner: { type: ['string','null'] },
+    website: { type: 'string' },
+    linkedin: { type: 'string' },
+    github: { type: 'string' }
+  },
+  example: { username: 'janedoe', bio: 'Full-stack dev', location: 'Remote', website: 'https://janedoe.dev' }
+};
+
+export const UserProfileResponse = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    userId: { type: 'string' },
+    username: { type: 'string' },
+    bio: { type: 'string' },
+    location: { type: 'string' },
+    avatar: { type: ['string','null'] },
+    banner: { type: ['string','null'] },
+    website: { type: 'string' },
+    linkedin: { type: 'string' },
+    github: { type: 'string' },
+    createdAt: { type: 'string', format: 'date-time' }
+  }
+};
+
+export const AvatarUploadBody = {
+  type: 'object',
+  required: ['imageUrl'],
+  properties: { imageUrl: { type: 'string' } },
+  example: { imageUrl: 'https://example.com/photo.jpg' }
+};
+
+export const MediaRegisterBody = {
+  type: 'object',
+  required: ['publicId'],
+  properties: { publicId: { type: 'string' }, kind: { type: 'string' }, replace: { type: 'boolean' } },
+  example: { publicId: 'banners/abcd1234', kind: 'banner' }
+};
+
 export const PostMediaResponse = {
   type: 'object',
   properties: { id: { type: 'string' }, post_id: { type: 'string' }, media_type: { type: 'string' }, url: { type: 'string' }, thumbnail_url: { type: 'string' }, display_order: { type: 'number' } }
@@ -209,4 +255,8 @@ export default {
   , PostSaveBody
   , PostReportBody
   , PostReportResponse
+  , UserProfileBody
+  , UserProfileResponse
+  , AvatarUploadBody
+  , MediaRegisterBody
 };

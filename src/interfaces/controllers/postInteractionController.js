@@ -10,9 +10,9 @@ export function makePostInteractionController({ useCase = null }) {
       try {
         const { id: postId } = req.params;
         const body = req.body || {};
-        const actorId = (req.user && req.user.id) || body.userId;
+        const actorId = req.user && req.user.id;
         if (!actorId) 
-            return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+          return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const res = await useCase.toggleSave({ postId, userId: actorId });
         return reply.send({ success: true, data: res });
       } catch (err) {
@@ -26,9 +26,9 @@ export function makePostInteractionController({ useCase = null }) {
       try {
         const { id: postId } = req.params;
         const body = req.body || {};
-        const actorId = (req.user && req.user.id) || body.userId;
+        const actorId = req.user && req.user.id;
         const { reason, details } = body;
-        if (!actorId) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const rep = await useCase.reportPost({ postId, userId: actorId, reason, details });
         return reply.code(201).send({ success: true, data: rep });
       } catch (err) {

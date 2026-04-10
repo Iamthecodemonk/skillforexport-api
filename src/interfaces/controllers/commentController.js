@@ -10,10 +10,10 @@ export function makeCommentController({ useCase = null }) {
       try {
         const { id: postId } = req.params;
         const body = req.body || {};
-        const actorId = (req.user && req.user.id) || body.userId;
+        const actorId = req.user && req.user.id;
         const { content, parentCommentId } = body;
-        if (!actorId || !content) 
-            return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        if (!content) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         const created = await useCase.createComment({ postId, userId: actorId, parentCommentId, content });
         return reply.code(201).send({ success: true, data: created });
       } catch (err) {

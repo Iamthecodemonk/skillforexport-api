@@ -10,10 +10,10 @@ export function makeReactionController({ useCase = null }) {
       try {
         const { id: postId } = req.params;
         const body = req.body || {};
-        const actorId = (req.user && req.user.id) || body.userId;
+        const actorId = req.user && req.user.id;
         const { type } = body;
         if (!actorId) 
-            return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+          return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const res = await useCase.togglePostReaction({ postId, userId: actorId, type });
         return reply.send({ success: true, data: res });
       } catch (err) {
@@ -27,10 +27,10 @@ export function makeReactionController({ useCase = null }) {
       try {
         const { id: commentId } = req.params;
         const body = req.body || {};
-        const actorId = (req.user && req.user.id) || body.userId;
+        const actorId = req.user && req.user.id;
         const { type } = body;
         if (!actorId) 
-            return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+          return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const res = await useCase.toggleCommentReaction({ commentId, userId: actorId, type });
         return reply.send({ success: true, data: res });
       } catch (err) {

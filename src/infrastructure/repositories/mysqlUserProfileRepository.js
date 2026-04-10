@@ -13,8 +13,16 @@ export default class MysqlUserProfileRepository {
   async create(record) {
     const now = new Date();
     const payload = { ...record, created_at: now };
-    await db('user_profiles').insert(payload);
-    return db('user_profiles').where({ id: record.id }).first();
+    try {
+      await db('user_profiles').insert(payload);
+      return db('user_profiles').where({ id: record.id }).first();
+    } catch (err) {
+      // Convert duplicate entry to a domain-friendly error so callers can handle it
+      if (err && err.code === 'ER_DUP_ENTRY') {
+        throw new Error('profile_already_exists');
+      }
+      throw err;
+    }
   }
 
   async update(id, patch) {

@@ -306,7 +306,7 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Users'] 
       ,
       response: {
-        200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } },
+        200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.UserProfileResponse } },
         404: { type: 'object' }
       }
     } 
@@ -316,20 +316,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'createUserProfile',
       tags: ['Users'],
-      body: {
-        type: 'object',
-        properties: {
-          username: { type: 'string' },
-          bio: { type: 'string' },
-          location: { type: 'string' },
-          avatar: { type: 'string' },
-          banner: { type: 'string' },
-          website: { type: 'string' },
-          linkedin: { type: 'string' },
-          github: { type: 'string' }
-        },
-        example: { username: 'janedoe', bio: 'Full-stack dev', location: 'Remote', website: 'https://janedoe.dev' }
-      },
+      body: schemas.UserProfileBody,
       response: {
         201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } },
         409: { type: 'object', properties: { success: { type: 'boolean' }, error: { type: 'object' } } },
@@ -346,12 +333,7 @@ export default async function registerRoutes(fastify, deps) {
       parameters: [
         { name: 'replace', in: 'query', schema: { type: 'boolean' }, description: 'When true, replace existing avatar' }
       ],
-      body: {
-        type: 'object',
-        required: ['imageUrl'],
-        properties: { imageUrl: { type: 'string' } },
-        example: { imageUrl: 'https://example.com/photo.jpg' }
-      },
+      body: schemas.AvatarUploadBody,
       response: {
         202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { jobId: { type: 'string' } } } } },
         422: { type: 'object' },
@@ -369,12 +351,7 @@ export default async function registerRoutes(fastify, deps) {
       parameters: [
         { name: 'replace', in: 'query', schema: { type: 'boolean' }, description: 'When true, replace existing banner' }
       ],
-      body: {
-        type: 'object',
-        required: ['imageUrl'],
-        properties: { imageUrl: { type: 'string' } },
-        example: { imageUrl: 'https://example.com/banner.jpg' }
-      },
+      body: schemas.AvatarUploadBody,
       response: {
         202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { jobId: { type: 'string' } } } } },
         422: { type: 'object' },
@@ -400,12 +377,7 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'registerMedia',
       tags: ['Media'],
       description: 'Register a direct client upload by Cloudinary public id so server can validate and create asset record. If kind=avatar|banner and image already exists, pass replace=true or clear it first using PUT /users/:id/profile with { avatar: null } or { banner: null }.',
-      body: {
-        type: 'object',
-        required: ['publicId'],
-        properties: { publicId: { type: 'string' }, userId: { type: 'string' }, kind: { type: 'string' }, replace: { type: 'boolean' } },
-        example: { publicId: 'avatars/abcd1234', kind: 'avatar' }
-      },
+      body: schemas.MediaRegisterBody,
       response: { 202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 409: { type: 'object' } }
     }
   }, handler('registerMedia'));
@@ -498,23 +470,9 @@ export default async function registerRoutes(fastify, deps) {
     schema: { 
       operationId: 'updateUserProfile', tags: ['Users'],
       description: 'Update profile fields. You can clear avatar or banner by sending null values.',
-      body: {
-        type: 'object',
-        properties: {
-          username: { type: 'string' },
-          bio: { type: 'string' },
-          location: { type: 'string' },
-          avatar: { type: ['string','null'] },
-          banner: { type: ['string','null'] },
-          website: { type: 'string' },
-          linkedin: { type: 'string' },
-          github: { type: 'string' }
-        },
-        example: { bio: 'Full-stack dev', location: 'Remote', website: 'https://janedoe.dev' }
-      }
-      ,
+      body: schemas.UserProfileBody,
       response: { 
-        200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } },
+        200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.UserProfileResponse } },
         404: { type: 'object' }
       }
     } 

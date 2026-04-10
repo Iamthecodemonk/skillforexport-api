@@ -12,9 +12,12 @@ export function makePostController({ useCase = null }) {
     createPost: async (req, reply) => {
       try {
         const body = req.body || {};
-        const actorId = (req.user && req.user.id) || body.userId;
+        const actorId = req.user && req.user.id;
         const { communityId, title, content } = body;
-        if (!actorId || !title || !content) {
+        if (!actorId) {
+          return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        }
+        if (!title || !content) {
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         }
         const created = await useCase.CreatePost({ userId: actorId, communityId, title, content });
@@ -56,9 +59,10 @@ export function makePostController({ useCase = null }) {
       try {
         const { id } = req.params;
       const body = req.body || {};
-      const actorId = (req.user && req.user.id) || body.userId;
+      const actorId = req.user && req.user.id;
       const { title, content } = body;
-      if (!actorId || (typeof title === 'undefined' && typeof content === 'undefined')) 
+      if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      if (typeof title === 'undefined' && typeof content === 'undefined') 
         return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
       const updated = await useCase.UpdatePost({ id, userId: actorId, title, content });
         return reply.send({ success: true, data: updated });
@@ -76,9 +80,9 @@ export function makePostController({ useCase = null }) {
       try {
         const { id } = req.params;
         const body = req.body || {};
-        const actorId = (req.user && req.user.id) || body.userId;
+        const actorId = req.user && req.user.id;
         if (!actorId) 
-          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+          return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         await useCase.DeletePost({ id, userId: actorId });
         return reply.code(204).send();
       } catch (err) {

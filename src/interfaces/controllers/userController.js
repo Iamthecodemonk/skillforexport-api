@@ -182,8 +182,7 @@ export function makeUserController({ useCase = null }) {
     followUser: async (req, reply) => {
       try {
         const { id } = req.params; // target user id
-        const body = req.body || {};
-        const actorId = (req.user && req.user.id) || body.followerId;
+        const actorId = req.user && req.user.id;
         if (!actorId)
           return reply.code(422).send({
             success: false,

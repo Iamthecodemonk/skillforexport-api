@@ -311,6 +311,33 @@ export default async function registerRoutes(fastify, deps) {
       }
     } 
   }, handler('getUserProfile'));
+  // Authenticated endpoint to return the full assembled profile for the current user
+  fastify.get('/user/profile/me', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'getMyProfile',
+      tags: ['Users'],
+      description: 'Get complete profile for the authenticated user (profile, skills, portfolios, certs, education, experiences, followers, oauth accounts)',
+      response: {
+        200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } },
+        401: { type: 'object' }
+      }
+    }
+  }, handler('getMyProfile'));
+
+  fastify.get('/user/stats/me', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'getMyStats',
+      tags: ['Users'],
+      description: 'Get simple counts for the authenticated user: pages, communities, posts, comments',
+      response: {
+        200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { pages: { type: 'number' }, communities: { type: 'number' }, posts: { type: 'number' }, comments: { type: 'number' } } } } },
+        401: { type: 'object' }
+      }
+    }
+  }, handler('getMyStats'));
+  
   fastify.post('/users/:id/profile', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {

@@ -1,5 +1,6 @@
 import logger from '../../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
+import { readProfileFromCache, writeProfileToCache } from '../../utils/redisProfileCache.js';
 
 const userLogger = logger.child('USER_CONTROLLER');
 
@@ -52,14 +53,57 @@ export function makeUserController({ useCase = null }) {
     getUserProfile: async (req, reply) => {
       try {
         const { id } = req.params; // user id
-        const profile = await useCase.getProfile(id);
-        if (!profile)
-          return reply.code(404).send({
-            success: false,
-            error: { code: 'profile_not_found' }
-          });
-        return reply.send({ success: true, data: profile.toPlainObject() });
+        const redis = req.server && (req.server.redisManager || req.server.redisClient);
+        const cacheKey = `user:profile:${id}`;
+
+        const cachedParsed = await readProfileFromCache(redis, cacheKey);
+        if (cachedParsed) 
+          return reply.send({ success: true, data: cachedParsed });
+
+        const full = await useCase.getFullProfile(id);
+        if (!full) 
+          return reply.code(404).send({ success: false, error: { code: 'user_not_found' } });
+
+        await writeProfileToCache(redis, cacheKey, full);
+
+        return reply.send({ success: true, data: full });
       } catch (err) {
+        userLogger.error('getUserProfile error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    getMyProfile: async (req, reply) => {
+      try {
+        const userId = req.user && req.user.id;
+        if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+
+        const redis = req.server && (req.server.redisManager || req.server.redisClient);
+        const cacheKey = `user:profile:${userId}`;
+
+        const cachedParsed = await readProfileFromCache(redis, cacheKey);
+        if (cachedParsed) return reply.send({ success: true, data: cachedParsed });
+
+        const full = await useCase.getFullProfile(userId);
+        if (!full) 
+          return reply.code(404).send({ success: false, error: { code: 'user_not_found' } });
+
+        await writeProfileToCache(redis, cacheKey, full);
+
+        return reply.send({ success: true, data: full });
+      } catch (err) {
+        userLogger.error('getMyProfile error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+    getMyStats: async (req, reply) => {
+      try {
+        const userId = req.user && req.user.id;
+        if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        const stats = await useCase.getUserStats(userId);
+        return reply.send({ success: true, data: stats });
+      } catch (err) {
+        userLogger.error('getMyStats error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
     },
@@ -69,6 +113,16 @@ export function makeUserController({ useCase = null }) {
         const { id } = req.params; // user id
         const patch = req.body ;
         const updated = await useCase.updateProfile(id, patch);
+        // Invalidate cached profile for this user if Redis is available
+        try {
+          const redis = req.server && req.server.redisClient;
+          if (redis) {
+            const cacheKey = `user:profile:${id}`;
+            await redis.del(cacheKey);
+          }
+        } catch (e) {
+          userLogger.warn('Failed to invalidate profile cache', { err: e.message });
+        }
         return reply.send({ success: true, data: updated.toPlainObject() });
       } catch (err) {
         if (err.message === 'profile_not_found')

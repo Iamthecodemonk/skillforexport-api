@@ -48,6 +48,7 @@ import { createEmailQueue, createEmailWorker } from './infrastructure/queue/emai
 import { createMediaQueue, createMediaWorker } from './infrastructure/queue/mediaQueue.js';
 import { makeMediaController } from './interfaces/controllers/mediaController.js';
 import { createRateLimiters, createRedisClient } from './utils/rateLimiter.js';
+import RedisManager from './utils/redisManager.js';
 import fastifyMultipart from '@fastify/multipart';
 import { verifyEmailConfig } from './utils/emailService.js';
 import logger from './utils/logger.js';
@@ -161,6 +162,16 @@ export default async function startServer() {
       // expose redis client to request handlers for caching/invalidation
       if (!app.hasDecorator || !app.hasDecorator('redisClient')) {
         app.decorate('redisClient', redisClientForLimits);
+      }
+      // also expose an OO RedisManager wrapper for global Redis operations
+      try {
+        const redisManager = new RedisManager({ client: redisClientForLimits });
+        if (!app.hasDecorator || !app.hasDecorator('redisManager')) {
+          app.decorate('redisManager', redisManager);
+        }
+        serverLogger.info('RedisManager decorated on app');
+      } catch (rmErr) {
+        serverLogger.warn('Failed to create RedisManager', { message: rmErr && rmErr.message });
       }
     }
   } catch (e) {

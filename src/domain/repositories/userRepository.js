@@ -30,6 +30,9 @@ export class UserRepository {
   async updatePassword(userId, hashedPassword) {
     throw new Error('updatePassword() not implemented');
   }
+  async findFullProfileById(id) {
+    throw new Error('findFullProfileById() not implemented');
+  }
 }
 
 // Concrete implementation that delegates to a persistence adapter
@@ -79,5 +82,25 @@ export class UserRepositoryImpl extends UserRepository {
   async updatePassword(userId, hashedPassword) {
     const updated = await this.adapter.updatePassword(userId, hashedPassword);
     return updated ? new User(updated) : null;
+  }
+
+  async findFullProfileById(id) {
+    return this.adapter.findFullProfileById ? await this.adapter.findFullProfileById(id) : null;
+  }
+
+  async countPages(userId) {
+    return this.adapter.countPages ? await this.adapter.countPages(userId) : 0;
+  }
+
+  async countCommunities(userId) {
+    return this.adapter.countCommunities ? await this.adapter.countCommunities(userId) : 0;
+  }
+
+  async countPosts(userId) {
+    return this.adapter.countPosts ? await this.adapter.countPosts(userId) : 0;
+  }
+
+  async countComments(userId) {
+    return this.adapter.countComments ? await this.adapter.countComments(userId) : 0;
   }
 }

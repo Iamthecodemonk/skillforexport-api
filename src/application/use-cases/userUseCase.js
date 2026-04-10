@@ -39,6 +39,84 @@ export default class UserUseCase {
     return this.profileRepository.findByUserId(userId);
   }
 
+  async getFullProfile(userId) {
+    // If adapter supports an optimized single-query fetch, use it
+    if (this.userRepository && typeof this.userRepository.findFullProfileById === 'function') {
+      const row = await this.userRepository.findFullProfileById(userId);
+      if (!row) return null;
+      // Some DB drivers may return JSON columns as strings; attempt to parse
+      const parse = (v) => {
+        if (v === null || typeof v === 'undefined') return null;
+        if (typeof v === 'string') {
+          try { return JSON.parse(v); } catch (e) { return v; }
+        }
+        return v;
+      };
+      return {
+        user: { id: row.user_id, email: row.email, role: row.role, created_at: row.user_created_at },
+        profile: parse(row.profile),
+        skills: parse(row.skills) || [],
+        portfolios: parse(row.portfolios) || [],
+        certifications: parse(row.certifications) || [],
+        education: parse(row.education) || [],
+        experiences: parse(row.experiences) || [],
+        followers: parse(row.followers) || [],
+        oauthAccounts: parse(row.oauth_accounts) || []
+      };
+    }
+
+    /*
+    // Fallback to existing parallel repository calls
+    // (Commented out for now — can be re-enabled later if adapter fast-path unavailable)
+    const promises = [];
+    promises.push(this.userRepository.findById(userId));
+    promises.push(this.profileRepository.findByUserId(userId));
+    promises.push(this.skillRepository ? this.skillRepository.listByUserId(userId) : Promise.resolve([]));
+    promises.push(this.portfolioRepository ? this.portfolioRepository.listByUserId(userId) : Promise.resolve([]));
+    promises.push(this.certificationRepository ? this.certificationRepository.listByUserId(userId) : Promise.resolve([]));
+    promises.push(this.educationRepository ? this.educationRepository.listByUserId(userId) : Promise.resolve([]));
+    promises.push(this.experienceRepository ? this.experienceRepository.listByUserId(userId) : Promise.resolve([]));
+    promises.push(this.followerRepository ? this.followerRepository.listFollowers(userId) : Promise.resolve([]));
+    promises.push(this.oauthRepository ? this.oauthRepository.listByUserId(userId) : Promise.resolve([]));
+
+    const [user, profile, skills, portfolios, certifications, education, experiences, followers, oauths] = await Promise.all(promises);
+
+    if (!user) return null;
+
+    const toPlain = (v) => {
+      if (!v) return v;
+      if (Array.isArray(v)) return v.map(x => (x && typeof x.toPlainObject === 'function') ? x.toPlainObject() : x);
+      return (v && typeof v.toPlainObject === 'function') ? v.toPlainObject() : v;
+    };
+
+    return {
+      user: toPlain(user),
+      profile: toPlain(profile),
+      skills: toPlain(skills),
+      portfolios: toPlain(portfolios),
+      certifications: toPlain(certifications),
+      education: toPlain(education),
+      experiences: toPlain(experiences),
+      followers: toPlain(followers),
+      oauthAccounts: toPlain(oauths)
+    };
+    */
+  }
+
+  async getUserStats(userId) {
+    // Returns counts: pages, communities, posts, comments
+    const pages = await this.userRepository.countPages(userId);
+    const communities = await this.userRepository.countCommunities(userId);
+    const posts = await this.userRepository.countPosts(userId);
+    const comments = await this.userRepository.countComments(userId);
+    return {
+      pages: parseInt(pages || 0, 10),
+      communities: parseInt(communities || 0, 10),
+      posts: parseInt(posts || 0, 10),
+      comments: parseInt(comments || 0, 10)
+    };
+  }
+
   async createProfile(userId, data) {
     // Ensure the user exists before creating a profile (prevent FK errors)
     const user = await this.userRepository.findById(userId);

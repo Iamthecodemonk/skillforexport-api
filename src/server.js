@@ -26,9 +26,17 @@ import { UserExperienceRepositoryImpl } from './domain/repositories/userExperien
 import { makeUserController } from './interfaces/controllers/userController.js';
 import { makePostController } from './interfaces/controllers/postController.js';
 import PostUseCase from './application/use-cases/postUseCase.js';
+import PageUseCase from './application/use-cases/pageUseCase.js';
 import MysqlPostRepository from './infrastructure/repositories/mysqlPostRepository.js';
 import { PostRepositoryImpl } from './domain/repositories/postRepository.js';
 import MysqlPostMediaRepository from './infrastructure/repositories/mysqlPostMediaRepository.js';
+import MysqlPageRepository from './infrastructure/repositories/mysqlPageRepository.js';
+import { PageRepositoryImpl } from './domain/repositories/pageRepository.js';
+import MysqlPageCategoryRepository from './infrastructure/repositories/mysqlPageCategoryRepository.js';
+import { PageCategoryRepositoryImpl } from './domain/repositories/pageCategoryRepository.js';
+import MysqlPageFollowerRepository from './infrastructure/repositories/mysqlPageFollowerRepository.js';
+import { PageFollowerRepositoryImpl } from './domain/repositories/pageFollowerRepository.js';
+import { makePageController } from './interfaces/controllers/pageController.js';
 import { makePostMediaController } from './interfaces/controllers/postController.js';
 import PostMediaUseCase from './application/use-cases/postMediaUseCase.js';
 import AuthUseCase from './application/use-cases/authUseCase.js';
@@ -150,6 +158,10 @@ export default async function startServer() {
     if (redisHost) {
       redisClientForLimits = createRedisClient({ host: redisHost, port: redisPort });
       serverLogger.info('Rate limiter Redis client created');
+      // expose redis client to request handlers for caching/invalidation
+      if (!app.hasDecorator || !app.hasDecorator('redisClient')) {
+        app.decorate('redisClient', redisClientForLimits);
+      }
     }
   } catch (e) {
     serverLogger.warn('Failed to create rate limiter Redis client', { message: e.message });
@@ -347,6 +359,30 @@ export default async function startServer() {
           Object.assign(controllers, postMediaController);
         } catch (pmErr) {
           serverLogger.warn('Post media wiring failed', pmErr && pmErr.message);
+        }
+        // Pages wiring
+        try {
+          const pageAdapter = new MysqlPageRepository();
+          const pageRepo = new PageRepositoryImpl({ adapter: pageAdapter });
+          const pageCategoryAdapter = new MysqlPageCategoryRepository();
+          const pageCategoryRepo = new PageCategoryRepositoryImpl({ adapter: pageCategoryAdapter });
+          const pageUseCase = new PageUseCase({ pageRepository: pageRepo });
+          // attach optional category repository for max_pages_per_user checks
+          pageUseCase.pageCategoryRepository = pageCategoryRepo;
+          // attach page repository to post use-case so posts can update page counters
+          try {
+            if (typeof postUseCase !== 'undefined' && postUseCase && typeof postUseCase === 'object') {
+              postUseCase.pageRepository = pageRepo;
+            }
+          } catch (attachErr) {
+            serverLogger.warn('Could not attach pageRepo to postUseCase', attachErr && attachErr.message);
+          }
+          const pageFollowerAdapter = new MysqlPageFollowerRepository();
+          const pageFollowerRepo = new PageFollowerRepositoryImpl({ adapter: pageFollowerAdapter });
+          const pageController = makePageController({ useCase: pageUseCase, followersRepository: pageFollowerRepo });
+          Object.assign(controllers, pageController);
+        } catch (pErr) {
+          serverLogger.warn('Pages wiring failed', pErr && pErr.message);
         }
       } catch (postErr) {
         serverLogger.warn('Posts module wiring failed', postErr && postErr.message);

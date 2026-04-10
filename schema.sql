@@ -183,6 +183,7 @@ CREATE TABLE `pages` (
   `approved_at` timestamp NULL DEFAULT NULL,
   `approved_by` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Admin who approved the page',
   `metadata` json DEFAULT NULL COMMENT 'Additional page metadata',
+  `post_count` int DEFAULT '0' COMMENT 'Denormalized count of posts made from this page',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -225,6 +226,7 @@ CREATE TABLE `posts` (
   `id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `user_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `community_id` char(36) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `page_id` char(36) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `content` text COLLATE utf8mb4_unicode_ci,
   `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
@@ -233,13 +235,15 @@ CREATE TABLE `posts` (
   `parent_post_id` char(36) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_community_id` (`community_id`),
+  KEY `idx_page_id` (`page_id`),
   KEY `idx_user_id` (`user_id`),
   KEY `idx_posts_feed` (`community_id`,`created_at`),
   KEY `fk_posts_parent` (`parent_post_id`),
   KEY `idx_title` (`title`),
   CONSTRAINT `fk_posts_parent` FOREIGN KEY (`parent_post_id`) REFERENCES `posts` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_posts_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `posts_ibfk_2` FOREIGN KEY (`community_id`) REFERENCES `communities` (`id`) ON DELETE SET NULL
+  CONSTRAINT `posts_ibfk_2` FOREIGN KEY (`community_id`) REFERENCES `communities` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `posts_ibfk_3` FOREIGN KEY (`page_id`) REFERENCES `pages` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 

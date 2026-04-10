@@ -704,7 +704,7 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'listPosts',
       tags: ['Posts'],
       description: 'List posts (feed). Supports `limit` and `offset` query params.',
-      parameters: [ { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } } ],
+      parameters: [ { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }, { name: 'lastCreatedAt', in: 'query', schema: { type: 'string', description: 'Use for keyset pagination: ISO timestamp of last item from previous page' } }, { name: 'lastId', in: 'query', schema: { type: 'string', description: 'Use with `lastCreatedAt` for keyset pagination: last item id from previous page' } } ],
       response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PostListResponse } } }
     }
   }, handler('listPosts'));
@@ -841,6 +841,98 @@ export default async function registerRoutes(fastify, deps) {
       response: { 204: { type: 'null' } }
     }
   }, handler('deletePostMedia'));
+
+  // ========== Pages ==========
+  fastify.post('/pages', {
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.createPost, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
+    schema: {
+      operationId: 'createPage',
+      tags: ['Pages'],
+      description: 'Create a new page. Authenticated user becomes the owner.',
+      body: schemas.PageCreateBody,
+      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PageResponse } }, 422: { type: 'object' } }
+    }
+  }, handler('createPage'));
+
+  fastify.get('/pages', {
+    schema: {
+      operationId: 'listPages',
+      tags: ['Pages'],
+      description: 'List pages',
+      parameters: [ { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } } ],
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PageListResponse } } }
+    }
+  }, handler('listPages'));
+
+  fastify.get('/pages/:id', {
+    schema: {
+      operationId: 'getPage',
+      tags: ['Pages'],
+      description: 'Get a page by id',
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PageResponse } }, 404: { type: 'object' } }
+    }
+  }, handler('getPage'));
+
+  fastify.put('/pages/:id', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'updatePage',
+      tags: ['Pages'],
+      description: 'Update a page. Only the page owner may update.',
+      body: { type: 'object', properties: { name: { type: 'string' }, slug: { type: 'string' }, description: { type: 'string' }, metadata: { type: 'object' } } },
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PageResponse } }, 403: { type: 'object' }, 404: { type: 'object' } }
+    }
+  }, handler('updatePage'));
+
+  fastify.delete('/pages/:id', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'deletePage',
+      tags: ['Pages'],
+      description: 'Delete a page. Only the page owner may delete.',
+      response: { 204: { type: 'null' }, 403: { type: 'object' }, 404: { type: 'object' } }
+    }
+  }, handler('deletePage'));
+
+  fastify.post('/pages/:id/approve', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'approvePage',
+      tags: ['Pages','Moderation'],
+      description: 'Approve a page (admin only).',
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PageResponse } }, 403: { type: 'object' }, 404: { type: 'object' } }
+    }
+  }, handler('approvePage'));
+
+  fastify.post('/pages/:id/follow', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'followPage',
+      tags: ['Pages'],
+      description: 'Follow a page',
+      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 401: { type: 'object' } }
+    }
+  }, handler('followPage'));
+
+  fastify.delete('/pages/:id/follow', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'unfollowPage',
+      tags: ['Pages'],
+      description: 'Unfollow a page',
+      response: { 204: { type: 'null' }, 401: { type: 'object' } }
+    }
+  }, handler('unfollowPage'));
+
+  fastify.get('/pages/:id/followers', {
+    schema: {
+      operationId: 'listPageFollowers',
+      tags: ['Pages'],
+      description: 'List followers for a page',
+      parameters: [ { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } } ],
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { type: 'object' } } } } }
+    }
+  }, handler('listPageFollowers'));
 
   routesLogger.info('Routes registered');
 }

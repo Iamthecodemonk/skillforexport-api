@@ -8,7 +8,7 @@ export default class PostUseCase {
     this.postRepository = postRepository;
   }
 
-  async CreatePost({ userId, communityId = null, title, content }) {
+  async CreatePost({ userId, communityId = null, pageId = null, title, content }) {
     if (!userId) throw new Error('user_required');
     if (!title || String(title).trim() === '') throw new Error('title_required');
     if (!content || String(content).trim() === '') throw new Error('content_required');
@@ -16,10 +16,19 @@ export default class PostUseCase {
       id: uuidv4(),
       user_id: userId,
       community_id: communityId,
+      page_id: pageId,
       title: String(title),
       content: String(content)
     };
-    return this.postRepository.create(post);
+    const created = await this.postRepository.create(post);
+    try {
+      if (pageId && this.pageRepository && typeof this.pageRepository.incrementPostCount === 'function') {
+        await this.pageRepository.incrementPostCount(pageId, 1);
+      }
+    } catch (e) {
+      postLogger.warn('incrementPostCount failed', { message: e && e.message });
+    }
+    return created;
   }
 
   async GetPost(id) {
@@ -29,8 +38,8 @@ export default class PostUseCase {
     return row;
   }
 
-  async ListPosts({ limit = 20, offset = 0 } = {}) {
-    return this.postRepository.list({ limit, offset });
+  async ListPosts({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null } = {}) {
+    return this.postRepository.list({ limit, offset, lastCreatedAt, lastId });
   }
 
   async UpdatePost({ id, userId, title, content }) {
@@ -47,6 +56,13 @@ export default class PostUseCase {
     if (!existing) throw new Error('post_not_found');
     if (existing.user_id !== userId) throw new Error('not_authorized');
     await this.postRepository.delete(id);
+    try {
+      if (existing && existing.page_id && this.pageRepository && typeof this.pageRepository.incrementPostCount === 'function') {
+        await this.pageRepository.incrementPostCount(existing.page_id, -1);
+      }
+    } catch (e) {
+      postLogger.warn('decrementPostCount failed', { message: e && e.message });
+    }
     return { id };
   }
 }

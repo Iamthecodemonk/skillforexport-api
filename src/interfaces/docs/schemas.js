@@ -107,6 +107,7 @@ export const PostCreateBody = {
   properties: {
     userId: { type: 'string' },
     communityId: { type: 'string' },
+    pageId: { type: 'string' },
     title: { type: 'string' },
     content: { type: 'string' }
   }
@@ -119,6 +120,7 @@ export const PostResponse = {
     id: { type: 'string' },
     user_id: { type: 'string' },
     community_id: { type: ['string','null'] },
+    page_id: { type: ['string','null'] },
     title: { type: 'string' },
     content: { type: 'string' },
     created_at: { type: 'string' },
@@ -203,6 +205,44 @@ export const CommentResponse = {
   properties: { id: { type: 'string' }, post_id: { type: 'string' }, user_id: { type: 'string' }, parent_comment_id: { type: ['string','null'] }, content: { type: 'string' }, created_at: { type: 'string' } }
 };
 
+export const PageCreateBody = {
+  type: 'object',
+  required: ['name','slug'],
+  properties: {
+    categoryId: { type: 'string' },
+    name: { type: 'string' },
+    slug: { type: 'string' },
+    description: { type: 'string' },
+    metadata: { type: ['object','null'] }
+  },
+  example: { name: 'My Page', slug: 'my-page', description: 'A public page' }
+};
+
+export const PageResponse = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    ownerId: { type: 'string' },
+    categoryId: { type: ['string','null'] },
+    name: { type: 'string' },
+    slug: { type: 'string' },
+    description: { type: 'string' },
+    avatar: { type: ['string','null'] },
+    coverImage: { type: ['string','null'] },
+    isVerified: { type: 'number' },
+    isActive: { type: 'number' },
+    isApproved: { type: 'number' },
+    approvalNotes: { type: ['string','null'] },
+    approvedAt: { type: ['string','null'] },
+    approvedBy: { type: ['string','null'] },
+    metadata: { type: ['object','null'] },
+    createdAt: { type: 'string' },
+    updatedAt: { type: 'string' }
+  }
+};
+
+export const PageListResponse = { type: 'array', items: PageResponse };
+
 export const CommentListResponse = { type: 'array', items: CommentResponse };
 
 export const ReactionBody = {
@@ -259,4 +299,7 @@ export default {
   , UserProfileResponse
   , AvatarUploadBody
   , MediaRegisterBody
+  , PageCreateBody
+  , PageResponse
+  , PageListResponse
 };

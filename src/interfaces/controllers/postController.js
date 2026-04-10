@@ -13,14 +13,27 @@ export function makePostController({ useCase = null }) {
       try {
         const body = req.body || {};
         const actorId = req.user && req.user.id;
-        const { communityId, title, content } = body;
+        const { communityId, pageId, title, content } = body;
         if (!actorId) {
           return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         }
         if (!title || !content) {
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         }
-        const created = await useCase.CreatePost({ userId: actorId, communityId, title, content });
+        const created = await useCase.CreatePost({ userId: actorId, communityId, pageId, title, content });
+
+        // Invalidate simple feed caches when a new post is created
+        try {
+          const redis = req.server && req.server.redisClient;
+          if (redis) {
+            const keys = [`feed:user:${actorId}`, 'feed:global'];
+            if (created.page_id) keys.push(`feed:page:${created.page_id}`);
+            await redis.del(...keys);
+          }
+        } catch (cacheErr) {
+          postLogger.warn('feed cache invalidation failed', { message: cacheErr && cacheErr.message });
+        }
+
         return reply.code(201).send({ success: true, data: created });
       } catch (err) {
         postLogger.error('createPost error', { message: err.message, stack: err.stack });
@@ -47,7 +60,9 @@ export function makePostController({ useCase = null }) {
       try {
         const limit = parseInt(req.query.limit || '20', 10);
         const offset = parseInt(req.query.offset || '0', 10);
-        const rows = await useCase.ListPosts({ limit, offset });
+        const lastCreatedAt = req.query && req.query.lastCreatedAt ? req.query.lastCreatedAt : null;
+        const lastId = req.query && req.query.lastId ? req.query.lastId : null;
+        const rows = await useCase.ListPosts({ limit, offset, lastCreatedAt, lastId });
         return reply.send({ success: true, data: rows });
       } catch (err) {
         postLogger.error('listPosts error', { message: err.message, stack: err.stack });

@@ -4,7 +4,8 @@ import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import User from '../../domain/entities/User.js';
 import logger from '../../utils/logger.js';
-
+import dotenv from 'dotenv';
+dotenv.config();
 const authLogger = logger.child('AUTH_USECASE');
 
 export default class AuthUseCase {
@@ -147,8 +148,9 @@ export default class AuthUseCase {
 
       if (this.emailQueue) {
         try {
-          const appUrl = process.env.APP_URL || 'http://localhost:3011';
-          const resetLink = `${appUrl.replace(/\/$/, '')}/auth/reset-password?token=${encodeURIComponent(rawToken)}&email=${encodeURIComponent(email)}`;
+          // const frontendUrl = process.env.APP_URL;
+          const frontendUrl = 'http://localhost:5173';
+          const resetLink = `${frontendUrl.replace(/\/$/, '')}/auth/reset-password?token=${encodeURIComponent(rawToken)}&email=${encodeURIComponent(email)}`;
           const expiresInHours = Math.max(1, Math.ceil(ttlMinutes / 60));
           await this.emailQueue.add('password_reset', {
             type: 'passwordReset',
@@ -160,7 +162,7 @@ export default class AuthUseCase {
             backoff: { type: 'exponential', delay: 2000 },
             removeOnComplete: true
           });
-          authLogger.info('Password reset email queued', { email });
+          authLogger.info('Password reset email queued', { email, frontend: frontendUrl });
           // For security, do not return raw token in responses when queued
           return { otpId: reset.id };
         } catch (queueErr) {

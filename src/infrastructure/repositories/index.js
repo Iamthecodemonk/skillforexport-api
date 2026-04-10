@@ -17,6 +17,10 @@ export { default as MysqlCommentReactionRepository } from './mysqlCommentReactio
 export { default as MysqlPostSaveRepository } from './mysqlPostSaveRepository.js';
 export { default as MysqlPostReportRepository } from './mysqlPostReportRepository.js';
 
+export { default as MysqlPageRepository } from './mysqlPageRepository.js';
+export { default as MysqlPageCategoryRepository } from './mysqlPageCategoryRepository.js';
+export { default as MysqlPageFollowerRepository } from './mysqlPageFollowerRepository.js';
+
 // Legacy aliases for backwards compatibility (deprecated)
 // Legacy aliases removed for Items
 export { default as PrismaUserRepository } from './mysqlUserRepository.js';

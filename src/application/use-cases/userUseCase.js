@@ -134,7 +134,7 @@ export default class UserUseCase {
       if (byName) throw new Error('username_taken');
     }
 
-    const profile = new UserProfile({ id: data.id || uuidv4(), user_id: userId, username: data.username, bio: data.bio, location: data.location, avatar: data.avatar, banner: data.banner, website: data.website, linkedin: data.linkedin, github: data.github, created_at: new Date() });
+    const profile = new UserProfile({ id: uuidv4(), user_id: userId, username: data.username, bio: data.bio, location: data.location, avatar: data.avatar, banner: data.banner, website: data.website, linkedin: data.linkedin, github: data.github, created_at: new Date() });
     return this.profileRepository.create(profile);
   }
 

@@ -1,5 +1,6 @@
 import schemas from '../docs/schemas.js';
 import logger from '../../utils/logger.js';
+import { sendError } from '../errorResponse.js';
 import 'dotenv/config';
 
 const routesLogger = logger.child('ROUTES');
@@ -9,9 +10,7 @@ export default async function registerRoutes(fastify, deps) {
 
   // Default fallback handler for missing controllers
   const fallback = async (req, reply) => {
-    return reply.code(501).send({
-      error: 'handler_not_implemented'
-    });
+    return sendError(reply, 501, 'handler_not_implemented', 'Handler not implemented');
   };
 
   // Helper to get handler or fallback
@@ -33,11 +32,11 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'getHealth',
       tags: ['Health'],
       description: 'Check API health status',
-      response: { 
-        200: { 
-          type: 'object', 
-          properties: { status: { type: 'string' } } 
-        } 
+      response: {
+        200: {
+          type: 'object',
+          properties: { status: { type: 'string' } }
+        }
       }
     }
   }, handler('health'));
@@ -57,7 +56,7 @@ export default async function registerRoutes(fastify, deps) {
         properties: { email: { type: 'string' }, password: { type: 'string' }, fullName: { type: 'string' } },
         example: { email: 'user@example.com', password: 'P@ssw0rd', fullName: 'Jane Doe' }
       },
-      response: { 
+      response: {
         200: {
           type: 'object',
           properties: {
@@ -67,7 +66,7 @@ export default async function registerRoutes(fastify, deps) {
               properties: { otpId: { type: 'string' }, message: { type: 'string' } }
             }
           }
-        }, 
+        },
         400: { type: 'object' },
         422: { type: 'object' }
       }
@@ -82,24 +81,15 @@ export default async function registerRoutes(fastify, deps) {
       body: {
         type: 'object',
         required: ['email', 'otpCode'],
-        properties: { 
-          email: { type: 'string' }, 
+        properties: {
+          email: { type: 'string' },
           password: { type: 'string' },
           otpCode: { type: 'string' }
         },
         example: { email: 'user@example.com', otpCode: '123456' }
       },
-      response: { 
-        201: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            data: {
-              type: 'object',
-              properties: { token: { type: 'string' }, user: { type: 'object' } }
-            }
-          }
-        }, 
+      response: {
+        201: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.AuthTokenResponse } },
         401: { type: 'object' },
         422: { type: 'object' }
       }
@@ -128,7 +118,18 @@ export default async function registerRoutes(fastify, deps) {
           type: 'object',
           properties: {
             success: { type: 'boolean' },
-            error: { type: 'object', properties: { code: { type: 'string' }, message: { type: 'string' } } }
+            error: {
+              type: 'object',
+              properties:
+              {
+                code: {
+                  type: 'string'
+                },
+                message: {
+                  type: 'string'
+                }
+              }
+            }
           },
           examples: [
             {
@@ -169,20 +170,7 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Auth'],
       description: 'Verify OTP and get access token',
       body: schemas.VerifyOtpBody,
-      response: { 
-        200: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            data: {
-              type: 'object',
-              properties: { token: { type: 'string' }, user: { type: 'object' } }
-            }
-          }
-        },
-        401: { type: 'object' },
-        422: { type: 'object' }
-      }
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.AuthTokenResponse } }, 401: { type: 'object' }, 422: { type: 'object' } }
     }
   }, handler('VerifyOtp'));
 
@@ -252,17 +240,7 @@ export default async function registerRoutes(fastify, deps) {
         properties: { idToken: { type: 'string' } },
         example: { idToken: 'eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...' }
       },
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            data: { type: 'object', properties: { token: { type: 'string' }, user: { type: 'object' } } }
-          }
-        },
-        401: { type: 'object' },
-        422: { type: 'object' }
-      }
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.AuthTokenResponse } }, 401: { type: 'object' }, 422: { type: 'object' } }
     }
   }, handler('TokenSignIn'));
 
@@ -285,7 +263,7 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'createUser',
       tags: ['Users'],
       description: 'Create a user',
-      body: { type: 'object', required: ['email','password'], properties: { email: { type: 'string' }, password: { type: 'string' } }, example: { email: 'user@example.com', password: 'P@ssw0rd' } },
+      body: { type: 'object', required: ['email', 'password'], properties: { email: { type: 'string' }, password: { type: 'string' } }, example: { email: 'user@example.com', password: 'P@ssw0rd' } },
       response: {
         201: {
           type: 'object',
@@ -300,16 +278,15 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('createUser'));
 
-  fastify.get('/users/:id/profile', { 
-    schema: 
-    { operationId: 'getUserProfile', 
-      tags: ['Users'] 
-      ,
+  fastify.get('/users/:id/profile', {
+    schema: {
+      operationId: 'getUserProfile',
+      tags: ['Users'],
       response: {
         200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.UserProfileResponse } },
-        404: { type: 'object' }
+        404: schemas.GenericErrorResponse
       }
-    } 
+    }
   }, handler('getUserProfile'));
   // Authenticated endpoint to return the full assembled profile for the current user
   fastify.get('/user/profile/me', {
@@ -319,8 +296,8 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Users'],
       description: 'Get complete profile for the authenticated user (profile, skills, portfolios, certs, education, experiences, followers, oauth accounts)',
       response: {
-        200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } },
-        401: { type: 'object' }
+        200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.FullProfileResponse } },
+        401: schemas.AuthErrorResponse
       }
     }
   }, handler('getMyProfile'));
@@ -337,16 +314,43 @@ export default async function registerRoutes(fastify, deps) {
       }
     }
   }, handler('getMyStats'));
-  
+
   fastify.post('/users/:id/profile', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'createUserProfile',
       tags: ['Users'],
-      body: schemas.UserProfileBody,
+      // Embed example into the route body so Swagger UI shows the sample submission payload
+      body: Object.assign({}, schemas.UserProfileBody, { example: schemas.UserProfileBody.example }),
       response: {
-        201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } },
-        409: { type: 'object', properties: { success: { type: 'boolean' }, error: { type: 'object' } } },
+        201: {
+          type: 'object',
+          properties: {
+            success: {
+              type: 'boolean'
+            }, data: schemas.UserProfileResponse
+          }
+        },
+        409: {
+          type: 'object',
+          properties: {
+            success: {
+              type: 'boolean'
+            },
+            error: {
+              type: 'object',
+              properties:
+              {
+                code: {
+                  type: 'string'
+                },
+                message: {
+                  type: 'string'
+                }
+              }
+            }
+          }
+        },
         422: { type: 'object' }
       }
     }
@@ -360,11 +364,25 @@ export default async function registerRoutes(fastify, deps) {
       parameters: [
         { name: 'replace', in: 'query', schema: { type: 'boolean' }, description: 'When true, replace existing avatar' }
       ],
-      body: schemas.AvatarUploadBody,
+      // Support both application/json { imageUrl } and multipart/form-data { file }
+      requestBody: {
+        content: {
+          'multipart/form-data': {
+            schema: {
+              type: 'object',
+              properties: {
+                file: { type: 'string', format: 'binary' }
+              },
+              required: ['file']
+            }
+          },
+          'application/json': { schema: schemas.AvatarUploadBody }
+        }
+      },
       response: {
         202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { jobId: { type: 'string' } } } } },
         422: { type: 'object' },
-        409: { type: 'object' },
+        409: schemas.GenericErrorResponse,
         503: { type: 'object' }
       }
     }
@@ -374,15 +392,29 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'uploadUserBanner',
       tags: ['Users'],
-      description: 'Upload a profile banner by URL; validation and Cloudinary upload happen in background. If banner already exists, pass ?replace=true or clear it first using PUT /users/:id/profile with { banner: null }.',
+      description: 'Upload a profile banner by URL or multipart file; validation and Cloudinary upload happen in background. If banner already exists, pass ?replace=true or clear it first using PUT /users/:id/profile with { banner: null }.',
       parameters: [
         { name: 'replace', in: 'query', schema: { type: 'boolean' }, description: 'When true, replace existing banner' }
       ],
-      body: schemas.AvatarUploadBody,
+      // Support both application/json { imageUrl } and multipart/form-data { file }
+      requestBody: {
+        content: {
+          'multipart/form-data': {
+            schema: {
+              type: 'object',
+              properties: {
+                file: { type: 'string', format: 'binary' }
+              },
+              required: ['file']
+            }
+          },
+          'application/json': { schema: schemas.AvatarUploadBody }
+        }
+      },
       response: {
         202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { jobId: { type: 'string' } } } } },
         422: { type: 'object' },
-        409: { type: 'object' },
+        409: schemas.GenericErrorResponse,
         503: { type: 'object' }
       }
     }
@@ -426,14 +458,14 @@ export default async function registerRoutes(fastify, deps) {
                 name: { type: 'string' },
                 state: { type: 'string' },
                 attemptsMade: { type: 'number' },
-                failedReason: { type: ['string','null'] },
-                friendlyMessage: { type: ['string','null'] },
-                returnvalue: { type: ['object','null'] },
-                data: { type: ['object','null'] }
+                failedReason: { type: ['string', 'null'] },
+                friendlyMessage: { type: ['string', 'null'] },
+                returnvalue: { type: ['object', 'null'] },
+                data: { type: ['object', 'null'] }
               }
             }
           }
-        ,
+          ,
           example: {
             success: true,
             data: {
@@ -492,24 +524,24 @@ export default async function registerRoutes(fastify, deps) {
       }
     }
   }, handler('uploadAvatarFile'));
-  fastify.put('/users/:id/profile', { 
+  fastify.put('/users/:id/profile', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { 
+    schema: {
       operationId: 'updateUserProfile', tags: ['Users'],
       description: 'Update profile fields. You can clear avatar or banner by sending null values.',
       body: schemas.UserProfileBody,
-      response: { 
+      response: {
         200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.UserProfileResponse } },
         404: { type: 'object' }
       }
-    } 
+    }
   }, handler('updateUserProfile'));
 
-  fastify.get('/users/:id/skills', { 
-    schema: { 
-      operationId: 'listUserSkills', tags: ['Users'] 
+  fastify.get('/users/:id/skills', {
+    schema: {
+      operationId: 'listUserSkills', tags: ['Users']
       , response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { type: 'object' } } } } }
-    } 
+    }
   }, handler('listUserSkills'));
 
   fastify.post('/users/:id/skills', {
@@ -526,14 +558,15 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('addUserSkill'));
 
-  fastify.delete('/users/:id/skills/:skillId', 
-    { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { 
-      operationId: 
-      'deleteUserSkill', 
-      tags: ['Users'] 
-      , response: { 204: { type: 'null' } }
-    } 
-  }, handler('deleteSkill'));
+  fastify.delete('/users/:id/skills/:skillId',
+    {
+      preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: {
+        operationId:
+          'deleteUserSkill',
+        tags: ['Users']
+        , response: { 204: { type: 'null' } }
+      }
+    }, handler('deleteSkill'));
 
   fastify.get('/users/:id/portfolios', {
     schema: {
@@ -571,7 +604,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'followUser',
       tags: ['Users'],
-        body: {
+      body: {
         type: 'object',
         properties: { followerId: { type: 'string' } },
         example: { followerId: 'uuid-or-id' }
@@ -698,7 +731,7 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Users'],
       body: {
         type: 'object',
-        required: ['company','title'],
+        required: ['company', 'title'],
         properties: { company: { type: 'string' }, title: { type: 'string' }, employmentType: { type: 'string' }, startDate: { type: 'string' }, endDate: { type: 'string' }, isCurrent: { type: 'boolean' }, description: { type: 'string' } },
         example: { company: 'Acme Corp', title: 'Senior Engineer', employmentType: 'full-time', startDate: '2020-01-01', endDate: '2022-12-31', isCurrent: false, description: 'Worked on X' }
       },
@@ -731,7 +764,7 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'listPosts',
       tags: ['Posts'],
       description: 'List posts (feed). Supports `limit` and `offset` query params.',
-      parameters: [ { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }, { name: 'lastCreatedAt', in: 'query', schema: { type: 'string', description: 'Use for keyset pagination: ISO timestamp of last item from previous page' } }, { name: 'lastId', in: 'query', schema: { type: 'string', description: 'Use with `lastCreatedAt` for keyset pagination: last item id from previous page' } } ],
+      parameters: [{ name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }, { name: 'lastCreatedAt', in: 'query', schema: { type: 'string', description: 'Use for keyset pagination: ISO timestamp of last item from previous page' } }, { name: 'lastId', in: 'query', schema: { type: 'string', description: 'Use with `lastCreatedAt` for keyset pagination: last item id from previous page' } }],
       response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PostListResponse } } }
     }
   }, handler('listPosts'));
@@ -772,7 +805,7 @@ export default async function registerRoutes(fastify, deps) {
     preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.mediaFile, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
       operationId: 'attachPostMedia',
-      tags: ['Posts','Media'],
+      tags: ['Posts', 'Media'],
       description: 'Attach media to a post by URL (server enqueues background validation/upload).',
       body: schemas.PostMediaAttachBody,
       response: {
@@ -788,7 +821,7 @@ export default async function registerRoutes(fastify, deps) {
     preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.comments, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
       operationId: 'createComment',
-      tags: ['Posts','Comments'],
+      tags: ['Posts', 'Comments'],
       description: 'Create a comment on a post',
       body: schemas.CommentCreateBody,
       response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.CommentResponse } }, 422: { type: 'object' } }
@@ -798,9 +831,9 @@ export default async function registerRoutes(fastify, deps) {
   fastify.get('/posts/:id/comments', {
     schema: {
       operationId: 'listComments',
-      tags: ['Posts','Comments'],
+      tags: ['Posts', 'Comments'],
       description: 'List comments for a post',
-      parameters: [ { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } } ],
+      parameters: [{ name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
       response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.CommentListResponse } } }
     }
   }, handler('listComments'));
@@ -810,7 +843,7 @@ export default async function registerRoutes(fastify, deps) {
     preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.reactions, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
       operationId: 'togglePostReaction',
-      tags: ['Posts','Reactions'],
+      tags: ['Posts', 'Reactions'],
       description: 'Toggle reaction on a post (one reaction per user). Omitting `type` defaults to `like`.',
       body: schemas.ReactionBody,
       response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.ReactionToggleResponse } }, 422: { type: 'object' } }
@@ -822,7 +855,7 @@ export default async function registerRoutes(fastify, deps) {
     preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.interactions, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
       operationId: 'toggleSave',
-      tags: ['Posts','Interactions'],
+      tags: ['Posts', 'Interactions'],
       description: 'Toggle save for a post (save/unsave).',
       body: schemas.PostSaveBody,
       response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 422: { type: 'object' } }
@@ -833,7 +866,7 @@ export default async function registerRoutes(fastify, deps) {
     preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.interactions, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
       operationId: 'reportPost',
-      tags: ['Posts','Moderation'],
+      tags: ['Posts', 'Moderation'],
       description: 'Report a post for moderation.',
       body: schemas.PostReportBody,
       response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PostReportResponse } }, 422: { type: 'object' } }
@@ -844,7 +877,7 @@ export default async function registerRoutes(fastify, deps) {
     preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.reactions, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
       operationId: 'toggleCommentReaction',
-      tags: ['Comments','Reactions'],
+      tags: ['Comments', 'Reactions'],
       description: 'Toggle reaction on a comment (one reaction per user). Omitting `type` defaults to `like`.',
       body: schemas.ReactionBody,
       response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.ReactionToggleResponse } }, 422: { type: 'object' } }
@@ -854,7 +887,7 @@ export default async function registerRoutes(fastify, deps) {
   fastify.get('/posts/:id/media', {
     schema: {
       operationId: 'listPostMedia',
-      tags: ['Posts','Media'],
+      tags: ['Posts', 'Media'],
       description: 'List media attached to a post',
       response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: schemas.PostMediaResponse } } } }
     }
@@ -863,7 +896,7 @@ export default async function registerRoutes(fastify, deps) {
   fastify.delete('/posts/media/:id', {
     schema: {
       operationId: 'deletePostMedia',
-      tags: ['Posts','Media'],
+      tags: ['Posts', 'Media'],
       description: 'Delete a post media item by id',
       response: { 204: { type: 'null' } }
     }
@@ -886,7 +919,7 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'listPages',
       tags: ['Pages'],
       description: 'List pages',
-      parameters: [ { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } } ],
+      parameters: [{ name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
       response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PageListResponse } } }
     }
   }, handler('listPages'));
@@ -899,6 +932,49 @@ export default async function registerRoutes(fastify, deps) {
       response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PageResponse } }, 404: { type: 'object' } }
     }
   }, handler('getPage'));
+
+  // pages by category id
+  fastify.get('/page-categories/:id/pages', {
+    schema: {
+      operationId: 'listPagesByCategoryId',
+      tags: ['Pages', 'Categories'],
+      description: 'List pages under a category id',
+      parameters: [{ name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PageListResponse } } }
+    }
+  }, handler('listPagesByCategoryId'));
+
+  // pages by category name
+  fastify.get('/page-categories/name/:name/pages', {
+    schema: {
+      operationId: 'listPagesByCategoryName',
+      tags: ['Pages', 'Categories'],
+      description: 'List pages under a category name',
+      parameters: [{ name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PageListResponse } }, 404: { type: 'object' } }
+    }
+  }, handler('listPagesByCategoryName'));
+
+  // get category details (include total pages)
+  fastify.get('/page-categories/:id', {
+    schema: {
+      operationId: 'getPageCategory',
+      tags: ['Pages', 'Categories'],
+      description: 'Get page category details (includes total pages count)',
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 404: { type: 'object' } }
+    }
+  }, async (req, reply) => {
+    try {
+      const { id } = req.params;
+      const categoryRepo = req.server && req.server.profileRepository ? null : null; // placeholder
+      // prefer pageCategoryRepository from controllers' use case if available
+      const handlers = req.server && req.server.routes && req.server.routes; // no-op
+      // Delegate to controller handler if present
+      return handler('getPageCategory')(req, reply);
+    } catch (e) {
+      return sendError(reply, 500, 'internal_error', 'Internal server error');
+    }
+  });
 
   fastify.put('/pages/:id', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
@@ -925,7 +1001,7 @@ export default async function registerRoutes(fastify, deps) {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'approvePage',
-      tags: ['Pages','Moderation'],
+      tags: ['Pages', 'Moderation'],
       description: 'Approve a page (admin only).',
       response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PageResponse } }, 403: { type: 'object' }, 404: { type: 'object' } }
     }
@@ -956,7 +1032,7 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'listPageFollowers',
       tags: ['Pages'],
       description: 'List followers for a page',
-      parameters: [ { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } } ],
+      parameters: [{ name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
       response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { type: 'object' } } } } }
     }
   }, handler('listPageFollowers'));

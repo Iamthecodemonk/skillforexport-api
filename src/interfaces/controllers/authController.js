@@ -100,9 +100,19 @@ export function makeAuthController({ useCase }) {
             login_at: new Date()
           });
         }
+        if (!token) authLogger.warn('CompleteRegistration produced no token', { user: user && user.id });
+        const userObj = (user && typeof user.toPlainObject === 'function') ? user.toPlainObject() : (user || null);
         return reply.code(201).send({
           success: true,
-          data: { accessToken: token, tokenType: 'Bearer', expiresIn }
+          data: {
+            // legacy schema field expected by routes/docs
+            token: token || null,
+            user: userObj,
+            // keep accessToken for consistency with other endpoints
+            accessToken: token || null,
+            tokenType: token ? 'Bearer' : null,
+            expiresIn: (typeof expiresIn === 'number') ? expiresIn : null
+          }
         });
       } catch (err) {
         if (err.message === 'invalid_or_expired_otp') {
@@ -184,9 +194,17 @@ export function makeAuthController({ useCase }) {
             login_at: new Date()
           });
         }
+        if (!token) authLogger.warn('VerifyOtp produced no token', { email, purpose });
+        const userObj = (user && typeof user.toPlainObject === 'function') ? user.toPlainObject() : (user || null);
         return reply.code(200).send({
           success: true,
-          data: { accessToken: token, tokenType: 'Bearer', expiresIn }
+          data: {
+            token: token || null,
+            user: userObj,
+            accessToken: token || null,
+            tokenType: token ? 'Bearer' : null,
+            expiresIn: (typeof expiresIn === 'number') ? expiresIn : null
+          }
         });
       } catch (err) {
         // Domain validation: invalid email format

@@ -1,3 +1,5 @@
+import { sendError } from '../errorResponse.js';
+
 export default function errorHandler(serverLogger) {
   return function globalErrorHandler(error, request, reply) {
     try {
@@ -10,6 +12,7 @@ export default function errorHandler(serverLogger) {
     } catch (logErr) {
       // ignore logging failures
     }
-    return reply.code(500).send({ error: 'internal_error', message: error && error.message });
+    // Use standardized error response shape
+    return sendError(reply, 500, 'internal_error', error && error.message);
   };
 }

@@ -1,6 +1,10 @@
 import logger from '../../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
 import { readProfileFromCache, writeProfileToCache } from '../../utils/redisProfileCache.js';
+import { sendError } from '../errorResponse.js';
+import os from 'os';
+import fs from 'fs';
+import path from 'path';
 
 const userLogger = logger.child('USER_CONTROLLER');
 
@@ -193,43 +197,111 @@ export function makeUserController({ useCase = null }) {
     uploadAvatar: async (req, reply) => {
       try {
         const { id } = req.params;
-        const { imageUrl } = req.body || {};
         const mediaQueue = req.server && req.server.mediaQueue ? req.server.mediaQueue : null;
-        if (!imageUrl) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
-        if (!mediaQueue) return reply.code(503).send({ success: false, error: { code: 'service_unavailable' } });
-        // Prevent re-upload if avatar already exists unless replace=true
-        const replace = (req.query && (req.query.replace === 'true' || req.query.replace === true)) || false;
-        const existingProfile = await useCase.getProfile(id);
-        if (existingProfile && existingProfile.avatar && !replace) {
-          return reply.code(409).send({ success: false, error: { code: 'avatar_already_set' } });
+
+        // If multipart/form-data (file upload)
+        if (req.isMultipart && typeof req.file === 'function') {
+          if (!mediaQueue) 
+            return sendError(reply, 503, 'service_unavailable', 'Service unavailable');
+          const mp = await req.file();
+          if (!mp) 
+            return sendError(reply, 422, 'validation_failed', 'Validation failed');
+
+          const ext = path.extname(mp.filename || '') || '.jpg';
+          const tmpDir = process.env.UPLOAD_TMP_DIR || os.tmpdir();
+          const tmpName = `${uuidv4()}${ext}`;
+          const tmpPath = path.join(tmpDir, tmpName);
+
+          const writeStream = fs.createWriteStream(tmpPath);
+          await new Promise((resolve, reject) => {
+            mp.file.pipe(writeStream);
+            mp.file.on('error', (err) => reject(err));
+            writeStream.on('error', (err) => reject(err));
+            writeStream.on('finish', resolve);
+          });
+
+          const job = await mediaQueue.add('avatar-file', { userId: id, tmpFilePath: tmpPath, kind: 'avatar', assetId: uuidv4() }, { attempts: 3, backoff: { type: 'exponential', delay: 2000 } });
+          return reply.code(202).send({ success: true, data: { jobId: job.id } });
         }
-        const job = await mediaQueue.add('avatar', { userId: id, imageUrl, assetId: uuidv4() }, { attempts: 2, backoff: { type: 'exponential', delay: 2000 } });
-        return reply.code(202).send({ success: true, data: { jobId: job.id } });
+
+        // Fallback: JSON body with imageUrl not needed for now sha
+        // const { imageUrl } = req.body || {};
+        // if (!imageUrl) 
+        //   return sendError(reply, 422, 'validation_failed', 'Validation failed');
+        // if (!mediaQueue) 
+        //   return sendError(reply, 503, 'service_unavailable', 'Service unavailable');
+        // // Prevent re-upload if avatar already exists unless replace=true
+        // const replace = (req.query && (req.query.replace === 'true' || req.query.replace === true)) || false;
+        // const existingProfile = await useCase.getProfile(id);
+        // if (existingProfile && existingProfile.avatar && !replace) {
+        //   return sendError(reply, 409, 'avatar_already_set', 'Avatar already set');
+        // }
+        // const job = await mediaQueue.add('avatar', { userId: id, imageUrl, assetId: uuidv4() }, { attempts: 2, backoff: { type: 'exponential', delay: 2000 } });
+        // return reply.code(202).send({ success: true, data: { jobId: job.id } });
       } catch (err) {
         userLogger.error('uploadAvatar error', { message: err.message, stack: err.stack });
-        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+        return sendError(reply, 500, 'internal_error', 'Internal server error');
       }
     },
     // Enqueue banner upload for background validation + Cloudinary upload
     uploadBanner: async (req, reply) => {
       try {
         const { id } = req.params;
-        const { imageUrl } = req.body || {};
         const mediaQueue = req.server && req.server.mediaQueue ? req.server.mediaQueue : null;
-        if (!imageUrl) 
-          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
-        if (!mediaQueue) 
-          return reply.code(503).send({ success: false, error: { code: 'service_unavailable' } });
-        const replace = (req.query && (req.query.replace === 'true' || req.query.replace === true)) || false;
-        const existingProfile = await useCase.getProfile(id);
-        if (existingProfile && existingProfile.banner && !replace) {
-          return reply.code(409).send({ success: false, error: { code: 'banner_already_set' } });
+
+        // If multipart/form-data (file upload)
+        if (req.isMultipart && typeof req.file === 'function') {
+          if (!mediaQueue) 
+            return sendError(reply, 503, 'service_unavailable', 'Service unavailable');
+          const mp = await req.file();
+          if (!mp) 
+            return sendError(reply, 422, 'validation_failed', 'Validation failed');
+
+          const ext = path.extname(mp.filename || '') || '.jpg';
+          const tmpDir = process.env.UPLOAD_TMP_DIR || os.tmpdir();
+          const tmpName = `${uuidv4()}${ext}`;
+          const tmpPath = path.join(tmpDir, tmpName);
+
+          const writeStream = fs.createWriteStream(tmpPath);
+          await new Promise((resolve, reject) => {
+            mp.file.pipe(writeStream);
+            mp.file.on('error', (err) => reject(err));
+            writeStream.on('error', (err) => reject(err));
+            writeStream.on('finish', resolve);
+          });
+
+          const job = await mediaQueue.add('banner-file', 
+            {
+              userId: id, 
+              tmpFilePath: tmpPath, 
+              kind: 'banner', 
+              assetId: uuidv4() 
+            }, 
+            { 
+              attempts: 3, 
+              backoff: { 
+                type: 'exponential', delay: 2000 
+              } 
+            }
+          );
+          return reply.code(202).send({ success: true, data: { jobId: job.id } });
         }
-        const job = await mediaQueue.add('banner', { userId: id, imageUrl, assetId: uuidv4() }, { attempts: 2, backoff: { type: 'exponential', delay: 2000 } });
-        return reply.code(202).send({ success: true, data: { jobId: job.id } });
+        
+        //omo i dont need a fall back oo for code consistency
+        // Fallback: JSON body with imageUrl
+        // const { imageUrl } = req.body || {};
+        // if (!imageUrl) return sendError(reply, 422, 'validation_failed', 'Validation failed');
+        // if (!mediaQueue) return sendError(reply, 503, 'service_unavailable', 'Service unavailable');
+        // const replace = (req.query && (req.query.replace === 'true' || req.query.replace === true)) || false;
+        // const existingProfile = await useCase.getProfile(id);
+        // if (existingProfile && existingProfile.banner && !replace) {
+        //   return sendError(reply, 409, 'banner_already_set', 'Banner already set');
+        // }
+        // const job = await mediaQueue.add('banner', { userId: id, imageUrl, assetId: uuidv4() }, { attempts: 2, backoff: { type: 'exponential', delay: 2000 } });
+        // return reply.code(202).send({ success: true, data: { jobId: job.id } });
       } catch (err) {
         userLogger.error('uploadBanner error', { message: err.message, stack: err.stack });
-        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+        return sendError(reply, 500, 'internal_error', 'Internal server error');
       }
     },
 
@@ -275,20 +347,30 @@ export function makeUserController({ useCase = null }) {
     // Create profile for user
     createProfile: async (req, reply) => {
       try {
-        const { id } = req.params;
-        const data = req.body || {};
-        const created = await useCase.createProfile(id, data);
+        // Prefer authenticated subject; fall back to path param if absent
+        const actorId = req.user && req.user.id;
+        const { id: paramId } = req.params;
+        const userId = actorId || paramId;
+        if (!userId) 
+          return sendError(reply, 401, 'unauthorized', 'Unauthorized');
+
+        // Prevent clients from supplying their own profile id
+        const data = Object.assign({}, req.body || {});
+        if ('id' in data) 
+          delete data.id;
+
+        const created = await useCase.createProfile(userId, data);
         const payload = created && typeof created.toPlainObject === 'function' ? created.toPlainObject() : created;
         return reply.code(201).send({ success: true, data: payload });
       } catch (err) {
         if (err && err.message === 'user_not_found') {
-          return reply.code(404).send({ success: false, error: { code: 'user_not_found' } });
+          return sendError(reply, 404, 'user_not_found', 'User not found');
         }
         if (err && err.message === 'profile_already_exists') {
-          return reply.code(409).send({ success: false, error: { code: 'profile_already_exists' } });
+          return sendError(reply, 409, 'profile_already_exists', 'Profile already exists');
         }
         if (err && err.message === 'username_taken') {
-          return reply.code(409).send({ success: false, error: { code: 'username_taken', message: 'Username already taken' } });
+          return sendError(reply, 409, 'username_taken', 'Username already taken');
         }
         // Handle duplicate key errors (e.g., unique username)
         if (err) {
@@ -299,11 +381,11 @@ export function makeUserController({ useCase = null }) {
             const isUsername = msg.includes('user_profiles.username') || lower.includes('username');
             const errorCode = isUsername ? 'username_taken' : 'duplicate_entry';
             userLogger.warn('createProfile duplicate key', { code: err.code, message: msg });
-            return reply.code(409).send({ success: false, error: { code: errorCode } });
+            return sendError(reply, 409, errorCode, 'Duplicate entry');
           }
         }
         userLogger.error('createProfile error', { message: err.message, stack: err.stack });
-        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+        return sendError(reply, 500, 'internal_error', 'Internal server error');
       }
     },
 

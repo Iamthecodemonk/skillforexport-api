@@ -102,7 +102,7 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
           return result;
         }
 
-        if (name === 'avatar-file') {
+        if (name === 'avatar-file' || name === 'banner-file') {
           const { userId, tmpFilePath } = data;
           const kind = data.kind || 'avatar';
           // ensure file exists

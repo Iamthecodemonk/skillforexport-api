@@ -33,6 +33,11 @@ export class PageRepositoryImpl extends PageRepository {
     return this.adapter.findById(id);
   }
 
+  async findByName(name) {
+    if (typeof this.adapter.findByName !== 'function') throw new Error('findByName_not_implemented');
+    return this.adapter.findByName(name);
+  }
+
   async list({ limit = 20, offset = 0 } = {}) {
     return this.adapter.list({ limit, offset });
   }

@@ -27,4 +27,10 @@ export default class MysqlPageFollowerRepository {
     const rows = await db('page_followers').where({ page_id: pageId }).orderBy('created_at', 'desc').limit(limit).offset(offset);
     return rows || [];
   }
+
+  async countByPage(pageId) {
+    const row = await db('page_followers').where({ page_id: pageId }).count({ cnt: 'id' }).first();
+    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+    return parseInt(cnt || 0, 10);
+  }
 }

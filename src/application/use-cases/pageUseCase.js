@@ -13,6 +13,17 @@ export default class PageUseCase {
     if (!ownerId) throw new Error('owner_required');
     if (!name || String(name).trim() === '') throw new Error('name_required');
     if (!slug || String(slug).trim() === '') throw new Error('slug_required');
+    // Ensure page name is unique
+    try {
+      if (this.pageRepository && typeof this.pageRepository.findByName === 'function') {
+        const existing = await this.pageRepository.findByName(String(name));
+        if (existing) throw new Error('name_exists');
+      }
+    } catch (e) {
+      if (e && e.message === 'name_exists') throw e;
+      // If findByName is not implemented or fails, continue — creation will rely on DB constraints where applicable
+      pageLogger.debug('findByName check skipped or failed', { message: e && e.message });
+    }
     // Enforce per-category max_pages_per_user if category provided and repository available
     try {
       if (categoryId && this.pageCategoryRepository && typeof this.pageCategoryRepository.findById === 'function') {

@@ -40,7 +40,8 @@ export default class UserProfile {
       banner: this.banner,
       website: this.website,
       linkedin: this.linkedin,
-      github: this.github
+      github: this.github,
+      createdAt: this.createdAt ? (this.createdAt instanceof Date ? this.createdAt.toISOString() : String(this.createdAt)) : null
     };
   }
 }

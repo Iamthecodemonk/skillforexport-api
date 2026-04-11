@@ -24,6 +24,12 @@ export class UserProfileRepositoryImpl extends UserProfileRepository {
     return row ? new UserProfile(row) : null;
   }
 
+  async findByUsername(username) {
+    if (!username) return null;
+    const row = await this.adapter.findByUsername(username);
+    return row ? new UserProfile(row) : null;
+  }
+
   async create(profile) {
     const record = profile && profile.toRecord ? profile.toRecord() : profile;
     const created = await this.adapter.create(record);

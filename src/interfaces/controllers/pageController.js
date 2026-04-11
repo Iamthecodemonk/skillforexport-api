@@ -20,6 +20,8 @@ export function makePageController({ useCase = null, followersRepository = null 
       } catch (err) {
         if ((err && err.message === 'name_required') || (err && err.message === 'slug_required'))
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        if (err && err.message === 'name_exists')
+          return reply.code(409).send({ success: false, error: { code: 'name_exists', message: 'Page name already exists' } });
         if (err && err.message === 'owner_required')
              return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         if (err && err.message === 'max_pages_exceeded')
@@ -80,11 +82,116 @@ export function makePageController({ useCase = null, followersRepository = null 
       try {
         const { id } = req.params;
         const page = await useCase.GetPage(id);
-        return reply.send({ success: true, data: page });
+        // add followers count (if repository provided)
+        let followersCount = null;
+        try {
+          if (followersRepository && typeof followersRepository.countByPage === 'function') {
+            followersCount = await followersRepository.countByPage(id);
+          }
+        } catch (e) {
+          pageLogger.warn('Failed to get followers count', { err: e && e.message });
+        }
+
+        // add category total pages
+        let categoryPageCount = null;
+        try {
+          const categoryId = page && (page.category_id || page.categoryId);
+          if (categoryId && useCase && useCase.pageRepository && typeof useCase.pageRepository.countByCategory === 'function') {
+            categoryPageCount = await useCase.pageRepository.countByCategory(categoryId);
+          }
+        } catch (e) {
+          pageLogger.warn('Failed to get category page count', { err: e && e.message });
+        }
+
+        const result = Object.assign({}, page, { followers_count: followersCount !== null ? followersCount : undefined, posts_count: page.post_count || 0, category_pages_count: categoryPageCount !== null ? categoryPageCount : undefined });
+        return reply.send({ success: true, data: result });
       } catch (err) {
         if (err && err.message === 'page_not_found') 
             return reply.code(404).send({ success: false, error: { code: 'page_not_found' } });
         pageLogger.error('getPage error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    getPageCategory: async (req, reply) => {
+      try {
+        const { id } = req.params;
+        if (!useCase.pageCategoryRepository || typeof useCase.pageCategoryRepository.findById !== 'function') {
+          return reply.code(501).send({ success: false, error: { code: 'not_implemented' } });
+        }
+        const cat = await useCase.pageCategoryRepository.findById(id);
+        if (!cat) return reply.code(404).send({ success: false, error: { code: 'category_not_found' } });
+        let total = null;
+        try {
+          if (useCase && useCase.pageRepository && typeof useCase.pageRepository.countByCategory === 'function') {
+            total = await useCase.pageRepository.countByCategory(id);
+          }
+        } catch (e) {
+          pageLogger.warn('Failed to count pages for category', { err: e && e.message });
+        }
+
+        const out = Object.assign({}, cat, { total_pages: total !== null ? total : undefined });
+        return reply.send({ success: true, data: out });
+      } catch (err) {
+        pageLogger.error('getPageCategory error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    // List pages for a category id
+    listPagesByCategoryId: async (req, reply) => {
+      try {
+        const { id } = req.params;
+        const limit = parseInt(req.query.limit || '20', 10);
+        const offset = parseInt(req.query.offset || '0', 10);
+        const rows = await useCase.pageRepository.listByCategory(id, { limit, offset });
+        return reply.send({ success: true, data: rows });
+      } catch (err) {
+        pageLogger.error('listPagesByCategoryId error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    // List pages for a category name
+    listPagesByCategoryName: async (req, reply) => {
+      try {
+        const { name } = req.params;
+        if (!useCase.pageCategoryRepository || typeof useCase.pageCategoryRepository.findByName !== 'function') {
+          return reply.code(501).send({ success: false, error: { code: 'not_implemented' } });
+        }
+        const cat = await useCase.pageCategoryRepository.findByName(name);
+        if (!cat) 
+          return reply.code(404).send({ success: false, error: { code: 'category_not_found' } });
+        const limit = parseInt(req.query.limit || '20', 10);
+        const offset = parseInt(req.query.offset || '0', 10);
+        const rows = await useCase.pageRepository.listByCategory(cat.id, { limit, offset });
+        return reply.send({ success: true, data: rows });
+      } catch (err) {
+        pageLogger.error('listPagesByCategoryName error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    // List posts belonging to a page
+    listPostsByPage: async (req, reply) => {
+      try {
+        const { id } = req.params; // page id
+        const limit = parseInt(req.query.limit || '20', 10);
+        const offset = parseInt(req.query.offset || '0', 10);
+        // Try domain repo first, then adapter on server
+        let rows = null;
+        const postDomain = req.server && req.server.postRepository ? req.server.postRepository : null;
+        const postAdapter = req.server && (req.server.postAdapter || req.server.postRepositoryAdapter) ? (req.server.postAdapter || req.server.postRepositoryAdapter) : null;
+        if (postDomain && typeof postDomain.listByPage === 'function') {
+          rows = await postDomain.listByPage(id, { limit, offset });
+        } else if (postAdapter && typeof postAdapter.listByPage === 'function') {
+          rows = await postAdapter.listByPage(id, { limit, offset });
+        } else {
+          return reply.code(501).send({ success: false, error: { code: 'not_implemented' } });
+        }
+        return reply.send({ success: true, data: rows });
+      } catch (err) {
+        pageLogger.error('listPostsByPage error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
     },

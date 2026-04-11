@@ -27,6 +27,17 @@ export const LoginResponse = {
   properties: { accessToken: { type: 'string' }, tokenType: { type: 'string' }, expiresIn: { type: 'number' } }
 };
 
+export const AuthTokenResponse = {
+  type: 'object',
+  properties: {
+    token: { type: ['string','null'] },
+    user: { type: ['object','null'] },
+    accessToken: { type: ['string','null'] },
+    tokenType: { type: ['string','null'] },
+    expiresIn: { type: ['number','null'] }
+  }
+};
+
 export const AuthError = {
   type: 'object',
   properties: {
@@ -144,6 +155,7 @@ PostMediaAttachBody.example = { url: 'https://example.com/image.jpg', mediaType:
 
 export const UserProfileBody = {
   type: 'object',
+  description: 'Profile fields to create or update. Do NOT provide `id` or `userId` — those are generated/derived by the server.',
   properties: {
     username: { type: 'string' },
     bio: { type: 'string' },
@@ -154,14 +166,21 @@ export const UserProfileBody = {
     linkedin: { type: 'string' },
     github: { type: 'string' }
   },
-  example: { username: 'janedoe', bio: 'Full-stack dev', location: 'Remote', website: 'https://janedoe.dev' }
+  example: {
+    username: 'codemonk',
+    bio: 'Developer,engineer',
+    location: 'Remote',
+    website: 'https://example.com',
+    linkedin: 'https://linkedin.com/in/tech',
+    github: 'https://github.com/tech'
+  }
 };
 
 export const UserProfileResponse = {
   type: 'object',
   properties: {
-    id: { type: 'string' },
-    userId: { type: 'string' },
+    id: { type: 'string', description: 'Profile record id (server-generated)', readOnly: true },
+    userId: { type: 'string', description: 'User id (derived from authenticated token)', readOnly: true },
     username: { type: 'string' },
     bio: { type: 'string' },
     location: { type: 'string' },
@@ -173,6 +192,143 @@ export const UserProfileResponse = {
     createdAt: { type: 'string', format: 'date-time' }
   }
 };
+UserProfileResponse.example = {
+  id: 'profile-uuid',
+  userId: 'user-uuid',
+  username: 'tech',
+  bio: 'Developer',
+  location: 'Remote',
+  avatar: null,
+  banner: null,
+  website: 'https://example.com',
+  linkedin: 'https://linkedin.com/in/tech',
+  github: 'https://github.com/tech',
+  createdAt: new Date().toISOString()
+};
+
+// Item schemas for FullProfileResponse arrays (defined before FullProfileResponse)
+export const Skill = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    level: { type: 'string', enum: ['beginner', 'intermediate', 'expert'] }
+  }
+};
+
+export const Portfolio = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    userId: { type: 'string' },
+    title: { type: 'string' },
+    description: { type: 'string' },
+    link: { type: 'string' }
+  }
+};
+
+export const Certification = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    userId: { type: 'string' },
+    name: { type: 'string' },
+    issuer: { type: 'string' },
+    issueDate: { type: 'string' }
+  }
+};
+
+export const Education = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    userId: { type: 'string' },
+    school: { type: 'string' },
+    degree: { type: 'string' },
+    field: { type: 'string' },
+    startDate: { type: 'string' },
+    endDate: { type: ['string','null'] }
+  }
+};
+
+export const Experience = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    userId: { type: 'string' },
+    company: { type: 'string' },
+    title: { type: 'string' },
+    employmentType: { type: 'string' },
+    startDate: { type: 'string' },
+    endDate: { type: ['string','null'] },
+    isCurrent: { type: 'number' },
+    description: { type: 'string' }
+  }
+};
+
+export const Follower = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    followerId: { type: 'string' },
+    followingId: { type: 'string' },
+    createdAt: { type: 'string' }
+  }
+};
+
+export const OAuthAccount = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    userId: { type: 'string' },
+    provider: { type: 'string' },
+    providerId: { type: 'string' },
+    providerEmail: { type: ['string','null'] },
+    avatarUrl: { type: ['string','null'] }
+  }
+};
+
+export const FullProfileResponse = {
+  type: 'object',
+  properties: {
+    user: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        email: { type: 'string' },
+        role: { type: 'string' },
+        created_at: { type: 'string' }
+      }
+    },
+    profile: UserProfileResponse,
+    skills: { type: 'array', items: Skill, example: [{ id: 'skill-uuid', name: 'JavaScript', level: 'expert' }] },
+    portfolios: { type: 'array', items: Portfolio, example: [{ id: 'portfolio-uuid', userId: 'user-uuid', title: 'Personal Website', description: 'Showcase of projects', link: 'https://janedoe.dev' }] },
+    certifications: { type: 'array', items: Certification, example: [{ id: 'cert-uuid', userId: 'user-uuid', name: 'AWS Certified Developer', issuer: 'Amazon', issueDate: '2023-06-01' }] },
+    education: { type: 'array', items: Education, example: [{ id: 'edu-uuid', userId: 'user-uuid', school: 'State University', degree: 'BSc Computer Science', field: 'Computer Science', startDate: '2016-09-01', endDate: '2020-06-01' }] },
+    experiences: { type: 'array', items: Experience, example: [{ id: 'exp-uuid', userId: 'user-uuid', company: 'Acme Co', title: 'Software Engineer', employmentType: 'full-time', startDate: '2020-07-01', endDate: null, isCurrent: 1, description: 'Worked on backend services' }] },
+    followers: { type: 'array', items: Follower, example: [{ id: 'follower-uuid', followerId: 'other-user-uuid', followingId: 'user-uuid', createdAt: '2026-04-01T12:00:00Z' }] },
+    oauthAccounts: { type: 'array', items: OAuthAccount, example: [{ id: 'oauth-uuid', userId: 'user-uuid', provider: 'google', providerId: 'google-123', providerEmail: 'user@example.com', avatarUrl: 'https://example.com/avatar.jpg' }] }
+  }
+};
+
+export const GenericError = {
+  type: 'object',
+  properties: {
+    code: { type: 'string' },
+    message: { type: 'string' }
+  }
+};
+
+export const GenericErrorResponse = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean' },
+    error: GenericError
+  }
+};
+GenericErrorResponse.example = { success: false, error: { code: 'profile_already_exists', message: 'Profile already exists' } };
+
+
 
 export const AvatarUploadBody = {
   type: 'object',
@@ -236,12 +392,34 @@ export const PageResponse = {
     approvedAt: { type: ['string','null'] },
     approvedBy: { type: ['string','null'] },
     metadata: { type: ['object','null'] },
+    followers_count: { type: ['number','null'], description: 'Number of followers for the page (optional; present if calculated/denormalized)' },
+    posts_count: { type: ['number','null'], description: 'Denormalized post count for the page (optional; present when the pages table maintains a post_count column)' },
+    category_pages_count: { type: ['number','null'], description: 'Total pages in the page category (optional; present if counted)' },
     createdAt: { type: 'string' },
     updatedAt: { type: 'string' }
   }
 };
 
 export const PageListResponse = { type: 'array', items: PageResponse };
+
+export const PageCategoryResponse = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    slug: { type: 'string' },
+    description: { type: 'string' },
+    icon: { type: ['string','null'] },
+    is_active: { type: 'number' },
+    rules: { type: ['object','null'] },
+    max_pages_per_user: { type: ['number','null'] },
+    requires_approval: { type: ['number','null'] },
+    validation_rules: { type: ['object','null'] },
+    created_at: { type: 'string' },
+    updated_at: { type: 'string' },
+    total_pages: { type: ['number','null'], description: 'Total pages in this category (provided by GET /page-categories/:id)' }
+  }
+};
 
 export const CommentListResponse = { type: 'array', items: CommentResponse };
 
@@ -276,6 +454,7 @@ export default {
   ItemResponse,
   LoginBody,
   LoginResponse,
+  AuthTokenResponse,
   TokenSignInBody,
   TokenSignInResponse,
   RequestOtpBody,
@@ -302,4 +481,17 @@ export default {
   , PageCreateBody
   , PageResponse
   , PageListResponse
+  , PageCategoryResponse
+  , FullProfileResponse
+  , FullProfileResponse
+  , GenericError
+  , GenericErrorResponse
+  , AuthErrorResponse
+  , Skill
+  , Portfolio
+  , Certification
+  , Education
+  , Experience
+  , Follower
+  , OAuthAccount
 };

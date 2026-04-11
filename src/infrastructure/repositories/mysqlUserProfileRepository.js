@@ -1,4 +1,7 @@
 import db from '../knexConfig.js';
+import logger from '../../utils/logger.js';
+
+const repoLog = logger.child('MYSQL_USER_PROFILE_REPO');
 
 export default class MysqlUserProfileRepository {
   async findByUserId(userId) {
@@ -14,8 +17,11 @@ export default class MysqlUserProfileRepository {
     const now = new Date();
     const payload = { ...record, created_at: now };
     try {
+      repoLog.debug('Inserting user_profile', { payload });
       await db('user_profiles').insert(payload);
-      return db('user_profiles').where({ id: record.id }).first();
+      const row = await db('user_profiles').where({ id: record.id }).first();
+      repoLog.debug('Inserted user_profile row', { row });
+      return row;
     } catch (err) {
       // Convert duplicate entry to a domain-friendly error so callers can handle it
       if (err && err.code === 'ER_DUP_ENTRY') {

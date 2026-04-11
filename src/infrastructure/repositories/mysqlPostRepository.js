@@ -38,6 +38,20 @@ export default class MysqlPostRepository {
     return rows || [];
   }
 
+  async listByPage(pageId, { limit = 20, offset = 0, lastCreatedAt = null, lastId = null } = {}) {
+    const q = db('posts').where({ page_id: pageId }).orderBy('created_at', 'desc').orderBy('id', 'desc').limit(limit);
+    if (lastCreatedAt) {
+      q.andWhere(function () {
+        this.where('created_at', '<', lastCreatedAt);
+        if (lastId) this.orWhere(function () { this.where('created_at', '=', lastCreatedAt).andWhere('id', '<', lastId); });
+      });
+    } else if (offset) {
+      q.offset(offset);
+    }
+    const rows = await q;
+    return rows || [];
+  }
+
   async update(id, updates) {
     const now = new Date();
     const payload = {};

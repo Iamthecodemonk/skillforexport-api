@@ -32,6 +32,12 @@ export default class MysqlPageRepository {
     return row || null;
   }
 
+  async findByName(name) {
+    if (!name) return null;
+    const row = await db('pages').where({ name }).first();
+    return row || null;
+  }
+
   async list({ limit = 20, offset = 0 } = {}) {
     const rows = await db('pages').orderBy('created_at', 'desc').limit(limit).offset(offset);
     return rows || [];
@@ -74,5 +80,16 @@ export default class MysqlPageRepository {
     const row = await q.count({ cnt: 'id' }).first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);
+  }
+
+  async countByCategory(categoryId) {
+    const row = await db('pages').where({ category_id: categoryId }).count({ cnt: 'id' }).first();
+    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+    return parseInt(cnt || 0, 10);
+  }
+
+  async listByCategory(categoryId, { limit = 20, offset = 0 } = {}) {
+    const rows = await db('pages').where({ category_id: categoryId }).orderBy('created_at', 'desc').limit(limit).offset(offset);
+    return rows || [];
   }
 }

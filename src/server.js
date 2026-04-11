@@ -178,6 +178,27 @@ export default async function startServer() {
     serverLogger.warn('Failed to create rate limiter Redis client', { message: e.message });
   }
 
+  // Configure Redis eviction policy and maxmemory at startup when possible
+  try {
+    const maxMemory = process.env.REDIS_MAXMEMORY;
+    const desiredPolicy = 'noeviction';
+    const envPolicy = process.env.REDIS_MAXMEMORY_POLICY;
+    const client = redisClientForLimits;
+    if (client && typeof client.config === 'function') {
+      await client.config('SET', 'maxmemory', maxMemory);
+      // Enforce noeviction to avoid unexpected key evictions.
+      await client.config('SET', 'maxmemory-policy', desiredPolicy);
+      if (envPolicy && envPolicy !== desiredPolicy) {
+        serverLogger.warn('Overriding REDIS_MAXMEMORY_POLICY to noeviction', { envPolicy });
+      }
+      serverLogger.info('Redis eviction configured', { maxMemory, maxMemoryPolicy: desiredPolicy });
+    } else {
+      serverLogger.info('Redis client unavailable for CONFIG SET; skipping eviction config');
+    }
+  } catch (e) {
+    serverLogger.warn('Failed to set Redis eviction config', { message: e && e.message });
+  }
+
   // Verify SMTP configuration
   smtpLogger.info('Checking email configuration...');
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
@@ -330,6 +351,10 @@ export default async function startServer() {
       try {
         const postAdapter = new MysqlPostRepository();
         const postRepo = new PostRepositoryImpl({ adapter: postAdapter });
+        // expose post adapter for controllers that need adapter-level methods (e.g., listByPage)
+        if (!app.hasDecorator || !app.hasDecorator('postAdapter')) {
+          app.decorate('postAdapter', postAdapter);
+        }
         const postUseCase = new PostUseCase({ postRepository: postRepo });
         const postController = makePostController({ useCase: postUseCase });
         Object.assign(controllers, postController);

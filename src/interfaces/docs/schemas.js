@@ -50,7 +50,7 @@ export const AuthErrorResponse = {
   type: 'object',
   properties: {
     success: { type: 'boolean' },
-    error: AuthError
+    error: {...AuthError}
   }
 };
 AuthErrorResponse.example = { success: false, error: { code: 'invalid_credentials', message: 'Invalid email or password' } };
@@ -121,9 +121,71 @@ export const PostCreateBody = {
     pageId: { type: 'string' },
     title: { type: 'string' },
     content: { type: 'string' }
+    , mediaAssetIds: { type: 'array', items: { type: 'string' }, description: 'Optional list of media asset ids (uploaded via /media/register or asset endpoints). All assets must be processed and have a URL before creating a post.' }
   }
 };
-PostCreateBody.example = { communityId: null, title: 'Hello world', content: 'Hello world — this is a test post.' };
+PostCreateBody.example = { communityId: null, title: 'Hello world', content: 'Hello world — this is a test post.', mediaAssetIds: ['asset-uuid-123'] };
+
+export const QuestionCreateBody = {
+  type: 'object',
+  required: ['title','body'],
+  properties: {
+    communityId: { type: 'string' },
+    title: { type: 'string' },
+    body: { type: 'string' },
+    visibility: { type: 'string', enum: ['public','community_only','community_public'] }
+  }
+};
+QuestionCreateBody.example = { communityId: null, title: 'How do I configure X?', body: 'I tried Y but get error Z' };
+
+export const QuestionResponse = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    userId: { type: 'string' },
+    communityId: { type: ['string','null'] },
+    title: { type: 'string' },
+    body: { type: 'string' },
+    visibility: { type: 'string' },
+    isClosed: { type: 'boolean' },
+    acceptedAnswerId: { type: ['string','null'] },
+    createdAt: { type: 'string' },
+    updatedAt: { type: 'string' },
+    answers: { type: ['array','null'], items: { type: 'object' } }
+  }
+};
+QuestionResponse.example = {
+  id: 'q-uuid',
+  userId: 'user-uuid',
+  communityId: null,
+  title: 'How to...',
+  body: 'Details...',
+  visibility: 'public',
+  isClosed: false,
+  acceptedAnswerId: null,
+  createdAt: '2026-04-01T12:00:00Z',
+  updatedAt: '2026-04-01T12:00:00Z',
+  answers: [
+    {
+      id: 'a-uuid',
+      questionId: 'q-uuid',
+      userId: 'user-uuid',
+      parentAnswerId: null,
+      content: 'This is how...',
+      createdAt: '2026-04-01T13:00:00Z',
+      updatedAt: '2026-04-01T13:00:00Z'
+    }
+  ]
+};
+
+export const QuestionListResponse = { type: 'array', items: QuestionResponse };
+
+export const AnswerCreateBody = { type: 'object', required: ['content'], properties: { content: { type: 'string' }, parentAnswerId: { type: ['string','null'] } } };
+AnswerCreateBody.example = { content: 'You can fix it by...' };
+
+export const AnswerResponse = { type: 'object', properties: { id: { type: 'string' }, questionId: { type: 'string' }, userId: { type: 'string' }, parentAnswerId: { type: ['string','null'] }, content: { type: 'string' }, createdAt: { type: 'string' }, updatedAt: { type: 'string' } } };
+AnswerResponse.example = { id: 'a-uuid', questionId: 'q-uuid', userId: 'user-uuid', parentAnswerId: null, content: 'This is how...', createdAt: '2026-04-01T13:00:00Z', updatedAt: '2026-04-01T13:00:00Z' };
+
 
 export const PostResponse = {
   type: 'object',
@@ -152,6 +214,31 @@ export const PostMediaAttachBody = {
   properties: { url: { type: 'string' }, mediaType: { type: 'string' }, displayOrder: { type: 'number' } }
 };
 PostMediaAttachBody.example = { url: 'https://example.com/image.jpg', mediaType: 'image', displayOrder: 0 };
+
+export const MediaError = {
+  type: 'object',
+  properties: {
+    assetId: { type: 'string' },
+    code: { type: 'string' },
+    message: { type: 'string' }
+  }
+};
+
+export const MediaValidationErrorResponse = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean' },
+    error: {
+      type: 'object',
+      properties: {
+        code: { type: 'string' },
+        message: { type: 'string' },
+        details: { type: 'array', items: MediaError }
+      }
+    }
+  }
+};
+MediaValidationErrorResponse.example = { success: false, error: { code: 'media_not_ready', message: 'One or more media assets are not yet processed', details: [ { assetId: 'asset-uuid-123', code: 'file_too_large', message: 'File exceeds 10MB' }, { assetId: 'asset-uuid-456', code: 'unsupported_media_type', message: 'Invalid file format: .exe' } ] } };
 
 export const UserProfileBody = {
   type: 'object',
@@ -203,7 +290,7 @@ UserProfileResponse.example = {
   website: 'https://example.com',
   linkedin: 'https://linkedin.com/in/tech',
   github: 'https://github.com/tech',
-  createdAt: new Date().toISOString()
+  createdAt: '2026-04-13T00:00:00Z'
 };
 
 // Item schemas for FullProfileResponse arrays (defined before FullProfileResponse)
@@ -288,6 +375,7 @@ export const OAuthAccount = {
   }
 };
 
+// schemas.js
 export const FullProfileResponse = {
   type: 'object',
   properties: {
@@ -300,14 +388,14 @@ export const FullProfileResponse = {
         created_at: { type: 'string' }
       }
     },
-    profile: UserProfileResponse,
-    skills: { type: 'array', items: Skill, example: [{ id: 'skill-uuid', name: 'JavaScript', level: 'expert' }] },
-    portfolios: { type: 'array', items: Portfolio, example: [{ id: 'portfolio-uuid', userId: 'user-uuid', title: 'Personal Website', description: 'Showcase of projects', link: 'https://janedoe.dev' }] },
-    certifications: { type: 'array', items: Certification, example: [{ id: 'cert-uuid', userId: 'user-uuid', name: 'AWS Certified Developer', issuer: 'Amazon', issueDate: '2023-06-01' }] },
-    education: { type: 'array', items: Education, example: [{ id: 'edu-uuid', userId: 'user-uuid', school: 'State University', degree: 'BSc Computer Science', field: 'Computer Science', startDate: '2016-09-01', endDate: '2020-06-01' }] },
-    experiences: { type: 'array', items: Experience, example: [{ id: 'exp-uuid', userId: 'user-uuid', company: 'Acme Co', title: 'Software Engineer', employmentType: 'full-time', startDate: '2020-07-01', endDate: null, isCurrent: 1, description: 'Worked on backend services' }] },
-    followers: { type: 'array', items: Follower, example: [{ id: 'follower-uuid', followerId: 'other-user-uuid', followingId: 'user-uuid', createdAt: '2026-04-01T12:00:00Z' }] },
-    oauthAccounts: { type: 'array', items: OAuthAccount, example: [{ id: 'oauth-uuid', userId: 'user-uuid', provider: 'google', providerId: 'google-123', providerEmail: 'user@example.com', avatarUrl: 'https://example.com/avatar.jpg' }] }
+    profile: { ...UserProfileResponse }, // <--- Use spread
+    skills: { type: 'array', items: { ...Skill } }, // <--- Use spread
+    portfolios: { type: 'array', items: { ...Portfolio } }, // <--- Use spread
+    certifications: { type: 'array', items: { ...Certification } }, // <--- Use spread
+    education: { type: 'array', items: { ...Education } }, // <--- Use spread
+    experiences: { type: 'array', items: { ...Experience } }, // <--- Use spread
+    followers: { type: 'array', items: { ...Follower } }, // <--- Use spread
+    oauthAccounts: { type: 'array', items: { ...OAuthAccount } } // <--- Use spread
   }
 };
 
@@ -323,7 +411,7 @@ export const GenericErrorResponse = {
   type: 'object',
   properties: {
     success: { type: 'boolean' },
-    error: GenericError
+  error: {...GenericError}
   }
 };
 GenericErrorResponse.example = { success: false, error: { code: 'profile_already_exists', message: 'Profile already exists' } };
@@ -551,40 +639,45 @@ export default {
   PostResponse,
   PostListResponse,
   PostMediaAttachBody,
-  PostMediaResponse
-  , CommentCreateBody
-  , CommentResponse
-  , CommentListResponse
-  , ReactionBody
-  , ReactionToggleResponse
-  , PostSaveBody
-  , PostReportBody
-  , PostReportResponse
-  , UserProfileBody
-  , UserProfileResponse
-  , AvatarUploadBody
-  , MediaRegisterBody
-  , PageCategoryCreateBody
-  , PageCreateBody
-  , PageResponse
-  , PageListResponse
-  , PageCategoryResponse
-  , CommunityCategoryCreateBody
-  , CommunityCategoryResponse
-  , CommunityCreateBody
-  , CommunityResponse
-  , CommunityMemberResponse
-  , CommunityUpdateBody
-  , FullProfileResponse
-  , FullProfileResponse
-  , GenericError
-  , GenericErrorResponse
-  , AuthErrorResponse
-  , Skill
-  , Portfolio
-  , Certification
-  , Education
-  , Experience
-  , Follower
-  , OAuthAccount
+  PostMediaResponse,
+  // Questions & Answers
+  QuestionCreateBody,
+  QuestionResponse,
+  QuestionListResponse,
+  AnswerCreateBody,
+  AnswerResponse,
+  CommentCreateBody,
+  CommentResponse,
+  CommentListResponse,
+  ReactionBody,
+  ReactionToggleResponse,
+  PostSaveBody,
+  PostReportBody,
+  PostReportResponse,
+  UserProfileBody,
+  UserProfileResponse,
+  AvatarUploadBody,
+  MediaRegisterBody,
+  PageCategoryCreateBody,
+  PageCreateBody,
+  PageResponse,
+  PageListResponse,
+  PageCategoryResponse,
+  CommunityCategoryCreateBody,
+  CommunityCategoryResponse,
+  CommunityCreateBody,
+  CommunityResponse,
+  CommunityMemberResponse,
+  CommunityUpdateBody,
+  FullProfileResponse,
+  GenericError,
+  GenericErrorResponse,
+  AuthErrorResponse,
+  Skill,
+  Portfolio,
+  Certification,
+  Education,
+  Experience,
+  Follower,
+  OAuthAccount
 };

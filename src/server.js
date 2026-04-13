@@ -78,6 +78,12 @@ import MysqlPostSaveRepository from './infrastructure/repositories/mysqlPostSave
 import MysqlPostReportRepository from './infrastructure/repositories/mysqlPostReportRepository.js';
 import PostInteractionUseCase from './application/use-cases/postInteractionUseCase.js';
 import { makePostInteractionController } from './interfaces/controllers/postInteractionController.js';
+import MysqlQuestionRepository from './infrastructure/repositories/mysqlQuestionRepository.js';
+import MysqlAnswerRepository from './infrastructure/repositories/mysqlAnswerRepository.js';
+import QuestionUseCase from './application/use-cases/questionUseCase.js';
+import { makeQuestionController } from './interfaces/controllers/questionController.js';
+import { QuestionRepositoryImpl } from './domain/repositories/questionRepository.js';
+import { AnswerRepositoryImpl } from './domain/repositories/answerRepository.js';
 
 const serverLogger = logger.child('SERVER');
 const queueLogger = logger.child('EMAIL_QUEUE');
@@ -383,16 +389,16 @@ export default async function startServer() {
         const postUseCase = new PostUseCase({ postRepository: postRepo });
         const postController = makePostController({ useCase: postUseCase });
         Object.assign(controllers, postController);
-          // Post interactions wiring (save/report)
-          try {
-            const postSaveAdapter = new MysqlPostSaveRepository();
-            const postReportAdapter = new MysqlPostReportRepository();
-            const postInteractionUseCase = new PostInteractionUseCase({ postSaveRepository: postSaveAdapter, postReportRepository: postReportAdapter });
-            const postInteractionController = makePostInteractionController({ useCase: postInteractionUseCase });
-            Object.assign(controllers, postInteractionController);
-          } catch (piErr) {
-            serverLogger.warn('Post interaction wiring failed', piErr && piErr.message);
-          }
+        // Post interactions wiring (save/report)
+        try {
+          const postSaveAdapter = new MysqlPostSaveRepository();
+          const postReportAdapter = new MysqlPostReportRepository();
+          const postInteractionUseCase = new PostInteractionUseCase({ postSaveRepository: postSaveAdapter, postReportRepository: postReportAdapter });
+          const postInteractionController = makePostInteractionController({ useCase: postInteractionUseCase });
+          Object.assign(controllers, postInteractionController);
+        } catch (piErr) {
+          serverLogger.warn('Post interaction wiring failed', piErr && piErr.message);
+        }
         // Comments wiring
         try {
           const commentAdapter = new MysqlCommentRepository();
@@ -442,29 +448,29 @@ export default async function startServer() {
           const pageFollowerRepo = new PageFollowerRepositoryImpl({ adapter: pageFollowerAdapter });
           const pageController = makePageController({ useCase: pageUseCase, followersRepository: pageFollowerRepo });
           Object.assign(controllers, pageController);
-            // Communities wiring
+          // Communities wiring
+          try {
+            const communityCategoryAdapter = new MysqlCommunityCategoryRepository();
+            const communityCategoryRepo = new CommunityCategoryRepositoryImpl({ adapter: communityCategoryAdapter });
+            const communityAdapter = new MysqlCommunityRepository();
+            const communityRepo = new CommunityRepositoryImpl({ adapter: communityAdapter });
+            const communityMemberAdapter = new MysqlCommunityMemberRepository();
+            const communityMemberRepo = new CommunityMemberRepositoryImpl({ adapter: communityMemberAdapter });
+            const communityUseCase = new CommunityUseCase({ communityRepository: communityRepo, communityCategoryRepository: communityCategoryRepo, communityMemberRepository: communityMemberRepo });
+            const communityController = makeCommunityController({ useCase: communityUseCase });
+            Object.assign(controllers, communityController);
+            // Attach community repos to postUseCase if available so posts can validate membership
             try {
-              const communityCategoryAdapter = new MysqlCommunityCategoryRepository();
-              const communityCategoryRepo = new CommunityCategoryRepositoryImpl({ adapter: communityCategoryAdapter });
-              const communityAdapter = new MysqlCommunityRepository();
-              const communityRepo = new CommunityRepositoryImpl({ adapter: communityAdapter });
-              const communityMemberAdapter = new MysqlCommunityMemberRepository();
-              const communityMemberRepo = new CommunityMemberRepositoryImpl({ adapter: communityMemberAdapter });
-              const communityUseCase = new CommunityUseCase({ communityRepository: communityRepo, communityCategoryRepository: communityCategoryRepo, communityMemberRepository: communityMemberRepo });
-              const communityController = makeCommunityController({ useCase: communityUseCase });
-              Object.assign(controllers, communityController);
-              // Attach community repos to postUseCase if available so posts can validate membership
-              try {
-                if (typeof postUseCase !== 'undefined' && postUseCase) {
-                  postUseCase.communityRepository = communityRepo;
-                  postUseCase.communityMemberRepository = communityMemberRepo;
-                }
-              } catch (attachErr) {
-                serverLogger.warn('Could not attach community repos to postUseCase', attachErr && attachErr.message);
+              if (typeof postUseCase !== 'undefined' && postUseCase) {
+                postUseCase.communityRepository = communityRepo;
+                postUseCase.communityMemberRepository = communityMemberRepo;
               }
-            } catch (cErr) {
-              serverLogger.warn('Communities wiring failed', cErr && cErr.message);
+            } catch (attachErr) {
+              serverLogger.warn('Could not attach community repos to postUseCase', attachErr && attachErr.message);
             }
+          } catch (cErr) {
+            serverLogger.warn('Communities wiring failed', cErr && cErr.message);
+          }
           // Initialize media worker and controller now that pageRepo exists
           try {
             const assetAdapter = new MysqlUserAssetRepository();
@@ -472,8 +478,28 @@ export default async function startServer() {
             if (mediaQueue && !mediaWorker && redisConnection) {
               mediaWorker = createMediaWorker(redisConnection, { cloudinary, profileRepository: profileRepo, assetAdapter, postMediaAdapter, pageRepository: pageRepo, concurrency });
             }
+            // Attach asset adapter to postUseCase so posts can validate asset readiness
+            try {
+              if (typeof postUseCase !== 'undefined' && postUseCase && assetAdapter) {
+                postUseCase.assetRepository = assetAdapter;
+              }
+            } catch (attachErr) {
+              serverLogger.warn('Could not attach assetAdapter to postUseCase', attachErr && attachErr.message);
+            }
             const mediaController = makeMediaController({ cloudinary, mediaQueue, assetAdapter });
             Object.assign(controllers, mediaController);
+            // Questions & Answers wiring
+            try {
+              const questionAdapter = new MysqlQuestionRepository();
+              const answerAdapter = new MysqlAnswerRepository();
+              const questionRepo = new QuestionRepositoryImpl({ adapter: questionAdapter });
+              const answerRepo = new AnswerRepositoryImpl({ adapter: answerAdapter });
+              const questionUseCase = new QuestionUseCase({ questionRepository: questionRepo, answerRepository: answerRepo });
+              const questionController = makeQuestionController({ useCase: questionUseCase });
+              Object.assign(controllers, questionController);
+            } catch (qErr) {
+              serverLogger.warn('Questions wiring failed', qErr && qErr.message);
+            }
           } catch (mwErr) {
             serverLogger.warn('Media worker/controller init after pages failed', mwErr && mwErr.message);
           }
@@ -499,7 +525,7 @@ export default async function startServer() {
   } catch (err) {
     serverLogger.warn('User controllers not fully configured', err && err.message);
   }
-  if (authController) 
+  if (authController)
     Object.assign(controllers, authController);
   // Attach logout handler to record logout events in login history
   try {

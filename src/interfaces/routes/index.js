@@ -435,9 +435,30 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'registerMedia',
       tags: ['Media'],
-      description: 'Register a direct client upload by Cloudinary public id so server can validate and create asset record. If kind=avatar|banner and image already exists, pass replace=true or clear it first using PUT /users/:id/profile with { avatar: null } or { banner: null }.',
+      description: 'Register a direct client upload (Cloudinary public id) so the server can validate, create an asset record and enqueue processing. Recommended flow: upload media first (or perform direct client upload), then call this endpoint with the provider public id. Server-side validation performed: allowed MIME types (image/jpeg,image/png,image/webp), max file size (enforced by the media worker, see MAX_POST_IMAGE_BYTES env), and optional checks per `kind` (e.g., avatar/banner uniqueness). The endpoint returns a job id — poll `GET /media/jobs/:id` for processing status and detailed per-asset errors (e.g., file_too_large, unsupported_media_type). If you intend to attach media to a post, wait until job status is `completed` and asset record has a `url` before creating the post.',
       body: schemas.MediaRegisterBody,
-      response: { 202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } }, examples: [ { summary: 'Registered (profile update queued)', value: { success: true, data: { jobId: 'job_12345' } } }, { summary: 'Register page asset', value: { success: true, data: { jobId: 'job_67890' } } } ] }, 409: { type: 'object' } }
+      response: {
+        202: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: { type: 'object' } },
+          examples: [{ summary: 'Registered (profile update queued)', value: { success: true, data: { jobId: 'job_12345' } } }, { summary: 'Register page asset', value: { success: true, data: { jobId: 'job_67890' } } }]
+        },
+        409: { type: 'object' },
+        422: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            error: {
+              type: 'object',
+              properties: {
+                code: { type: 'string' },
+                message: { type: 'string' },
+                details: { type: 'array', items: { type: 'object', properties: { assetId: { type: 'string' }, code: { type: 'string' }, message: { type: 'string' } } } }
+              }
+            }
+          }
+        }
+      }
     }
   }, handler('registerMedia'));
 
@@ -687,7 +708,7 @@ export default async function registerRoutes(fastify, deps) {
 
   fastify.put('/communities/:id', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'updateCommunity', tags: ['Communities'], body: { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' }, defaultPostVisibility: { type: 'string', enum: ['public','connections','community'] }, is_active: { type: 'number' } } }, response: { 200: { type: 'object' } } }
+    schema: { operationId: 'updateCommunity', tags: ['Communities'], body: { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' }, defaultPostVisibility: { type: 'string', enum: ['public', 'connections', 'community'] }, is_active: { type: 'number' } } }, response: { 200: { type: 'object' } } }
   }, handler('updateCommunity'));
 
   fastify.delete('/communities/:id', {
@@ -846,14 +867,27 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'createPost',
       tags: ['Posts'],
-      description: 'Create a new post. Provide `title` and `content` in body. Optional `communityId`. Server will use authenticated user when available; `userId` in body is a fallback.',
+      description: 'Create a new post. Provide `title` and `content` in body. Optional `communityId`. Upload media first (use /media/register or media endpoints), wait until media job(s) are processed, then include their `mediaAssetIds` here — the server will validate that each asset is processed and has a URL before creating the post.',
       body: schemas.PostCreateBody,
       response: {
         201: {
           type: 'object',
           properties: { success: { type: 'boolean' }, data: schemas.PostResponse }
         },
-        422: { type: 'object' }
+        422: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            error: {
+              type: 'object',
+              properties: {
+                code: { type: 'string' },
+                message: { type: 'string' },
+                details: { type: 'array', items: { type: 'object', properties: { assetId: { type: 'string' }, code: { type: 'string' }, message: { type: 'string' } } } }
+              }
+            }
+          }
+        }
       }
     }
   }, handler('createPost'));
@@ -1000,6 +1034,93 @@ export default async function registerRoutes(fastify, deps) {
       response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } } }
     }
   }, handler('deletePostMedia'));
+
+  // ========== Questions & Answers ==========
+  fastify.post('/questions', {
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.createPost, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
+    schema: {
+      operationId: 'createQuestion',
+      tags: ['Questions'],
+      description: 'Create a new question. Authenticated user becomes the author. Optionally attach the question to a community. Returns the created question.',
+      body: schemas.QuestionCreateBody,
+      response: {
+        201: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.QuestionResponse },
+          example: { success: true, data: schemas.QuestionResponse.example }
+        },
+        401: { type: 'object' },
+        422: { type: 'object' }
+      }
+    }
+  }, handler('createQuestion'));
+
+  fastify.get('/questions', {
+    schema: {
+      operationId: 'listQuestions',
+      tags: ['Questions'],
+      description: 'List questions. Supports pagination via `page` & `perPage` and optional `communityId` filter.',
+      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'perPage', in: 'query', schema: { type: 'number' } }, { name: 'communityId', in: 'query', schema: { type: 'string' } }],
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.QuestionListResponse },
+          example: { success: true, data: [schemas.QuestionResponse.example] }
+        }
+      }
+    }
+  }, handler('listQuestions'));
+
+  fastify.get('/questions/:id', {
+    schema: {
+      operationId: 'getQuestion',
+      tags: ['Questions'],
+      description: 'Get a single question by id. Set `includeAnswers=true` to include answers in the response.',
+      parameters: [{ name: 'includeAnswers', in: 'query', schema: { type: 'boolean' } }],
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.QuestionResponse },
+          example: { success: true, data: schemas.QuestionResponse.example }
+        },
+        404: { type: 'object' }
+      }
+    }
+  }, handler('getQuestion'));
+
+  fastify.post('/questions/:questionId/answers', {
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.comments, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
+    schema: {
+      operationId: 'createAnswer',
+      tags: ['Questions', 'Answers'],
+      description: 'Create an answer for a question. Authenticated user becomes the author.',
+      body: schemas.AnswerCreateBody,
+      response: {
+        201: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.AnswerResponse },
+          example: { success: true, data: schemas.AnswerResponse.example }
+        },
+        401: { type: 'object' },
+        422: { type: 'object' }
+      }
+    }
+  }, handler('createAnswer'));
+
+  fastify.get('/questions/:questionId/answers', {
+    schema: {
+      operationId: 'listAnswers',
+      tags: ['Questions', 'Answers'],
+      description: 'List answers for a question. Supports pagination via `limit` and `offset` query params.',
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: { type: 'array', items: schemas.AnswerResponse } },
+          example: { success: true, data: [schemas.AnswerResponse.example] }
+        }
+      }
+    }
+  }, handler('listAnswers'));
 
   // ========== Pages ==========
   fastify.post('/pages', {
@@ -1157,7 +1278,7 @@ export default async function registerRoutes(fastify, deps) {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'uploadPageAvatarFile',
-      tags: ['Media','Pages'],
+      tags: ['Media', 'Pages'],
       description: 'Upload a page avatar file (multipart). Enqueues background job and returns jobId.',
       requestBody: {
         content: {
@@ -1170,39 +1291,41 @@ export default async function registerRoutes(fastify, deps) {
           }
         }
       },
-      response: { 202: 
-        { type: 'object', 
-          properties: { 
-            success: { 
-              type: 'boolean' 
-            }, 
-            data: { 
-              type: 'object', 
-              properties: { 
-                jobId: { 
-                  type: 'string' 
-                } 
-              } 
-            } 
+      response: {
+        202:
+        {
+          type: 'object',
+          properties: {
+            success: {
+              type: 'boolean'
+            },
+            data: {
+              type: 'object',
+              properties: {
+                jobId: {
+                  type: 'string'
+                }
+              }
+            }
           },
-          examples: [ 
-            { 
-              summary: 'Job queued', 
-              value: { 
-                success: true, 
-                data: { 
-                  jobId: 'job_abc123' 
-                } 
-              } 
-            } 
-          ] 
-        }, 
-        422: { 
-          type: 'object' 
-        }, 
-        503: { 
-          type: 'object' 
-        } 
+          examples: [
+            {
+              summary: 'Job queued',
+              value: {
+                success: true,
+                data: {
+                  jobId: 'job_abc123'
+                }
+              }
+            }
+          ]
+        },
+        422: {
+          type: 'object'
+        },
+        503: {
+          type: 'object'
+        }
       }
     }
   }, handler('uploadPageAvatarFile'));
@@ -1212,7 +1335,7 @@ export default async function registerRoutes(fastify, deps) {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'uploadPageCoverFile',
-      tags: ['Media','Pages'],
+      tags: ['Media', 'Pages'],
       description: 'Upload a page cover/banner file (multipart). Enqueues background job and returns jobId.',
       requestBody: {
         content: {
@@ -1225,7 +1348,7 @@ export default async function registerRoutes(fastify, deps) {
           }
         }
       },
-      response: { 202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { jobId: { type: 'string' } } } }, examples: [ { summary: 'Job queued', value: { success: true, data: { jobId: 'job_def456' } } } ] }, 422: { type: 'object' }, 503: { type: 'object' } }
+      response: { 202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { jobId: { type: 'string' } } } }, examples: [{ summary: 'Job queued', value: { success: true, data: { jobId: 'job_def456' } } }] }, 422: { type: 'object' }, 503: { type: 'object' } }
     }
   }, handler('uploadPageCoverFile'));
 

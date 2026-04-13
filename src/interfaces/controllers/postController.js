@@ -13,14 +13,14 @@ export function makePostController({ useCase = null }) {
       try {
         const body = req.body || {};
         const actorId = req.user && req.user.id;
-        const { communityId, pageId, title, content, visibility } = body;
+        const { communityId, pageId, title, content, visibility, mediaAssetIds } = body;
         if (!actorId) {
           return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         }
         if (!title || !content) {
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         }
-        const created = await useCase.CreatePost({ userId: actorId, communityId, pageId, title, content, visibility });
+        const created = await useCase.CreatePost({ userId: actorId, communityId, pageId, title, content, visibility, mediaAssetIds });
 
         // Invalidate simple feed caches when a new post is created
         try {
@@ -39,6 +39,9 @@ export function makePostController({ useCase = null }) {
         postLogger.error('createPost error', { message: err.message, stack: err.stack });
         if (err.message === 'user_required' || err.message === 'content_required') {
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        }
+        if (err.message === 'media_not_ready') {
+          return reply.code(422).send({ success: false, error: { code: 'media_not_ready', message: 'One or more media assets are not yet processed' } });
         }
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }

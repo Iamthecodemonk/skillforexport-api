@@ -30,6 +30,21 @@ export default class PostUseCase {
         visibility = community.default_post_visibility;
       }
     }
+    // Validate provided media assets (if any) to ensure uploads completed
+    if (Array.isArray(arguments[0].mediaAssetIds) && arguments[0].mediaAssetIds.length > 0) {
+      const assetIds = arguments[0].mediaAssetIds;
+      if (!this.assetRepository || typeof this.assetRepository.findById !== 'function') {
+        throw new Error('media_validation_unavailable');
+      }
+      for (const aid of assetIds) {
+        const asset = await this.assetRepository.findById(aid).catch(() => null);
+        if (!asset || !asset.url) {
+          // asset missing or not yet processed/uploaded
+          throw new Error('media_not_ready');
+        }
+      }
+    }
+
     const post = {
       id: uuidv4(),
       user_id: userId,

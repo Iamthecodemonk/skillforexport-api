@@ -10,6 +10,9 @@ export class PageFollowerRepository {
   async listByPage(pageId, { limit, offset } = {}) {
     throw new Error('listByPage() not implemented');
   }
+  async findByPageAndUser(pageId, userId) {
+    throw new Error('findByPageAndUser() not implemented');
+  }
 }
 
 export class PageFollowerRepositoryImpl extends PageFollowerRepository {
@@ -29,5 +32,11 @@ export class PageFollowerRepositoryImpl extends PageFollowerRepository {
 
   async listByPage(pageId, { limit = 50, offset = 0 } = {}) {
     return this.adapter.listByPage(pageId, { limit, offset });
+  }
+  async findByPageAndUser(pageId, userId) {
+    if (typeof this.adapter.findByPageAndUser === 'function') {
+      return this.adapter.findByPageAndUser(pageId, userId);
+    }
+    return null;
   }
 }

@@ -20,7 +20,7 @@ export default class MysqlPageRepository {
       approval_notes: page.approval_notes || page.approvalNotes || null,
       approved_at: page.approved_at || page.approvedAt || null,
       approved_by: page.approved_by || page.approvedBy || null,
-      metadata: page.metadata || null,
+      metadata: typeof page.metadata !== 'undefined' && page.metadata !== null ? JSON.stringify(page.metadata) : null,
       created_at: now,
       updated_at: now
     });
@@ -29,7 +29,11 @@ export default class MysqlPageRepository {
 
   async findById(id) {
     const row = await db('pages').where({ id }).first();
-    return row || null;
+    if (!row) return null;
+    if (row.metadata && typeof row.metadata === 'string') {
+      try { row.metadata = JSON.parse(row.metadata); } catch (e) { /* leave as-is */ }
+    }
+    return row;
   }
 
   async findByName(name) {
@@ -40,6 +44,13 @@ export default class MysqlPageRepository {
 
   async list({ limit = 20, offset = 0 } = {}) {
     const rows = await db('pages').orderBy('created_at', 'desc').limit(limit).offset(offset);
+    if (Array.isArray(rows)) {
+      rows.forEach(r => {
+        if (r.metadata && typeof r.metadata === 'string') {
+          try { r.metadata = JSON.parse(r.metadata); } catch (e) { /* leave as-is */ }
+        }
+      });
+    }
     return rows || [];
   }
 
@@ -56,7 +67,7 @@ export default class MysqlPageRepository {
     if (typeof updates.approval_notes !== 'undefined') payload.approval_notes = updates.approval_notes;
     if (typeof updates.approved_at !== 'undefined') payload.approved_at = updates.approved_at;
     if (typeof updates.approved_by !== 'undefined') payload.approved_by = updates.approved_by;
-    if (typeof updates.metadata !== 'undefined') payload.metadata = updates.metadata;
+    if (typeof updates.metadata !== 'undefined') payload.metadata = updates.metadata !== null ? JSON.stringify(updates.metadata) : null;
     if (Object.keys(payload).length === 0) return this.findById(id);
     payload.updated_at = now;
     await db('pages').where({ id }).update(payload);
@@ -91,5 +102,10 @@ export default class MysqlPageRepository {
   async listByCategory(categoryId, { limit = 20, offset = 0 } = {}) {
     const rows = await db('pages').where({ category_id: categoryId }).orderBy('created_at', 'desc').limit(limit).offset(offset);
     return rows || [];
+  }
+
+  async unassignCategory(categoryId) {
+    await db('pages').where({ category_id: categoryId }).update({ category_id: null, updated_at: new Date() });
+    return true;
   }
 }

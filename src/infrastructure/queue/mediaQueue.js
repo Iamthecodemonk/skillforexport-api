@@ -16,7 +16,7 @@ export function createMediaQueue(redisConnection) {
   return new Queue('media', { connection: redisConnection });
 }
 
-export function createMediaWorker(redisConnection, { cloudinary, profileRepository = null, assetAdapter = null, postMediaAdapter = null, concurrency = 2 } = {}) {
+export function createMediaWorker(redisConnection, { cloudinary, profileRepository = null, assetAdapter = null, postMediaAdapter = null, pageRepository = null, concurrency = 2 } = {}) {
   const safeCreateAsset = async (asset) => {
     if (!assetAdapter) return null;
     try {
@@ -68,6 +68,15 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
             if (profile) {
               await profileRepository.update(profile.id, { avatar: result.secure_url || result.url });
               queueLogger.info('Profile avatar updated', { userId });
+            }
+          }
+          // Update page avatar if a pageId was supplied and pageRepository available
+          if (pageRepository && data.pageId) {
+            try {
+              await pageRepository.update(data.pageId, { avatar: result.secure_url || result.url });
+              queueLogger.info('Page avatar updated', { pageId: data.pageId });
+            } catch (e) {
+              queueLogger.warn('Failed to update page avatar', { pageId: data.pageId, err: e && e.message });
             }
           }
 
@@ -175,6 +184,20 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
               }
             }
           }
+          // Update page record if pageId provided
+          if (pageRepository && data.pageId) {
+            try {
+              if (kind === 'banner') {
+                await pageRepository.update(data.pageId, { cover_image: result.secure_url || result.url });
+                queueLogger.info('Page cover image updated from file', { pageId: data.pageId });
+              } else {
+                await pageRepository.update(data.pageId, { avatar: result.secure_url || result.url });
+                queueLogger.info('Page avatar updated from file', { pageId: data.pageId });
+              }
+            } catch (e) {
+              queueLogger.warn('Failed to update page from file upload', { pageId: data.pageId, err: e && e.message });
+            }
+          }
 
           // Cleanup temp file
           try {
@@ -220,6 +243,20 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
               } else {
                 await profileRepository.update(profile.id, { avatar: info.secure_url || info.url });
               }
+            }
+          }
+          // Optionally update page image for avatar/banner-kind
+          if ((kind === 'avatar' || kind === 'banner') && pageRepository && data.pageId) {
+            try {
+              if (kind === 'banner') {
+                await pageRepository.update(data.pageId, { cover_image: info.secure_url || info.url });
+                queueLogger.info('Page cover image updated for direct register', { pageId: data.pageId });
+              } else {
+                await pageRepository.update(data.pageId, { avatar: info.secure_url || info.url });
+                queueLogger.info('Page avatar updated for direct register', { pageId: data.pageId });
+              }
+            } catch (e) {
+              queueLogger.warn('Failed to update page for direct register', { pageId: data.pageId, err: e && e.message });
             }
           }
           return info;

@@ -99,7 +99,7 @@ export function makePostController({ useCase = null }) {
         if (!actorId) 
           return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         await useCase.DeletePost({ id, userId: actorId });
-        return reply.code(204).send();
+        return reply.code(200).send({ success: true, data: { id } });
       } catch (err) {
         postLogger.error('deletePost error', { message: err.message, stack: err.stack });
         if (err.message === 'post_not_found') return reply.code(404).send({ success: false, error: { code: 'post_not_found' } });
@@ -153,7 +153,7 @@ export function makePostMediaController({ useCase = null }) {
       try {
         const { id: mediaId } = req.params;
         await useCase.DeleteMediaById(mediaId);
-        return reply.code(204).send();
+        return reply.code(200).send({ success: true, data: { id: mediaId } });
       } catch (err) {
         mediaLogger.error('deletePostMedia error', { message: err.message, stack: err.stack });
         if (err.message === 'media_id_required') 

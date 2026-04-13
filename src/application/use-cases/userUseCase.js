@@ -176,6 +176,11 @@ export default class UserUseCase {
     return this.followerRepository.create(entry);
   }
 
+  async unfollowUser(userId, followerId) {
+    // Attempt to delete the follower relation; adapter returns deleted row or null
+    return this.followerRepository.deleteByFollowerAndFollowing(followerId, userId);
+  }
+
   async listFollowers(userId) {
     return this.followerRepository.listFollowers(userId);
   }

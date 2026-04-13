@@ -322,6 +322,22 @@ export function makeUserController({ useCase = null }) {
       }
     },
 
+    unfollowUser: async (req, reply) => {
+      try {
+        const { id } = req.params; // target user id
+        const actorId = req.user && req.user.id;
+        if (!actorId)
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        // Attempt to unfollow; idempotent: if not following, return 200
+        const deleted = await useCase.unfollowUser(id, actorId);
+        if (!deleted) return reply.code(200).send({ success: true, data: {} });
+        return reply.code(200).send({ success: true, data: deleted.toPlainObject ? deleted.toPlainObject() : deleted });
+      } catch (err) {
+        userLogger.error('unfollowUser error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
     listFollowers: async (req, reply) => {
       try {
         const { id } = req.params;
@@ -394,7 +410,7 @@ export function makeUserController({ useCase = null }) {
       try {
         const { id, skillId } = req.params;
         await useCase.deleteSkill(id, skillId);
-        return reply.code(204).send();
+        return reply.code(200).send({ success: true, data: { id: skillId } });
       } catch (err) {
         userLogger.error('deleteSkill error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -406,7 +422,7 @@ export function makeUserController({ useCase = null }) {
       try {
         const { id, portfolioId } = req.params;
         await useCase.deletePortfolio(id, portfolioId);
-        return reply.code(204).send();
+        return reply.code(200).send({ success: true, data: { id: portfolioId } });
       } catch (err) {
         userLogger.error('deletePortfolio error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -458,7 +474,7 @@ export function makeUserController({ useCase = null }) {
       try {
         const { id, certId } = req.params;
         await useCase.deleteCertification(id, certId);
-        return reply.code(204).send();
+        return reply.code(200).send({ success: true, data: { id: certId } });
       } catch (err) {
         userLogger.error('deleteCertification error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -493,7 +509,7 @@ export function makeUserController({ useCase = null }) {
       try {
         const { id, eduId } = req.params;
         await useCase.deleteEducation(id, eduId);
-        return reply.code(204).send();
+        return reply.code(200).send({ success: true, data: { id: eduId } });
       } catch (err) {
         userLogger.error('deleteEducation error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -528,7 +544,7 @@ export function makeUserController({ useCase = null }) {
       try {
         const { id, expId } = req.params;
         await useCase.deleteExperience(id, expId);
-        return reply.code(204).send();
+        return reply.code(200).send({ success: true, data: { id: expId } });
       } catch (err) {
         userLogger.error('deleteExperience error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });

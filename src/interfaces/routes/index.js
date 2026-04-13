@@ -437,7 +437,7 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Media'],
       description: 'Register a direct client upload by Cloudinary public id so server can validate and create asset record. If kind=avatar|banner and image already exists, pass replace=true or clear it first using PUT /users/:id/profile with { avatar: null } or { banner: null }.',
       body: schemas.MediaRegisterBody,
-      response: { 202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 409: { type: 'object' } }
+      response: { 202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } }, examples: [ { summary: 'Registered (profile update queued)', value: { success: true, data: { jobId: 'job_12345' } } }, { summary: 'Register page asset', value: { success: true, data: { jobId: 'job_67890' } } } ] }, 409: { type: 'object' } }
     }
   }, handler('registerMedia'));
 
@@ -564,7 +564,7 @@ export default async function registerRoutes(fastify, deps) {
         operationId:
           'deleteUserSkill',
         tags: ['Users']
-        , response: { 204: { type: 'null' } }
+        , response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } } }
       }
     }, handler('deleteSkill'));
 
@@ -597,7 +597,23 @@ export default async function registerRoutes(fastify, deps) {
       response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 422: { type: 'object' } }
     }
   }, handler('addUserPortfolio'));
-  fastify.delete('/users/:id/portfolios/:portfolioId', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'deleteUserPortfolio', tags: ['Users'], response: { 204: { type: 'null' } } } }, handler('deletePortfolio'));
+  fastify.delete(
+    '/users/:id/portfolios/:portfolioId',
+    {
+      preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+      schema: {
+        operationId: 'deleteUserPortfolio',
+        tags: ['Users'],
+        response: {
+          200: {
+            type: 'object',
+            properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } }
+          }
+        }
+      }
+    },
+    handler('deletePortfolio')
+  );
 
   fastify.post('/users/:id/follow', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
@@ -612,6 +628,15 @@ export default async function registerRoutes(fastify, deps) {
       response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 422: { type: 'object' } }
     }
   }, handler('followUser'));
+
+  fastify.delete('/users/:id/follow', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'unfollowUser',
+      tags: ['Users'],
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } } }
+    }
+  }, handler('unfollowUser'));
 
   fastify.get('/users/:id/followers', {
     schema: {
@@ -628,6 +653,47 @@ export default async function registerRoutes(fastify, deps) {
       , response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { type: 'object' } } } } }
     }
   }, handler('listLoginHistory'));
+
+  // Community categories
+  fastify.post('/community-categories', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'createCommunityCategory',
+      tags: ['Communities'],
+      body: { type: 'object', required: ['name'], properties: { name: { type: 'string' } }, example: { name: 'Sports' } },
+      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } } }
+    }
+  }, handler('createCategory'));
+
+  fastify.put('/community-categories/:id', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { operationId: 'updateCommunityCategory', tags: ['Communities'], body: { type: 'object', properties: { name: { type: 'string' } } }, response: { 200: { type: 'object' } } }
+  }, handler('updateCategory'));
+
+  fastify.delete('/community-categories/:id', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { operationId: 'deleteCommunityCategory', tags: ['Communities'], response: { 200: { type: 'object' } } }
+  }, handler('deleteCategory'));
+
+  // Communities
+  fastify.post('/communities', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { operationId: 'createCommunity', tags: ['Communities'], body: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, description: { type: 'string' }, categoryId: { type: 'string' } }, example: { name: 'Local Chess Club', description: 'We play chess', categoryId: null } }, response: { 201: { type: 'object' } } }
+  }, handler('createCommunity'));
+
+  fastify.post('/communities/:id/join', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { operationId: 'joinCommunity', tags: ['Communities'], response: { 200: { type: 'object' } } }
+  }, handler('joinCommunity'));
+
+  fastify.delete('/communities/:id/join', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { operationId: 'leaveCommunity', tags: ['Communities'], response: { 200: { type: 'object' } } }
+  }, handler('leaveCommunity'));
+
+  fastify.get('/communities/:id/members', {
+    schema: { operationId: 'listCommunityMembers', tags: ['Communities'], response: { 200: { type: 'object' } } }
+  }, handler('listMembers'));
 
   fastify.post('/users/:id/oauth-accounts', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
@@ -684,7 +750,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'deleteCertification',
       tags: ['Users'],
-      response: { 204: { type: 'null' } }
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } } }
     }
   }, handler('deleteCertification'));
 
@@ -716,7 +782,7 @@ export default async function registerRoutes(fastify, deps) {
 
   fastify.delete('/users/:id/education/:eduId', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'deleteEducation', tags: ['Users'], response: { 204: { type: 'null' } } }
+    schema: { operationId: 'deleteEducation', tags: ['Users'], response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } } } }
   }, handler('deleteEducation'));
 
   // ========== User Experiences ==========
@@ -739,7 +805,26 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('addExperience'));
 
-  fastify.delete('/users/:id/experiences/:expId', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'deleteExperience', tags: ['Users'], response: { 204: { type: 'null' } } } }, handler('deleteExperience'));
+  fastify.delete(
+    '/users/:id/experiences/:expId',
+    {
+      preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+      schema: {
+        operationId: 'deleteExperience',
+        tags: ['Users'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: { type: 'object', properties: { id: { type: 'string' } } }
+            }
+          }
+        }
+      }
+    },
+    handler('deleteExperience')
+  );
 
   // ========== Posts ==========
   fastify.post('/posts', {
@@ -796,7 +881,7 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Posts'],
       description: 'Delete a post. Provide `userId` in body to verify ownership.',
       body: { type: 'object', properties: { userId: { type: 'string' } } },
-      response: { 204: { type: 'null' }, 403: { type: 'object' }, 404: { type: 'object' } }
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } }, 403: { type: 'object' }, 404: { type: 'object' } }
     }
   }, handler('deletePost'));
 
@@ -898,7 +983,7 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'deletePostMedia',
       tags: ['Posts', 'Media'],
       description: 'Delete a post media item by id',
-      response: { 204: { type: 'null' } }
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } } }
     }
   }, handler('deletePostMedia'));
 
@@ -976,6 +1061,72 @@ export default async function registerRoutes(fastify, deps) {
     }
   });
 
+  // Admin-only: create a page category
+  fastify.post('/page-categories', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'createPageCategory',
+      tags: ['Categories'],
+      description: 'Create a new page category (admin only).',
+      // Embed example so Swagger UI shows a ready-to-use sample payload for admins
+      body: Object.assign({}, schemas.PageCategoryCreateBody, { example: schemas.PageCategoryCreateBody.example }),
+      response: {
+        201: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PageCategoryResponse } },
+        401: { type: 'object' },
+        403: { type: 'object' },
+        409: schemas.GenericErrorResponse,
+        422: {
+          type: 'object',
+          examples: [
+            { summary: 'Invalid slug format', value: { success: false, error: { code: 'invalid_slug_format', message: 'Slug must match ^[a-z0-9-]+$' } } },
+            { summary: 'Name too short', value: { success: false, error: { code: 'name_too_short', message: 'Name must be at least the minimum length' } } },
+            { summary: 'Invalid validation rules', value: { success: false, error: { code: 'invalid_validation_rules', message: 'validation_rules must be an object with valid fields' } } }
+          ]
+        }
+      }
+    }
+  }, handler('createPageCategory'));
+
+  fastify.put('/page-categories/:id', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'updatePageCategory',
+      tags: ['Categories'],
+      description: 'Update an existing page category (admin only).',
+      body: Object.assign({}, schemas.PageCategoryCreateBody, { example: schemas.PageCategoryCreateBody.example }),
+      response: {
+        200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PageCategoryResponse } },
+        401: { type: 'object' },
+        403: { type: 'object' },
+        404: { type: 'object' },
+        409: schemas.GenericErrorResponse,
+        422: {
+          type: 'object',
+          examples: [
+            { summary: 'Invalid slug format', value: { success: false, error: { code: 'invalid_slug_format', message: 'Slug must match ^[a-z0-9-]+$' } } },
+            { summary: 'Name too short', value: { success: false, error: { code: 'name_too_short', message: 'Name must be at least the minimum length' } } },
+            { summary: 'Invalid validation rules', value: { success: false, error: { code: 'invalid_validation_rules', message: 'validation_rules must be an object with valid fields' } } }
+          ]
+        }
+      }
+    }
+  }, handler('updatePageCategory'));
+
+  fastify.delete('/page-categories/:id', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'deletePageCategory',
+      tags: ['Categories'],
+      description: 'Delete a page category (admin only). Pages that reference this category will be unassigned (category set to null) before deletion to avoid FK errors.',
+      response: {
+        200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } },
+        401: { type: 'object' },
+        403: { type: 'object' },
+        404: { type: 'object' }
+      }
+    }
+  }, handler('deletePageCategory'));
+
   fastify.put('/pages/:id', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
@@ -987,13 +1138,90 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('updatePage'));
 
+  // Page avatar (multipart) upload
+  fastify.post('/pages/:id/avatar-file', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'uploadPageAvatarFile',
+      tags: ['Media','Pages'],
+      description: 'Upload a page avatar file (multipart). Enqueues background job and returns jobId.',
+      requestBody: {
+        content: {
+          'multipart/form-data': {
+            schema: {
+              type: 'object',
+              properties: { file: { type: 'string', format: 'binary' } },
+              required: ['file']
+            }
+          }
+        }
+      },
+      response: { 202: 
+        { type: 'object', 
+          properties: { 
+            success: { 
+              type: 'boolean' 
+            }, 
+            data: { 
+              type: 'object', 
+              properties: { 
+                jobId: { 
+                  type: 'string' 
+                } 
+              } 
+            } 
+          },
+          examples: [ 
+            { 
+              summary: 'Job queued', 
+              value: { 
+                success: true, 
+                data: { 
+                  jobId: 'job_abc123' 
+                } 
+              } 
+            } 
+          ] 
+        }, 
+        422: { 
+          type: 'object' 
+        }, 
+        503: { 
+          type: 'object' 
+        } 
+      }
+    }
+  }, handler('uploadPageAvatarFile'));
+
+  // Page cover/banner (multipart) upload
+  fastify.post('/pages/:id/cover-file', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'uploadPageCoverFile',
+      tags: ['Media','Pages'],
+      description: 'Upload a page cover/banner file (multipart). Enqueues background job and returns jobId.',
+      requestBody: {
+        content: {
+          'multipart/form-data': {
+            schema: {
+              type: 'object',
+              properties: { file: { type: 'string', format: 'binary' } },
+              required: ['file']
+            }
+          }
+        }
+      },
+      response: { 202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { jobId: { type: 'string' } } } }, examples: [ { summary: 'Job queued', value: { success: true, data: { jobId: 'job_def456' } } } ] }, 422: { type: 'object' }, 503: { type: 'object' } }
+    }
+  }, handler('uploadPageCoverFile'));
+
   fastify.delete('/pages/:id', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'deletePage',
       tags: ['Pages'],
       description: 'Delete a page. Only the page owner may delete.',
-      response: { 204: { type: 'null' }, 403: { type: 'object' }, 404: { type: 'object' } }
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } }, 403: { type: 'object' }, 404: { type: 'object' } }
     }
   }, handler('deletePage'));
 
@@ -1013,6 +1241,7 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'followPage',
       tags: ['Pages'],
       description: 'Follow a page',
+      body: { type: 'object', description: 'Empty body accepted; request requires Authorization header. Server ignores body and uses the authenticated user from the Authorization token.', properties: {}, example: { "note": "No body required. Include Authorization: Bearer <token>" } },
       response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 401: { type: 'object' } }
     }
   }, handler('followPage'));
@@ -1023,7 +1252,7 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'unfollowPage',
       tags: ['Pages'],
       description: 'Unfollow a page',
-      response: { 204: { type: 'null' }, 401: { type: 'object' } }
+      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } }, 401: { type: 'object' } }
     }
   }, handler('unfollowPage'));
 

@@ -37,6 +37,14 @@ import { PageCategoryRepositoryImpl } from './domain/repositories/pageCategoryRe
 import MysqlPageFollowerRepository from './infrastructure/repositories/mysqlPageFollowerRepository.js';
 import { PageFollowerRepositoryImpl } from './domain/repositories/pageFollowerRepository.js';
 import { makePageController } from './interfaces/controllers/pageController.js';
+import MysqlCommunityCategoryRepository from './infrastructure/repositories/mysqlCommunityCategoryRepository.js';
+import MysqlCommunityRepository from './infrastructure/repositories/mysqlCommunityRepository.js';
+import MysqlCommunityMemberRepository from './infrastructure/repositories/mysqlCommunityMemberRepository.js';
+import { CommunityRepositoryImpl } from './domain/repositories/communityRepository.js';
+import { CommunityCategoryRepositoryImpl } from './domain/repositories/communityCategoryRepository.js';
+import { CommunityMemberRepositoryImpl } from './domain/repositories/communityMemberRepository.js';
+import CommunityUseCase from './application/use-cases/communityUseCase.js';
+import { makeCommunityController } from './interfaces/controllers/communityController.js';
 import { makePostMediaController } from './interfaces/controllers/postController.js';
 import PostMediaUseCase from './application/use-cases/postMediaUseCase.js';
 import AuthUseCase from './application/use-cases/authUseCase.js';
@@ -302,22 +310,7 @@ export default async function startServer() {
     userAdapter = userAdapter || new MysqlUserRepository();
     userRepo = userRepo || new UserRepositoryImpl({ adapter: userAdapter });
 
-    // Start media worker now that profileRepo exists (so worker can update profiles)
-      try {
-      // instantiate adapters for worker and controllers
-      const assetAdapter = new MysqlUserAssetRepository();
-      const postMediaAdapter = new MysqlPostMediaRepository();
-
-      if (mediaQueue && !mediaWorker && redisConnection) {
-        mediaWorker = createMediaWorker(redisConnection, { cloudinary, profileRepository: profileRepo, assetAdapter, postMediaAdapter, concurrency });
-      }
-
-      // media controller (signature + multipart upload) - create after adapters exist
-      const mediaController = makeMediaController({ cloudinary, mediaQueue, assetAdapter });
-      Object.assign(controllers, mediaController);
-    } catch (mwErr) {
-      serverLogger.warn('Media worker or controller initialization failed', mwErr && mwErr.message);
-    }
+    // media worker and controller initialization was moved to after pages wiring
 
     // Create application-level use-case and pass to controller
     try {
@@ -417,6 +410,32 @@ export default async function startServer() {
           const pageFollowerRepo = new PageFollowerRepositoryImpl({ adapter: pageFollowerAdapter });
           const pageController = makePageController({ useCase: pageUseCase, followersRepository: pageFollowerRepo });
           Object.assign(controllers, pageController);
+            // Communities wiring
+            try {
+              const communityCategoryAdapter = new MysqlCommunityCategoryRepository();
+              const communityCategoryRepo = new CommunityCategoryRepositoryImpl({ adapter: communityCategoryAdapter });
+              const communityAdapter = new MysqlCommunityRepository();
+              const communityRepo = new CommunityRepositoryImpl({ adapter: communityAdapter });
+              const communityMemberAdapter = new MysqlCommunityMemberRepository();
+              const communityMemberRepo = new CommunityMemberRepositoryImpl({ adapter: communityMemberAdapter });
+              const communityUseCase = new CommunityUseCase({ communityRepository: communityRepo, communityCategoryRepository: communityCategoryRepo, communityMemberRepository: communityMemberRepo });
+              const communityController = makeCommunityController({ useCase: communityUseCase });
+              Object.assign(controllers, communityController);
+            } catch (cErr) {
+              serverLogger.warn('Communities wiring failed', cErr && cErr.message);
+            }
+          // Initialize media worker and controller now that pageRepo exists
+          try {
+            const assetAdapter = new MysqlUserAssetRepository();
+            const postMediaAdapter = new MysqlPostMediaRepository();
+            if (mediaQueue && !mediaWorker && redisConnection) {
+              mediaWorker = createMediaWorker(redisConnection, { cloudinary, profileRepository: profileRepo, assetAdapter, postMediaAdapter, pageRepository: pageRepo, concurrency });
+            }
+            const mediaController = makeMediaController({ cloudinary, mediaQueue, assetAdapter });
+            Object.assign(controllers, mediaController);
+          } catch (mwErr) {
+            serverLogger.warn('Media worker/controller init after pages failed', mwErr && mwErr.message);
+          }
         } catch (pErr) {
           serverLogger.warn('Pages wiring failed', pErr && pErr.message);
         }

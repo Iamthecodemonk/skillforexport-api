@@ -31,6 +31,99 @@ export function makePageController({ useCase = null, followersRepository = null 
       }
     },
 
+    createPageCategory: async (req, reply) => {
+      try {
+        const actor = req.user || null;
+        if (!actor || actor.role !== 'admin')
+          return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+        const { name, slug, description, icon, is_active, rules, max_pages_per_user, requires_approval, validation_rules } = req.body || {};
+        // Basic controller-level validation for JSON fields to provide clearer errors
+        if (typeof rules !== 'undefined' && rules !== null && typeof rules !== 'object') {
+          return reply.code(422).send({ success: false, error: { code: 'invalid_rules', message: 'rules must be an object' } });
+        }
+        if (typeof validation_rules !== 'undefined' && validation_rules !== null && typeof validation_rules !== 'object') {
+          return reply.code(422).send({ success: false, error: { code: 'invalid_validation_rules', message: 'validation_rules must be an object' } });
+        }
+        if (validation_rules && typeof validation_rules.slugPattern !== 'undefined' && typeof validation_rules.slugPattern !== 'string') {
+          return reply.code(422).send({ success: false, error: { code: 'invalid_validation_rules', message: 'validation_rules.slugPattern must be a string (regex pattern)' } });
+        }
+        if (validation_rules && typeof validation_rules.minNameLength !== 'undefined' && Number.isNaN(Number(validation_rules.minNameLength))) {
+          return reply.code(422).send({ success: false, error: { code: 'invalid_validation_rules', message: 'validation_rules.minNameLength must be a number' } });
+        }
+        if (validation_rules && typeof validation_rules.maxNameLength !== 'undefined' && Number.isNaN(Number(validation_rules.maxNameLength))) {
+          return reply.code(422).send({ success: false, error: { code: 'invalid_validation_rules', message: 'validation_rules.maxNameLength must be a number' } });
+        }
+        const created = await useCase.CreatePageCategory({ name, slug, description, icon, is_active, rules, max_pages_per_user, requires_approval, validation_rules });
+        return reply.code(201).send({ success: true, data: created });
+      } catch (err) {
+        if (err && err.message === 'name_required')
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        if (err && err.message === 'slug_required')
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        if (err && err.message === 'name_exists')
+          return reply.code(409).send({ success: false, error: { code: 'name_exists', message: 'Category name already exists' } });
+        if (err && err.message === 'not_implemented')
+          return reply.code(501).send({ success: false, error: { code: 'not_implemented' } });
+        pageLogger.error('createPageCategory error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    updatePageCategory: async (req, reply) => {
+      try {
+        const actor = req.user || null;
+        if (!actor || actor.role !== 'admin')
+          return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+        const { id } = req.params;
+        const updates = req.body || {};
+        // Validate incoming JSON fields when provided
+        if (typeof updates.rules !== 'undefined' && updates.rules !== null && typeof updates.rules !== 'object') {
+          return reply.code(422).send({ success: false, error: { code: 'invalid_rules', message: 'rules must be an object' } });
+        }
+        if (typeof updates.validation_rules !== 'undefined' && updates.validation_rules !== null && typeof updates.validation_rules !== 'object') {
+          return reply.code(422).send({ success: false, error: { code: 'invalid_validation_rules', message: 'validation_rules must be an object' } });
+        }
+        if (updates.validation_rules && typeof updates.validation_rules.slugPattern !== 'undefined' && typeof updates.validation_rules.slugPattern !== 'string') {
+          return reply.code(422).send({ success: false, error: { code: 'invalid_validation_rules', message: 'validation_rules.slugPattern must be a string (regex pattern)' } });
+        }
+        if (updates.validation_rules && typeof updates.validation_rules.minNameLength !== 'undefined' && Number.isNaN(Number(updates.validation_rules.minNameLength))) {
+          return reply.code(422).send({ success: false, error: { code: 'invalid_validation_rules', message: 'validation_rules.minNameLength must be a number' } });
+        }
+        if (updates.validation_rules && typeof updates.validation_rules.maxNameLength !== 'undefined' && Number.isNaN(Number(updates.validation_rules.maxNameLength))) {
+          return reply.code(422).send({ success: false, error: { code: 'invalid_validation_rules', message: 'validation_rules.maxNameLength must be a number' } });
+        }
+        const updated = await useCase.UpdatePageCategory({ id, updates });
+        return reply.code(200).send({ success: true, data: updated });
+      } catch (err) {
+        if (err && err.message === 'name_required')
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        if (err && err.message === 'slug_required')
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        if (err && err.message === 'name_exists')
+          return reply.code(409).send({ success: false, error: { code: 'name_exists', message: 'Category name already exists' } });
+        if (err && err.message === 'category_not_found')
+          return reply.code(404).send({ success: false, error: { code: 'category_not_found' } });
+        pageLogger.error('updatePageCategory error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    deletePageCategory: async (req, reply) => {
+      try {
+        const actor = req.user || null;
+        if (!actor || actor.role !== 'admin')
+          return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+        const { id } = req.params;
+        await useCase.DeletePageCategory({ id });
+        return reply.code(200).send({ success: true, data: { id } });
+      } catch (err) {
+        if (err && err.message === 'category_not_found')
+          return reply.code(404).send({ success: false, error: { code: 'category_not_found' } });
+        pageLogger.error('deletePageCategory error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
     followPage: async (req, reply) => {
       try {
         const { id } = req.params; // page id
@@ -39,10 +132,30 @@ export function makePageController({ useCase = null, followersRepository = null 
             return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         if (!followersRepository) 
             return reply.code(501).send({ success: false, error: { code: 'not_implemented' } });
+        // Idempotent create: if already following, return existing record with 200
+        try {
+          const existing = await followersRepository.findByPageAndUser(id, actorId);
+          if (existing) {
+            return reply.code(200).send({ success: true, data: existing });
+          }
+        } catch (e) {
+          // ignore and proceed to create
+        }
         const created = await followersRepository.create({ pageId: id, userId: actorId });
         return reply.code(201).send({ success: true, data: created });
       } catch (err) {
         pageLogger.error('followPage error', { message: err.message, stack: err.stack });
+        // Handle duplicate key gracefully in case of race condition
+        if (err && (err.code === 'ER_DUP_ENTRY' || (err && String(err.message || '').toLowerCase().includes('duplicate entry')))) {
+          try {
+            const existing = await followersRepository.findByPageAndUser(req.params.id, req.user && req.user.id);
+            if (existing) 
+              return reply.code(200).send({ success: true, data: existing });
+          } catch (e) {
+            // fallthrough
+          }
+          return reply.code(200).send({ success: true, data: {} });
+        }
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
     },
@@ -56,7 +169,7 @@ export function makePageController({ useCase = null, followersRepository = null 
         if (!followersRepository)
             return reply.code(501).send({ success: false, error: { code: 'not_implemented' } });
         await followersRepository.deleteByPageAndUser(id, actorId);
-        return reply.code(204).send();
+        return reply.code(200).send({ success: true, data: { id } });
       } catch (err) {
         pageLogger.error('unfollowPage error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -234,7 +347,7 @@ export function makePageController({ useCase = null, followersRepository = null 
         if (!actorId) 
             return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         await useCase.DeletePage({ id, ownerId: actorId });
-        return reply.code(204).send();
+        return reply.code(200).send({ success: true, data: { id } });
       } catch (err) {
         if (err && err.message === 'page_not_found') 
             return reply.code(404).send({ success: false, error: { code: 'page_not_found' } });

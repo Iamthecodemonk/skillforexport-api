@@ -20,6 +20,10 @@ export { default as MysqlPostReportRepository } from './mysqlPostReportRepositor
 export { default as MysqlPageRepository } from './mysqlPageRepository.js';
 export { default as MysqlPageCategoryRepository } from './mysqlPageCategoryRepository.js';
 export { default as MysqlPageFollowerRepository } from './mysqlPageFollowerRepository.js';
+export { default as MysqlCommunityCategoryRepository } from './mysqlCommunityCategoryRepository.js';
+export { default as MysqlCommunityRepository } from './mysqlCommunityRepository.js';
+export { default as MysqlCommunityMemberRepository } from './mysqlCommunityMemberRepository.js';
+// Also export for server wiring
 
 // Legacy aliases for backwards compatibility (deprecated)
 // Legacy aliases removed for Items

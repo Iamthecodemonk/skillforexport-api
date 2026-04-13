@@ -59,4 +59,8 @@ export class PageRepositoryImpl extends PageRepository {
     if (typeof this.adapter.incrementPostCount !== 'function') throw new Error('increment_post_count_not_implemented');
     return this.adapter.incrementPostCount(pageId, delta);
   }
+  async unassignCategory(categoryId) {
+    if (typeof this.adapter.unassignCategory !== 'function') throw new Error('unassign_category_not_implemented');
+    return this.adapter.unassignCategory(categoryId);
+  }
 }

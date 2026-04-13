@@ -15,4 +15,12 @@ export default class MysqlFollowerRepository {
     await db('followers').insert(payload);
     return db('followers').where({ id: record.id }).first();
   }
+
+  async deleteByFollowerAndFollowing(followerId, followingId) {
+    // Attempt to find existing record first
+    const existing = await db('followers').where({ follower_id: followerId, following_id: followingId }).first();
+    if (!existing) return null;
+    await db('followers').where({ id: existing.id }).del();
+    return existing;
+  }
 }

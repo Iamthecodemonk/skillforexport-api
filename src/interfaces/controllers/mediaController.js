@@ -41,6 +41,7 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
         const body = req.body || {};
         const publicId = body.publicId;
         const userId = req.user && req.user.id;
+        const pageId = body.pageId || null;
         const kind = body.kind || 'other';
 
         if (!publicId) {
@@ -66,7 +67,7 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
             }
           }
         }
-        const job = await mediaQueue.add('register-direct', { userId, publicId, kind, assetId: uuidv4() }, { attempts: 2, backoff: { type: 'exponential', delay: 2000 } });
+        const job = await mediaQueue.add('register-direct', { userId, pageId, publicId, kind, assetId: uuidv4() }, { attempts: 2, backoff: { type: 'exponential', delay: 2000 } });
         return reply.code(202).send({ success: true, data: { jobId: job.id } });
       } catch (err) {
         mediaLogger.error('registerMedia error', { message: err.message, stack: err.stack });
@@ -121,6 +122,78 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
         return reply.code(202).send({ success: true, data: { jobId: job.id } });
       } catch (err) {
         mediaLogger.error('uploadAvatarFile error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    uploadPageAvatarFile: async (req, reply) => {
+      try {
+        if (!mediaQueue) {
+          return reply.code(503).send({ success: false, error: { code: 'service_unavailable' } });
+        }
+
+        const pageId = req.params && req.params.id;
+        if (!pageId) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+
+        // Accept a single file field named 'file'
+        const mp = await req.file();
+        if (!mp) {
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        }
+
+        const ext = path.extname(mp.filename || '') || '.jpg';
+        const tmpDir = process.env.UPLOAD_TMP_DIR || os.tmpdir();
+        const tmpName = `${uuidv4()}${ext}`;
+        const tmpPath = path.join(tmpDir, tmpName);
+
+        // Stream file to temporary location
+        const writeStream = fs.createWriteStream(tmpPath);
+        await new Promise((resolve, reject) => {
+          mp.file.pipe(writeStream);
+          mp.file.on('error', (err) => reject(err));
+          writeStream.on('error', (err) => reject(err));
+          writeStream.on('finish', resolve);
+        });
+
+        const job = await mediaQueue.add('avatar-file', { pageId, tmpFilePath: tmpPath, kind: 'avatar', assetId: uuidv4() }, { attempts: 3, backoff: { type: 'exponential', delay: 2000 } });
+        return reply.code(202).send({ success: true, data: { jobId: job.id } });
+      } catch (err) {
+        mediaLogger.error('uploadPageAvatarFile error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    uploadPageCoverFile: async (req, reply) => {
+      try {
+        if (!mediaQueue) {
+          return reply.code(503).send({ success: false, error: { code: 'service_unavailable' } });
+        }
+
+        const pageId = req.params && req.params.id;
+        if (!pageId) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+
+        const mp = await req.file();
+        if (!mp) {
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        }
+
+        const ext = path.extname(mp.filename || '') || '.jpg';
+        const tmpDir = process.env.UPLOAD_TMP_DIR || os.tmpdir();
+        const tmpName = `${uuidv4()}${ext}`;
+        const tmpPath = path.join(tmpDir, tmpName);
+
+        const writeStream = fs.createWriteStream(tmpPath);
+        await new Promise((resolve, reject) => {
+          mp.file.pipe(writeStream);
+          mp.file.on('error', (err) => reject(err));
+          writeStream.on('error', (err) => reject(err));
+          writeStream.on('finish', resolve);
+        });
+
+        const job = await mediaQueue.add('banner-file', { pageId, tmpFilePath: tmpPath, kind: 'banner', assetId: uuidv4() }, { attempts: 3, backoff: { type: 'exponential', delay: 2000 } });
+        return reply.code(202).send({ success: true, data: { jobId: job.id } });
+      } catch (err) {
+        mediaLogger.error('uploadPageCoverFile error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
     },

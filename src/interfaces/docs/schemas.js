@@ -340,8 +340,8 @@ export const AvatarUploadBody = {
 export const MediaRegisterBody = {
   type: 'object',
   required: ['publicId'],
-  properties: { publicId: { type: 'string' }, kind: { type: 'string' }, replace: { type: 'boolean' } },
-  example: { publicId: 'banners/abcd1234', kind: 'banner' }
+  properties: { publicId: { type: 'string' }, kind: { type: 'string' }, replace: { type: 'boolean' }, pageId: { type: ['string','null'] } },
+  example: { publicId: 'banners/abcd1234', kind: 'banner', pageId: null }
 };
 
 export const PostMediaResponse = {
@@ -372,6 +372,49 @@ export const PageCreateBody = {
     metadata: { type: ['object','null'] }
   },
   example: { name: 'My Page', slug: 'my-page', description: 'A public page' }
+};
+
+export const PageCategoryCreateBody = {
+  type: 'object',
+  required: ['name','slug'],
+  properties: {
+    name: { type: 'string' },
+    slug: { type: 'string' },
+    description: { type: 'string' },
+    icon: { type: 'string' },
+    is_active: { type: 'number' },
+    rules: { type: ['object','null'] },
+    max_pages_per_user: { type: ['number','null'] },
+    requires_approval: { type: ['number','null'] },
+    validation_rules: { type: ['object','null'] }
+  },
+  example: { name: 'Community', slug: 'community', description: 'Community pages', icon: 'users', is_active: 1 }
+};
+
+// More comprehensive example for admin creation flows (shows all optional fields)
+PageCategoryCreateBody.example = {
+  name: 'Community',
+  slug: 'community',
+  description: 'Community pages for user groups, discussions and events.',
+  icon: 'users',
+  is_active: 1,
+  // Rules object can contain arbitrary enforcement flags consumed by the application
+  rules: {
+    allowPosting: true,
+    allowMedia: true,
+    requireMembership: false,
+    profanityFilter: true
+  },
+  // Limit how many pages a single user may create in this category
+  max_pages_per_user: 5,
+  // 1 = requires admin approval to publish a page, 0 = auto-approve
+  requires_approval: 1,
+  // Validation rules used by the server when creating pages in this category
+  validation_rules: {
+    slugPattern: '^[a-z0-9-]+$',
+    minNameLength: 3,
+    maxNameLength: 60
+  }
 };
 
 export const PageResponse = {
@@ -419,6 +462,42 @@ export const PageCategoryResponse = {
     updated_at: { type: 'string' },
     total_pages: { type: ['number','null'], description: 'Total pages in this category (provided by GET /page-categories/:id)' }
   }
+};
+
+export const CommunityCategoryCreateBody = {
+  type: 'object',
+  required: ['name'],
+  properties: { name: { type: 'string' }, description: { type: 'string' } },
+  example: { name: 'Sports', description: 'Groups for sports fans' }
+};
+
+export const CommunityCategoryResponse = {
+  type: 'object',
+  properties: { id: { type: 'string' }, name: { type: 'string' }, description: { type: 'string' } }
+};
+
+export const CommunityCreateBody = {
+  type: 'object',
+  required: ['name'],
+  properties: { name: { type: 'string' }, description: { type: 'string' }, categoryId: { type: 'string' } },
+  example: { name: 'Local Chess Club', description: 'We meet weekly to play chess', categoryId: null }
+};
+
+export const CommunityResponse = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    categoryId: { type: ['string','null'] },
+    name: { type: 'string' },
+    description: { type: 'string' },
+    is_active: { type: 'number' },
+    created_at: { type: 'string' }
+  }
+};
+
+export const CommunityMemberResponse = {
+  type: 'object',
+  properties: { id: { type: 'string' }, userId: { type: 'string' }, communityId: { type: 'string' }, role: { type: 'string' } }
 };
 
 export const CommentListResponse = { type: 'array', items: CommentResponse };
@@ -478,10 +557,16 @@ export default {
   , UserProfileResponse
   , AvatarUploadBody
   , MediaRegisterBody
+  , PageCategoryCreateBody
   , PageCreateBody
   , PageResponse
   , PageListResponse
   , PageCategoryResponse
+  , CommunityCategoryCreateBody
+  , CommunityCategoryResponse
+  , CommunityCreateBody
+  , CommunityResponse
+  , CommunityMemberResponse
   , FullProfileResponse
   , FullProfileResponse
   , GenericError

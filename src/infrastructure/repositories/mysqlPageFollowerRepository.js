@@ -18,6 +18,11 @@ export default class MysqlPageFollowerRepository {
     return { id, page_id: record.page_id || record.pageId, user_id: record.user_id || record.userId, role: record.role || 'follower', is_notified: record.is_notified || 1, is_muted: record.is_muted || 0, created_at: now, updated_at: now };
   }
 
+  async findByPageAndUser(pageId, userId) {
+    const row = await db('page_followers').where({ page_id: pageId, user_id: userId }).first();
+    return row || null;
+  }
+
   async deleteByPageAndUser(pageId, userId) {
     await db('page_followers').where({ page_id: pageId, user_id: userId }).del();
     return true;

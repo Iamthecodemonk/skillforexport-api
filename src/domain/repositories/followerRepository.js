@@ -34,4 +34,13 @@ export class FollowerRepositoryImpl extends FollowerRepository {
     const created = await this.adapter.create(record);
     return created ? new Follower(created) : null;
   }
+
+  async deleteByFollowerAndFollowing(followerId, followingId) {
+    // Adapter should implement deletion; return deleted record or null
+    if (typeof this.adapter.deleteByFollowerAndFollowing === 'function') {
+      const deleted = await this.adapter.deleteByFollowerAndFollowing(followerId, followingId);
+      return deleted ? new Follower(deleted) : null;
+    }
+    throw new Error('deleteByFollowerAndFollowing_not_implemented');
+  }
 }

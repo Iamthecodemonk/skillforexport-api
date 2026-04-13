@@ -16,6 +16,10 @@ export default class MysqlFollowerRepository {
     return db('followers').where({ id: record.id }).first();
   }
 
+  async findByFollowerAndFollowing(followerId, followingId) {
+    return db('followers').where({ follower_id: followerId, following_id: followingId }).first();
+  }
+
   async deleteByFollowerAndFollowing(followerId, followingId) {
     // Attempt to find existing record first
     const existing = await db('followers').where({ follower_id: followerId, following_id: followingId }).first();

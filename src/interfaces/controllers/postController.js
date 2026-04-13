@@ -13,14 +13,14 @@ export function makePostController({ useCase = null }) {
       try {
         const body = req.body || {};
         const actorId = req.user && req.user.id;
-        const { communityId, pageId, title, content } = body;
+        const { communityId, pageId, title, content, visibility } = body;
         if (!actorId) {
           return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         }
         if (!title || !content) {
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         }
-        const created = await useCase.CreatePost({ userId: actorId, communityId, pageId, title, content });
+        const created = await useCase.CreatePost({ userId: actorId, communityId, pageId, title, content, visibility });
 
         // Invalidate simple feed caches when a new post is created
         try {

@@ -94,6 +94,38 @@ export default async function startServer() {
       }
     }
   });
+  // Add a tolerant JSON parser only for follow/unfollow routes to avoid global behavior changes.
+  //i did this because i was having issues normal follow and unfollow routes dont real require a json body sha
+  try {
+    app.addContentTypeParser('application/json', { parseAs: 'string' }, function (req, body, done) {
+      // If body empty, only accept silently for follow/unfollow endpoints
+      if (!body || body.length === 0) {
+        try {
+          const rawUrl = (req && req.raw && req.raw.url) ? req.raw.url.split('?')[0] : '';
+          // Match /pages/:id/follow and /users/:id/follow paths
+          const followPathRegex = /^\/(?:pages|users)\/[0-9a-fA-F-]+\/follow$/;
+          if (followPathRegex.test(rawUrl)) {
+            return done(null, {});
+          }
+        } catch (e) {
+          // fall through to default error behavior
+        }
+        const err = new Error("Body cannot be empty when content-type is set to 'application/json'");
+        err.statusCode = 400;
+        return done(err);
+      }
+      try {
+        const parsed = JSON.parse(body);
+        done(null, parsed);
+      } catch (err) {
+        // let Fastify handle invalid JSON as usual
+        err.statusCode = 400;
+        done(err);
+      }
+    });
+  } catch (e) {
+    serverLogger.warn('Could not add tolerant JSON parser', { message: e && e.message });
+  }
   // i had to do this ooo the code wasnt seeing my api key from cloundinary
   //even when it was added from .env config 
   try {
@@ -421,6 +453,15 @@ export default async function startServer() {
               const communityUseCase = new CommunityUseCase({ communityRepository: communityRepo, communityCategoryRepository: communityCategoryRepo, communityMemberRepository: communityMemberRepo });
               const communityController = makeCommunityController({ useCase: communityUseCase });
               Object.assign(controllers, communityController);
+              // Attach community repos to postUseCase if available so posts can validate membership
+              try {
+                if (typeof postUseCase !== 'undefined' && postUseCase) {
+                  postUseCase.communityRepository = communityRepo;
+                  postUseCase.communityMemberRepository = communityMemberRepo;
+                }
+              } catch (attachErr) {
+                serverLogger.warn('Could not attach community repos to postUseCase', attachErr && attachErr.message);
+              }
             } catch (cErr) {
               serverLogger.warn('Communities wiring failed', cErr && cErr.message);
             }

@@ -681,6 +681,20 @@ export default async function registerRoutes(fastify, deps) {
     schema: { operationId: 'createCommunity', tags: ['Communities'], body: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, description: { type: 'string' }, categoryId: { type: 'string' } }, example: { name: 'Local Chess Club', description: 'We play chess', categoryId: null } }, response: { 201: { type: 'object' } } }
   }, handler('createCommunity'));
 
+  fastify.get('/communities/:id', {
+    schema: { operationId: 'getCommunity', tags: ['Communities'], response: { 200: { type: 'object' } } }
+  }, handler('getCommunity'));
+
+  fastify.put('/communities/:id', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { operationId: 'updateCommunity', tags: ['Communities'], body: { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' }, defaultPostVisibility: { type: 'string', enum: ['public','connections','community'] }, is_active: { type: 'number' } } }, response: { 200: { type: 'object' } } }
+  }, handler('updateCommunity'));
+
+  fastify.delete('/communities/:id', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { operationId: 'deleteCommunity', tags: ['Communities'], response: { 200: { type: 'object' } } }
+  }, handler('deleteCommunity'));
+
   fastify.post('/communities/:id/join', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: { operationId: 'joinCommunity', tags: ['Communities'], response: { 200: { type: 'object' } } }

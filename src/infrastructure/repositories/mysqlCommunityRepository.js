@@ -13,6 +13,7 @@ export default class MysqlCommunityRepository {
       category_id: record.category_id || record.categoryId || null,
       name: record.name || null,
       description: record.description || null,
+      default_post_visibility: typeof record.default_post_visibility !== 'undefined' ? record.default_post_visibility : null,
       is_active: typeof record.is_active !== 'undefined' ? record.is_active : 1,
       created_at: new Date()
     };

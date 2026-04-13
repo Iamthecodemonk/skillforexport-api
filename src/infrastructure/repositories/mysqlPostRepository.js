@@ -10,12 +10,13 @@ export default class MysqlPostRepository {
       user_id: post.user_id || post.userId,
       community_id: post.community_id || post.communityId || null,
       page_id: post.page_id || post.pageId || null,
+      visibility: post.visibility || post.visibility || 'public',
       title: post.title || post.title || null,
       content: post.content,
       created_at: now,
       updated_at: now
     });
-    return { id, user_id: post.user_id || post.userId, community_id: post.community_id || post.communityId || null, page_id: post.page_id || post.pageId || null, title: post.title || null, content: post.content, created_at: now, updated_at: now };
+    return { id, user_id: post.user_id || post.userId, community_id: post.community_id || post.communityId || null, page_id: post.page_id || post.pageId || null, visibility: post.visibility || 'public', title: post.title || null, content: post.content, created_at: now, updated_at: now };
   }
 
   async findById(id) {

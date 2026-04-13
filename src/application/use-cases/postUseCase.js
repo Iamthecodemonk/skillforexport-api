@@ -8,15 +8,34 @@ export default class PostUseCase {
     this.postRepository = postRepository;
   }
 
-  async CreatePost({ userId, communityId = null, pageId = null, title, content }) {
+  async CreatePost({ userId, communityId = null, pageId = null, title, content, visibility = null }) {
     if (!userId) throw new Error('user_required');
     if (!title || String(title).trim() === '') throw new Error('title_required');
     if (!content || String(content).trim() === '') throw new Error('content_required');
+    // If posting to a community, ensure community exists and user is allowed
+    if (communityId) {
+      if (this.communityRepository && typeof this.communityRepository.findById === 'function') {
+        const community = await this.communityRepository.findById(communityId);
+        if (!community) throw new Error('community_not_found');
+        if (typeof community.is_active !== 'undefined' && parseInt(community.is_active, 10) === 0) {
+          throw new Error('community_inactive');
+        }
+      }
+      if (this.communityMemberRepository && typeof this.communityMemberRepository.findByUserAndCommunity === 'function') {
+        const member = await this.communityMemberRepository.findByUserAndCommunity(userId, communityId);
+        if (!member) throw new Error('not_a_member');
+      }
+      // If no explicit visibility provided, and community defines a default, use it
+      if (!visibility && community && community.default_post_visibility) {
+        visibility = community.default_post_visibility;
+      }
+    }
     const post = {
       id: uuidv4(),
       user_id: userId,
       community_id: communityId,
       page_id: pageId,
+      visibility: visibility || 'public',
       title: String(title),
       content: String(content)
     };

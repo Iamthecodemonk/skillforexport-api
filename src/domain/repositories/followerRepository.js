@@ -35,6 +35,20 @@ export class FollowerRepositoryImpl extends FollowerRepository {
     return created ? new Follower(created) : null;
   }
 
+  async findByFollowerAndFollowing(followerId, followingId) {
+    if (typeof this.adapter.findByFollowerAndFollowing === 'function') {
+      const row = await this.adapter.findByFollowerAndFollowing(followerId, followingId);
+      return row ? new Follower(row) : null;
+    }
+    // Fallback: attempt to query listFollowing for the follower and find match
+    if (typeof this.adapter.listFollowing === 'function') {
+      const rows = await this.adapter.listFollowing(followerId);
+      const found = (rows || []).find(r => String(r.following_id || r.followingId) === String(followingId));
+      return found ? new Follower(found) : null;
+    }
+    throw new Error('findByFollowerAndFollowing_not_implemented');
+  }
+
   async deleteByFollowerAndFollowing(followerId, followingId) {
     // Adapter should implement deletion; return deleted record or null
     if (typeof this.adapter.deleteByFollowerAndFollowing === 'function') {

@@ -479,8 +479,14 @@ export const CommunityCategoryResponse = {
 export const CommunityCreateBody = {
   type: 'object',
   required: ['name'],
-  properties: { name: { type: 'string' }, description: { type: 'string' }, categoryId: { type: 'string' } },
-  example: { name: 'Local Chess Club', description: 'We meet weekly to play chess', categoryId: null }
+  properties: { name: { type: 'string' }, description: { type: 'string' }, categoryId: { type: 'string' }, defaultPostVisibility: { type: 'string', enum: ['public','connections','community'] } },
+  example: { name: 'Local Chess Club', description: 'We meet weekly to play chess', categoryId: null, defaultPostVisibility: 'public' }
+};
+
+export const CommunityUpdateBody = {
+  type: 'object',
+  properties: { name: { type: 'string' }, description: { type: 'string' }, defaultPostVisibility: { type: 'string', enum: ['public','connections','community'] }, is_active: { type: 'number' } },
+  example: { name: 'Chess Club', description: 'Updated desc', defaultPostVisibility: 'community', is_active: 1 }
 };
 
 export const CommunityResponse = {
@@ -491,6 +497,7 @@ export const CommunityResponse = {
     name: { type: 'string' },
     description: { type: 'string' },
     is_active: { type: 'number' },
+    default_post_visibility: { type: ['string','null'], description: 'Default visibility for new posts in this community' },
     created_at: { type: 'string' }
   }
 };
@@ -567,6 +574,7 @@ export default {
   , CommunityCreateBody
   , CommunityResponse
   , CommunityMemberResponse
+  , CommunityUpdateBody
   , FullProfileResponse
   , FullProfileResponse
   , GenericError

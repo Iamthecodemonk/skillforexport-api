@@ -38,13 +38,32 @@ export default class CommunityUseCase {
   async createCommunity({ id = null, categoryId = null, name, description = null, ownerId = null }) {
     if (!name || !ownerId) 
         throw new Error('validation_failed');
-    const payload = { id: id || uuidv4(), category_id: categoryId, name, description, created_at: new Date(), owner_id: ownerId };
+      const payload = { id: id || uuidv4(), category_id: categoryId, name, description, created_at: new Date(), owner_id: ownerId, default_post_visibility: defaultPostVisibility };
     const created = await this.communityRepository.create(payload);
     // add owner as admin member
     if (this.communityMemberRepository) {
       await this.communityMemberRepository.addMember({ id: uuidv4(), user_id: ownerId, community_id: created.id, role: 'admin' });
     }
     return created;
+  }
+  
+  async getCommunity(id) {
+    if (!id) throw new Error('id_required');
+    return this.communityRepository.findById(id);
+  }
+  
+  async updateCommunity({ id, updates = {} }) {
+    const existing = await this.communityRepository.findById(id);
+    if (!existing) 
+        throw new Error('community_not_found');
+    return this.communityRepository.update(id, updates);
+  }
+  
+  async deleteCommunity({ id }) {
+    const existing = await this.communityRepository.findById(id);
+    if (!existing) 
+        throw new Error('community_not_found');
+    return this.communityRepository.delete(id);
   }
 
   async joinCommunity({ communityId, userId }) {

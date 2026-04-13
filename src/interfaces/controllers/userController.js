@@ -8,7 +8,7 @@ import path from 'path';
 
 const userLogger = logger.child('USER_CONTROLLER');
 
-export function makeUserController({ useCase = null }) {
+export function makeUserController({ useCase = null, followerRepository = null }) {
   if (!useCase) {
     userLogger.error('makeUserController requires a useCase');
     throw new Error('useCase_required');
@@ -314,8 +314,21 @@ export function makeUserController({ useCase = null }) {
             success: false,
             error: { code: 'validation_failed' }
           });
+        // If controller has a followerRepository, prefer to check for existing relation first (idempotent)
+        try {
+          if (followerRepository && typeof followerRepository.findByFollowerAndFollowing === 'function') {
+            const existing = await followerRepository.findByFollowerAndFollowing(actorId, id);
+            if (existing) {
+              return reply.code(200).send({ success: true, data: Object.assign({}, existing.toPlainObject ? existing.toPlainObject() : existing, { message: 'already_following' }) });
+            }
+          }
+        } catch (e) {
+          // ignore and proceed to create
+        }
+
         const created = await useCase.followUser(id, actorId);
-        return reply.code(201).send({ success: true, data: created.toPlainObject() });
+        const payload = created && created.toPlainObject ? created.toPlainObject() : created;
+        return reply.code(201).send({ success: true, data: Object.assign({}, payload, { message: 'followed' }) });
       } catch (err) {
         userLogger.error('followUser error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -330,8 +343,8 @@ export function makeUserController({ useCase = null }) {
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         // Attempt to unfollow; idempotent: if not following, return 200
         const deleted = await useCase.unfollowUser(id, actorId);
-        if (!deleted) return reply.code(200).send({ success: true, data: {} });
-        return reply.code(200).send({ success: true, data: deleted.toPlainObject ? deleted.toPlainObject() : deleted });
+        if (!deleted) return reply.code(200).send({ success: true, data: { message: 'not_following' } });
+        return reply.code(200).send({ success: true, data: Object.assign({}, deleted.toPlainObject ? deleted.toPlainObject() : deleted, { message: 'unfollowed' }) });
       } catch (err) {
         userLogger.error('unfollowUser error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });

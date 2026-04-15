@@ -93,8 +93,8 @@ const isProd = process.env.NODE_ENV === 'production';
 
 export default async function startServer() {
   const app = Fastify({
-    // logger: isProd ? false : true,
-    logger:false,
+    logger: isProd ? false : true,
+    // logger:false,
     ajv: {
       customOptions: {
         // Allow OpenAPI example/unknown keywords in route schemas
@@ -606,7 +606,7 @@ export default async function startServer() {
           description: 'API documentation for SkillForExport backend'
         },
         servers: [{
-          url: 'http://localhost:3011',
+          url: 'http://skills4export.org',
           description: 'Development server'
         }]
       },

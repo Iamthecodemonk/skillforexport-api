@@ -89,10 +89,12 @@ const serverLogger = logger.child('SERVER');
 const queueLogger = logger.child('EMAIL_QUEUE');
 const smtpLogger = logger.child('SMTP');
 const concurrency = parseInt('2', 10);
+const isProd = process.env.NODE_ENV === 'production';
 
 export default async function startServer() {
   const app = Fastify({
-    logger: true,
+    // logger: isProd ? false : true,
+    logger:false,
     ajv: {
       customOptions: {
         // Allow OpenAPI example/unknown keywords in route schemas
@@ -632,8 +634,11 @@ export default async function startServer() {
   // authRequired is provided from interfaces/middleware/authRequired.js
 
   serverLogger.debug('Registering API routes...');
-  await registerRoutes(app, { controllers, rateLimiters, authRequired });
-  serverLogger.debug('API routes registered');
+  // Mount application routes under /api so endpoints become /api/<route>
+  await app.register(async function (instance, opts) {
+    await registerRoutes(instance, { controllers, rateLimiters, authRequired });
+  }, { prefix: '/api' });
+  serverLogger.debug('API routes registered under /api');
 
   // Email queue already initialized above
   // start
@@ -641,9 +646,9 @@ export default async function startServer() {
   await app.listen({ port, host: '0.0.0.0' });
   serverLogger.info(`Server started successfully`, {
     port,
-    apiUrl: `http://localhost:${port}`,
-    swaggerDocs: `http://localhost:${port}/documentation`,
-    openApiJson: `http://localhost:${port}/documentation/json`
+    apiUrl: `http://skills4export.org:${port}`,
+    swaggerDocs: `http://skills4export.org:${port}/documentation`,
+    openApiJson: `http://skills4export.org:${port}/documentation/json`
   });
   return app;
 }

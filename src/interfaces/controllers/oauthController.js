@@ -1,16 +1,20 @@
 import { OAuth2Client } from 'google-auth-library';
 import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+import logger from '../../utils/logger.js';
+dotenv.config();
 
 function getClient() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const port = process.env.PORT || 3000;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || `http://localhost:${port}/auth/google/callback`;
+  // const port = process.env.PORT || 3000;
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
   return new OAuth2Client(clientId, clientSecret, redirectUri);
 }
 
 export function makeOauthController({ useCase }) {
   const client = getClient();
+  const log = logger.child('OAUTH');
 
   return {
     GoogleRedirect: async (req, reply) => {
@@ -39,9 +43,12 @@ export function makeOauthController({ useCase }) {
         const decoded = jwt.decode(result.token) || {};
         const now = Math.floor(Date.now() / 1000);
         const expiresIn = decoded.exp ? Math.max(0, decoded.exp - now) : 0;
-        return reply.code(200).send({ success: true, data: { accessToken: result.token, tokenType: 'Bearer', expiresIn } });
+          const frontend = process.env.FRONTEND_URL;
+          const redirectUrl = `${frontend.replace(/\/$/, '')}/auth/google/callback#accessToken=${encodeURIComponent(result.token)}`;
+          log.info('OAuth redirect to frontend', { redirectUrl });
+          return reply.redirect(redirectUrl);
       } catch (err) {
-        req.log && req.log.error && req.log.error(err);
+          log.error('GoogleCallback error', { error: err && err.message, stack: err && err.stack });
         return reply.code(500).send({ error: 'oauth_error' });
       }
     }
@@ -64,7 +71,7 @@ export function makeOauthController({ useCase }) {
         const expiresIn = decoded.exp ? Math.max(0, decoded.exp - now) : 0;
         return reply.code(200).send({ success: true, data: { accessToken: result.token, tokenType: 'Bearer', expiresIn } });
       } catch (err) {
-        req.log && req.log.error && req.log.error(err);
+        log.error('TokenSignIn invalid id token', { error: err && err.message });
         return reply.code(400).send({ error: 'invalid_id_token' });
       }
     }

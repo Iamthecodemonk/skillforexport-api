@@ -86,7 +86,7 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
         const kind = (req.query && req.query.kind) || 'avatar';
         // Prevent re-upload if avatar already exists
         if ((kind === 'avatar' || kind === 'banner') && req.server && req.server.profileRepository) {
-          const replace = !!body.replace;
+          const replace = (req.query && (req.query.replace === 'true' || req.query.replace === true)) || false;
           const existingProfile = await req.server.profileRepository.findByUserId(userId);
           if (existingProfile) {
             if (kind === 'avatar' && existingProfile.avatar && !replace) {

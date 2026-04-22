@@ -1,6 +1,7 @@
 import logger from '../../utils/logger.js';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
+import bcrypt from 'bcryptjs';
 
 const authLogger = logger.child('AUTH_CONTROLLER');
 
@@ -102,18 +103,9 @@ export function makeAuthController({ useCase }) {
         }
         if (!token) authLogger.warn('CompleteRegistration produced no token', { user: user && user.id });
         const userObj = (user && typeof user.toPlainObject === 'function') ? user.toPlainObject() : (user || null);
-        return reply.code(201).send({
-          success: true,
-          data: {
-            // legacy schema field expected by routes/docs
-            token: token || null,
-            user: userObj,
-            // keep accessToken for consistency with other endpoints
-            accessToken: token || null,
-            tokenType: token ? 'Bearer' : null,
-            expiresIn: (typeof expiresIn === 'number') ? expiresIn : null
-          }
-        });
+        if (userObj) 
+          userObj.api_token = token || null;
+        return reply.code(201).send({ success: true, message: 'Registration completed successfully', data: userObj });
       } catch (err) {
         if (err.message === 'invalid_or_expired_otp') {
           authLogger.warn('CompleteRegistration invalid or expired OTP', { email: req.body && req.body.email });
@@ -196,16 +188,9 @@ export function makeAuthController({ useCase }) {
         }
         if (!token) authLogger.warn('VerifyOtp produced no token', { email, purpose });
         const userObj = (user && typeof user.toPlainObject === 'function') ? user.toPlainObject() : (user || null);
-        return reply.code(200).send({
-          success: true,
-          data: {
-            token: token || null,
-            user: userObj,
-            accessToken: token || null,
-            tokenType: token ? 'Bearer' : null,
-            expiresIn: (typeof expiresIn === 'number') ? expiresIn : null
-          }
-        });
+        if (userObj) 
+          userObj.api_token = token || null;
+        return reply.code(200).send({ success: true, message: 'Login successful', data: userObj });
       } catch (err) {
         // Domain validation: invalid email format
         if (err.message === 'invalid_email_format') return reply.code(422).send({
@@ -256,10 +241,8 @@ export function makeAuthController({ useCase }) {
         }
 
         const res = await useCase.RequestOtp({ email, purpose });
-        return reply.code(200).send({
-          success: true,
-          data: { otpId: res.otpId }
-        });
+        // Return uniform API response with human message and session token/otp id
+        return reply.code(200).send({ success: true, message: 'OTP sent successfully', data: res.sessionToken || res.otpId || null });
       } catch (err) {
         authLogger.error('RequestOtp error', { message: err.message, stack: err.stack });
         if (err.message === 'invalid_email_format') {
@@ -350,10 +333,7 @@ export function makeAuthController({ useCase }) {
             login_at: new Date()
           });
         }
-        return reply.code(200).send({
-          success: true,
-          data: { accessToken: token, tokenType: 'Bearer', expiresIn }
-        });
+        return reply.code(200).send({ success: true, message: 'OTP verified successfully', data: token || null });
       } catch (err) {
         if (err.message === 'invalid_or_expired_otp') {
           authLogger.warn('VerifyOtp invalid or expired OTP', { email: req.body && req.body.email });
@@ -405,11 +385,8 @@ export function makeAuthController({ useCase }) {
           });
         }
 
-        const user = await useCase.ResetPassword({ email, otpCode, newPassword });
-        return reply.code(200).send({
-          success: true,
-          data: { id: user.id }
-        });
+        await useCase.ResetPassword({ email, otpCode, newPassword });
+        return reply.code(200).send({ success: true, message: 'Password reset successfully', data: null });
       } catch (err) {
         authLogger.error('ResetPassword error', { message: err.message, stack: err.stack });
         // Domain-level validation
@@ -504,10 +481,9 @@ export function makeAuthController({ useCase }) {
             login_at: new Date()
           });
         }
-        return reply.code(200).send({
-          success: true,
-          data: { accessToken: result.token, tokenType: 'Bearer', expiresIn }
-        });
+        const userObj = (result.user && typeof result.user.toPlainObject === 'function') ? result.user.toPlainObject() : (result.user || null);
+        if (userObj) userObj.api_token = result.token || null;
+        return reply.code(200).send({ success: true, message: 'Login successful', data: userObj });
       } catch (err) {
         authLogger.error('TokenSignIn error', { message: err.message, stack: err.stack });
         return reply.code(401).send({
@@ -517,6 +493,96 @@ export function makeAuthController({ useCase }) {
             message: 'Invalid or expired token'
           }
         });
+      }
+    },
+
+    RefreshToken: async (req, reply) => {
+      try {
+        const auth = req.headers && (req.headers.authorization || req.headers.Authorization);
+        if (!auth) 
+          return reply.code(401).send({ success: false, error: { code: 'missing_token', message: 'Authorization header missing' } });
+        const token = String(auth).split(' ')[1];
+        if (!token) 
+          return reply.code(401).send({ success: false, error: { code: 'invalid_token', message: 'Malformed Authorization header' } });
+        let payload;
+        try {
+          payload = jwt.verify(token, useCase.jwtSecret || process.env.JWT_SECRET);
+        } catch (e) {
+          return reply.code(401).send({ success: false, error: { code: 'invalid_token', message: 'Token invalid or expired' } });
+        }
+        const newToken = jwt.sign({ sub: payload.sub, email: payload.email, tv: payload.tv || 0 }, useCase.jwtSecret || process.env.JWT_SECRET, { expiresIn: useCase.jwtExpiresIn || '7d' });
+        const user = await useCase.userRepository.findById(payload.sub);
+        const userObj = user && typeof user.toPlainObject === 'function' ? user.toPlainObject() : (user || null);
+        if (userObj) userObj.api_token = newToken;
+        return reply.code(200).send({ success: true, message: 'Token refreshed', data: userObj || { api_token: newToken } });
+      } catch (err) {
+        authLogger.error('RefreshToken error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error', message: 'Unable to refresh token' } });
+      }
+    },
+
+    ChangePassword: async (req, reply) => {
+      try {
+        const userCtx = req.user;
+        if (!userCtx || !userCtx.id) 
+          return reply.code(401).send({ success: false, error: { code: 'unauthorized', message: 'Authentication required' } });
+        const { current_password, password, password_confirmation } = req.body || {};
+        const validationErrors = {};
+        if (!current_password) 
+          validationErrors.current_password = ['current_password is required'];
+        if (!password) 
+          validationErrors.password = ['password is required'];
+        if (password !== password_confirmation) 
+          validationErrors.password_confirmation = ['password confirmation does not match'];
+        if (Object.keys(validationErrors).length) 
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed', message: 'Validation failed', details: validationErrors } });
+        const user = await useCase.userRepository.findById(userCtx.id);
+        if (!user) 
+          return reply.code(404).send({ success: false, error: { code: 'user_not_found', message: 'User not found' } });
+        const ok = await bcrypt.compare(current_password, user.password);
+        if (!ok) 
+          return reply.code(401).send({ success: false, error: { code: 'invalid_current_password', message: 'Current password is incorrect' } });
+        const hashed = await bcrypt.hash(password, 10);
+        await useCase.userRepository.updatePassword(user.id, hashed);
+        return reply.code(200).send({ success: true, message: 'Password changed successfully', data: null });
+      } catch (err) {
+        authLogger.error('ChangePassword error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error', message: 'Unable to change password' } });
+      }
+    },
+
+    ChangeEmail: async (req, reply) => {
+      try {
+        const userCtx = req.user;
+        if (!userCtx || !userCtx.id) return reply.code(401).send({ success: false, error: { code: 'unauthorized', message: 'Authentication required' } });
+        const { new_email } = req.body || {};
+        if (!new_email) return reply.code(422).send({ success: false, error: { code: 'validation_failed', message: 'Validation failed', details: { new_email: ['new_email is required'] } } });
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const otp = {
+          id: uuidv4(),
+          userId: userCtx.id,
+          email: new_email,
+          otpCode,
+          purpose: 'email_change',
+          isUsed: false,
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+          createdAt: new Date()
+        };
+        if (!useCase.userRepository || typeof useCase.userRepository.createOtp !== 'function') {
+          return reply.code(501).send({ success: false, error: { code: 'not_configured', message: 'Email change flow not configured' } });
+        }
+        await useCase.userRepository.createOtp(otp);
+        if (useCase.emailQueue) {
+          try {
+            await useCase.emailQueue.add('email_change', { to: new_email, otpCode }, { attempts: 1, removeOnComplete: true });
+          } catch (qerr) {
+            authLogger.warn('Failed to queue change-email notification', { message: qerr.message });
+          }
+        }
+        return reply.code(200).send({ success: true, message: 'Email change requested. Please verify.', data: null });
+      } catch (err) {
+        authLogger.error('ChangeEmail error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error', message: 'Unable to request email change' } });
       }
     }
   };

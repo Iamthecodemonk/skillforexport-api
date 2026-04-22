@@ -7,6 +7,7 @@ import Fastify from 'fastify';
 import config from './config/index.js';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
+import fastifyCors from '@fastify/cors';
 import registerRoutes from './interfaces/routes/index.js';
 import { makeHealthController } from './interfaces/controllers/healthController.js';
 import { Queue, Worker } from 'bullmq';
@@ -293,7 +294,8 @@ export default async function startServer() {
     const oauthController = makeOauthController({ useCase: authUseCase });
     Object.assign(authController, oauthController);
   } catch (e) {
-    app.log.warn('Auth modules not fully configured', e && e.message);
+    // Log full error stack to help debug auth wiring failures in production
+    serverLogger.error('Auth modules not fully configured', { error: e && (e.stack || e.message) });
   }
 
   // register app routes
@@ -629,6 +631,19 @@ export default async function startServer() {
     app.log.warn('Swagger registration failed', err && err.message);
   }
   // Populate `req.user` using centralized middleware
+  // Register CORS to handle preflight OPTIONS and allow cross-origin requests
+  try {
+    await app.register(fastifyCors, {
+      origin: process.env.FRONTEND_URL || true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+      credentials: true
+    });
+    serverLogger.info('CORS plugin registered', { origin: process.env.FRONTEND_URL });
+  } catch (err) {
+    serverLogger.warn('CORS registration failed', { message: err && err.message });
+  }
+
   app.addHook('preHandler', makePopulateUser({ userRepository: userRepo, jwtSecret: process.env.JWT_SECRET }));
 
   // authRequired is provided from interfaces/middleware/authRequired.js
@@ -639,6 +654,8 @@ export default async function startServer() {
     await registerRoutes(instance, { controllers, rateLimiters, authRequired });
   }, { prefix: '/api' });
   serverLogger.debug('API routes registered under /api');
+
+  // No separate /mobile mount — unified API flow under /api
 
   // Email queue already initialized above
   // start

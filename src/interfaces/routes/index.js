@@ -104,16 +104,7 @@ export default async function registerRoutes(fastify, deps) {
       description: 'Login with email and password',
       body: schemas.LoginBody,
       response: {
-        200: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            data: {
-              type: 'object',
-              properties: { accessToken: { type: 'string' }, tokenType: { type: 'string' }, expiresIn: { type: 'number' } }
-            }
-          }
-        },
+        200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.LoginResponse } },
         401: {
           type: 'object',
           properties: {
@@ -170,7 +161,7 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Auth'],
       description: 'Verify OTP and get access token',
       body: schemas.VerifyOtpBody,
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.AuthTokenResponse } }, 401: { type: 'object' }, 422: { type: 'object' } }
+      response: { 200: schemas.ApiStringResponse, 401: { type: 'object' }, 422: { type: 'object' } }
     }
   }, handler('VerifyOtp'));
 
@@ -243,6 +234,59 @@ export default async function registerRoutes(fastify, deps) {
       response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.AuthTokenResponse } }, 401: { type: 'object' }, 422: { type: 'object' } }
     }
   }, handler('TokenSignIn'));
+
+  // ======= Unified API auth endpoints (single flow used by web and mobile)
+  // Register the common API endpoints under `/api/*` and call existing controllers directly.
+  const authPre = deps && deps.authRequired ? deps.authRequired : undefined;
+
+  fastify.post('/register/send-otp', { schema: { tags: ['Auth', 'API'], body: schemas.RequestOtpBody, response: { 200: schemas.ApiStringResponse, 422: { type: 'object' } } } }, handler('RequestOtp'));
+
+  fastify.post('/register/verify-otp', { schema: { tags: ['Auth', 'API'], body: schemas.VerifyOtpBody, response: { 200: schemas.ApiStringResponse, 401: { type: 'object' }, 422: { type: 'object' } } } }, async (req, reply) => {
+    req.body = Object.assign({}, req.body, { otpCode: req.body && (req.body.otp || req.body.otpCode) });
+    return handler('VerifyOtp')(req, reply);
+  });
+
+  fastify.post('/register/resend-otp', { schema: { tags: ['Auth', 'API'], body: schemas.RequestOtpBody, response: { 200: schemas.ApiStringResponse, 422: { type: 'object' } } } }, handler('RequestOtp'));
+
+  fastify.post('/register/set-password', { schema: { tags: ['Auth', 'API'], body: schemas.ResetPasswordBody, response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } }, 422: { type: 'object' } } } }, async (req, reply) => {
+    req.body = Object.assign({}, req.body, { otpCode: req.body && (req.body.otp || req.body.otpCode), newPassword: req.body && (req.body.password || req.body.newPassword) });
+    return handler('ResetPassword')(req, reply);
+  });
+
+  fastify.post('/register/complete', { schema: { tags: ['Auth', 'API'], body: { type: 'object', required: ['email', 'name'], properties: { email: { type: 'string' }, name: { type: 'string' }, otp: { type: 'string' }, password: { type: 'string' } } }, response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.AuthTokenResponse } }, 422: { type: 'object' } } } }, async (req, reply) => {
+    req.body = Object.assign({}, req.body, { otpCode: req.body && (req.body.otp || req.body.otpCode) });
+    return handler('CompleteRegistration')(req, reply);
+  });
+
+  fastify.post('/login', { schema: { tags: ['Auth', 'API'], body: schemas.LoginBody, response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.LoginResponse } }, 401: { type: 'object' }, 422: { type: 'object' } } } }, handler('LoginUserWithEmailPassword'));
+
+  fastify.post('/forgot-password', { schema: { tags: ['Auth', 'API'], body: schemas.RequestOtpBody, response: { 200: schemas.ApiStringResponse, 422: { type: 'object' } } } }, async (req, reply) => {
+    req.body = Object.assign({}, req.body, { purpose: 'password_reset' });
+    return handler('RequestOtp')(req, reply);
+  });
+
+  fastify.post('/reset-password', { schema: { tags: ['Auth', 'API'], body: schemas.ResetPasswordBody, response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } }, 422: { type: 'object' } } } }, async (req, reply) => {
+    req.body = Object.assign({}, req.body, { otpCode: req.body && (req.body.token || req.body.otpCode), newPassword: req.body && (req.body.password || req.body.newPassword) });
+    return handler('ResetPassword')(req, reply);
+  });
+
+  fastify.post('/logout', { schema: { tags: ['Auth', 'API'], response: { 200: { type: 'object', properties: { success: { type: 'boolean' } } }, 401: { type: 'object' } } } }, handler('Logout'));
+
+  fastify.post('/refresh-token', { schema: { tags: ['Auth', 'API'], response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.AuthTokenResponse } }, 401: { type: 'object' } } } }, async (req, reply) => {
+    if (!deps.controllers || !deps.controllers.RefreshToken) return sendError(reply, 501, 'not_implemented', 'Refresh token endpoint is not implemented on server');
+    return handler('RefreshToken')(req, reply);
+  });
+
+  // Auth-required endpoints for changing password/email
+  fastify.post('/user/change-password', { preHandler: authPre, schema: { tags: ['Auth', 'API'], body: { type: 'object', required: ['oldPassword', 'newPassword'], properties: { oldPassword: { type: 'string' }, newPassword: { type: 'string' } } }, response: { 200: { type: 'object', properties: { success: { type: 'boolean' } } }, 401: { type: 'object' }, 422: { type: 'object' } } } }, async (req, reply) => {
+    if (!deps.controllers || !deps.controllers.ChangePassword) return sendError(reply, 501, 'not_implemented', 'Change password not implemented');
+    return handler('ChangePassword')(req, reply);
+  });
+
+  fastify.post('/user/change-email', { preHandler: authPre, schema: { tags: ['Auth', 'API'], body: { type: 'object', required: ['newEmail', 'password'], properties: { newEmail: { type: 'string' }, password: { type: 'string' } } }, response: { 200: { type: 'object', properties: { success: { type: 'boolean' } } }, 401: { type: 'object' }, 422: { type: 'object' } } } }, async (req, reply) => {
+    if (!deps.controllers || !deps.controllers.ChangeEmail) return sendError(reply, 501, 'not_implemented', 'Change email not implemented');
+    return handler('ChangeEmail')(req, reply);
+  });
 
   // ========== Users ==========
   fastify.get('/users/:id', {
@@ -380,7 +424,7 @@ export default async function registerRoutes(fastify, deps) {
         }
       },
       response: {
-        202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { jobId: { type: 'string' } } } } },
+        202: schemas.JobAcceptedResponse,
         422: { type: 'object' },
         409: schemas.GenericErrorResponse,
         503: { type: 'object' }
@@ -412,7 +456,7 @@ export default async function registerRoutes(fastify, deps) {
         }
       },
       response: {
-        202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { jobId: { type: 'string' } } } } },
+        202: schemas.JobAcceptedResponse,
         422: { type: 'object' },
         409: schemas.GenericErrorResponse,
         503: { type: 'object' }
@@ -426,7 +470,7 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'getCloudinarySignature',
       tags: ['Media'],
       description: 'Get Cloudinary upload signature and credentials for direct client upload',
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } } }
+      response: { 200: schemas.CloudinarySignatureResponse }
     }
   }, handler('getCloudinarySignature'));
 
@@ -438,11 +482,7 @@ export default async function registerRoutes(fastify, deps) {
       description: 'Register a direct client upload (Cloudinary public id) so the server can validate, create an asset record and enqueue processing. Recommended flow: upload media first (or perform direct client upload), then call this endpoint with the provider public id. Server-side validation performed: allowed MIME types (image/jpeg,image/png,image/webp), max file size (enforced by the media worker, see MAX_POST_IMAGE_BYTES env), and optional checks per `kind` (e.g., avatar/banner uniqueness). The endpoint returns a job id — poll `GET /media/jobs/:id` for processing status and detailed per-asset errors (e.g., file_too_large, unsupported_media_type). If you intend to attach media to a post, wait until job status is `completed` and asset record has a `url` before creating the post.',
       body: schemas.MediaRegisterBody,
       response: {
-        202: {
-          type: 'object',
-          properties: { success: { type: 'boolean' }, data: { type: 'object' } },
-          examples: [{ summary: 'Registered (profile update queued)', value: { success: true, data: { jobId: 'job_12345' } } }, { summary: 'Register page asset', value: { success: true, data: { jobId: 'job_67890' } } }]
-        },
+        202: schemas.JobAcceptedResponse,
         409: { type: 'object' },
         422: {
           type: 'object',
@@ -468,39 +508,7 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Media'],
       description: 'Get status for a media processing job',
       response: {
-        200: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            data: {
-              type: 'object',
-              properties: {
-                id: { type: 'string' },
-                name: { type: 'string' },
-                state: { type: 'string' },
-                attemptsMade: { type: 'number' },
-                failedReason: { type: ['string', 'null'] },
-                friendlyMessage: { type: ['string', 'null'] },
-                returnvalue: { type: ['object', 'null'] },
-                data: { type: ['object', 'null'] }
-              }
-            }
-          }
-          ,
-          example: {
-            success: true,
-            data: {
-              id: 'job_abc123',
-              name: 'avatar-file',
-              state: 'failed',
-              attemptsMade: 3,
-              failedReason: 'invalid_file_type',
-              friendlyMessage: 'Only JPG, PNG or WEBP images are allowed.',
-              returnvalue: null,
-              data: { userId: 'user-uuid' }
-            }
-          }
-        },
+        200: schemas.MediaJobStatusResponse,
         404: { type: 'object' },
         503: { type: 'object' }
       }
@@ -523,40 +531,20 @@ export default async function registerRoutes(fastify, deps) {
           'multipart/form-data': {
             schema: {
               type: 'object',
-              properties: {
-                file: { type: 'string', format: 'binary' }
-              },
+              properties: { file: { type: 'string', format: 'binary' } },
               required: ['file']
             }
           }
         }
       },
       response: {
-        202: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            data: { type: 'object', properties: { jobId: { type: 'string' } }, example: { jobId: 'job_abc123' } }
-          }
-        },
+        202: schemas.JobAcceptedResponse,
         422: { type: 'object' },
-        409: { type: 'object' },
+        409: schemas.GenericErrorResponse,
         503: { type: 'object' }
       }
     }
   }, handler('uploadAvatarFile'));
-  fastify.put('/users/:id/profile', {
-    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: {
-      operationId: 'updateUserProfile', tags: ['Users'],
-      description: 'Update profile fields. You can clear avatar or banner by sending null values.',
-      body: schemas.UserProfileBody,
-      response: {
-        200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.UserProfileResponse } },
-        404: { type: 'object' }
-      }
-    }
-  }, handler('updateUserProfile'));
 
   fastify.get('/users/:id/skills', {
     schema: {
@@ -941,11 +929,7 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Posts', 'Media'],
       description: 'Attach media to a post by URL (server enqueues background validation/upload).',
       body: schemas.PostMediaAttachBody,
-      response: {
-        202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { jobId: { type: 'string' } } } } },
-        422: { type: 'object' },
-        503: { type: 'object' }
-      }
+      response: { 202: schemas.JobAcceptedResponse, 422: { type: 'object' }, 503: { type: 'object' } }
     }
   }, handler('attachMediaByUrl'));
 
@@ -1405,4 +1389,3 @@ export default async function registerRoutes(fastify, deps) {
 
   routesLogger.info('Routes registered');
 }
-

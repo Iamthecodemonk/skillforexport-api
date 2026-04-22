@@ -22,21 +22,25 @@ export const LoginBody = {
 };
 LoginBody.example = { email: 'user@example.com', password: 'P@ssw0rd' };
 
-export const LoginResponse = {
-  type: 'object',
-  properties: { accessToken: { type: 'string' }, tokenType: { type: 'string' }, expiresIn: { type: 'number' } }
-};
 
-export const AuthTokenResponse = {
+
+// Public user representation returned by auth flows (controllers attach `api_token`)
+export const UserPublic = {
   type: 'object',
   properties: {
-    token: { type: ['string','null'] },
-    user: { type: ['object','null'] },
-    accessToken: { type: ['string','null'] },
-    tokenType: { type: ['string','null'] },
-    expiresIn: { type: ['number','null'] }
-  }
+    id: { type: 'string' },
+    email: { type: 'string' },
+    username: { type: ['string','null'] },
+    api_token: { type: ['string','null'] }
+  },
+  example: { id: 'user-uuid', email: 'user@example.com', username: 'janedoe', api_token: 'eyJhbGciOiJI...' }
 };
+
+// For simpler routes that previously returned token-like payloads, prefer returning the user object with `api_token`.
+// Keep backward-compatible shapes by using `UserPublic` for login/token responses.
+export const LoginResponse = { ...UserPublic };
+export const TokenSignInResponse = { ...UserPublic };
+export const AuthTokenResponse = { ...UserPublic };
 
 export const AuthError = {
   type: 'object',
@@ -61,7 +65,6 @@ export const TokenSignInBody = {
   properties: { idToken: { type: 'string' } }
 };
 
-export const TokenSignInResponse = { type: 'object', properties: { accessToken: { type: 'string' } } };
 
 export const RequestOtpBody = {
   type: 'object',
@@ -77,6 +80,16 @@ export const RequestOtpBody = {
   }
 };
 RequestOtpBody.example = { email: 'user@example.com', purpose: 'password_reset' };
+
+export const ApiStringResponse = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean' },
+    message: { type: ['string','null'] },
+    data: { type: ['string','null'] }
+  },
+  example: { success: true, message: 'OTP sent successfully', data: 'temp_session_token_xyz' }
+};
 
 export const VerifyOtpBody = {
   type: 'object',
@@ -432,6 +445,50 @@ export const MediaRegisterBody = {
   example: { publicId: 'banners/abcd1234', kind: 'banner', pageId: null }
 };
 
+export const JobAcceptedResponse = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean' },
+    data: { type: 'object', properties: { jobId: { type: 'string' } } }
+  }
+};
+
+export const CloudinarySignatureResponse = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean' },
+    data: {
+      type: 'object',
+      properties: {
+        cloudName: { type: 'string' },
+        apiKey: { type: 'string' },
+        timestamp: { type: 'number' },
+        signature: { type: 'string' }
+      }
+    }
+  }
+};
+
+export const MediaJobStatusResponse = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean' },
+    data: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        name: { type: 'string' },
+        state: { type: 'string' },
+        attemptsMade: { type: 'number' },
+        failedReason: { type: ['string','null'] },
+        friendlyMessage: { type: ['string','null'] },
+        returnvalue: { type: ['object','null'] },
+        data: { type: ['object','null'] }
+      }
+    }
+  }
+};
+
 export const PostMediaResponse = {
   type: 'object',
   properties: { id: { type: 'string' }, post_id: { type: 'string' }, media_type: { type: 'string' }, url: { type: 'string' }, thumbnail_url: { type: 'string' }, display_order: { type: 'number' } }
@@ -657,7 +714,11 @@ export default {
   UserProfileBody,
   UserProfileResponse,
   AvatarUploadBody,
+  ApiStringResponse,
   MediaRegisterBody,
+  JobAcceptedResponse,
+  CloudinarySignatureResponse,
+  MediaJobStatusResponse,
   PageCategoryCreateBody,
   PageCreateBody,
   PageResponse,

@@ -84,21 +84,125 @@ export default class AuthUseCase {
     return { otpId: otp.id, message: 'OTP sent to email. Please verify to complete registration.' };
   }
 
-  async CompleteRegistration({ email, otpCode, password }) {
+  async RequestRegistrationOtp({ email }) {
+    if (!email || !User.isValidEmail(email)) {
+      throw new Error('invalid_email_format');
+    }
+
+    const existing = await this.userRepository.findByEmail(email);
+    if (existing) {
+      throw new Error('email_taken');
+    }
+
+    await this.userRepository.deleteOtpsByEmailPurpose(email, 'registration');
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const placeholderPassword = await bcrypt.hash(uuidv4(), 10);
+    const otp = {
+      id: uuidv4(),
+      userId: null,
+      email,
+      otpCode,
+      purpose: 'registration',
+      isUsed: false,
+      tempPasswordHash: placeholderPassword,
+      tempProfileFullName: null,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      createdAt: new Date(),
+    };
+
+    await this.userRepository.createOtp(otp);
+
+    if (this.emailQueue) {
+      try {
+        await this.emailQueue.add('otp', {
+          type: 'otp',
+          to: email,
+          otpCode,
+          expiresInMinutes: 10
+        }, {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 2000 },
+          removeOnComplete: true
+        });
+        authLogger.info('Registration OTP email queued', { email });
+      } catch (queueErr) {
+        authLogger.warn('Failed to queue registration OTP email', { error: queueErr.message });
+      }
+    }
+
+    return { email, otpId: otp.id };
+  }
+
+  async ResendRegistrationOtp({ email }) {
+    return this.RequestRegistrationOtp({ email });
+  }
+
+  async VerifyRegistrationOtp({ email, otpCode }) {
+    if (!email || !User.isValidEmail(email)) {
+      throw new Error('invalid_email_format');
+    }
+
+    const entry = await this.userRepository.findValidOtp(email, otpCode, 'registration');
+    if (!entry) {
+      throw new Error('invalid_or_expired_otp');
+    }
+
+    await this.userRepository.markOtpVerified(entry.id);
+
+    return { email };
+  }
+
+  async SetRegistrationPassword({ email, password }) {
+    if (!email || !User.isValidEmail(email)) {
+      throw new Error('invalid_email_format');
+    }
+
+    if (!password) {
+      throw new Error('password_required');
+    }
+
+    const entry = await this.userRepository.findLatestOtpByEmailPurpose(email, 'registration');
+    if (!entry || entry.is_used || !entry.used_at || new Date(entry.expires_at) <= new Date()) {
+      throw new Error('registration_not_verified');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await this.userRepository.updateOtpTempPassword(entry.id, hashedPassword);
+
+    return { email };
+  }
+
+  async CompleteRegistration({ email, name, refCode, otpCode, password }) {
     // Validate email format at domain layer
     if (!email || !User.isValidEmail(email)) {
       throw new Error('invalid_email_format');
     }
-    
-    // Find valid OTP for registration
-    const entry = await this.userRepository.findValidOtp(email, otpCode, 'registration');
-    if (!entry) 
-        throw new Error('invalid_or_expired_otp');
-    
+
+    let entry = null;
+
+    if (otpCode) {
+      entry = await this.userRepository.findValidOtp(email, otpCode, 'registration');
+    } else {
+      entry = await this.userRepository.findLatestOtpByEmailPurpose(email, 'registration');
+      if (entry && (entry.is_used || !entry.used_at || new Date(entry.expires_at) <= new Date())) {
+        entry = null;
+      }
+    }
+
+    if (!entry) {
+      throw new Error('invalid_or_expired_otp');
+    }
+
     // Use stored temporary hashed password if present; otherwise use provided password
     const storedHash = entry.temp_password_hash || entry.tempPasswordHash || entry.password_hash || entry.passwordHash;
     const tempFullName = entry.temp_profile_full_name || entry.tempProfileFullName || null;
-    const hashed = storedHash ? storedHash : await bcrypt.hash(password, 10);
+    const hashed = storedHash || (password ? await bcrypt.hash(password, 10) : null);
+
+    if (!hashed) {
+      throw new Error('password_required');
+    }
+
     try {
       const user = new User({ id: uuidv4(), email, password: hashed, createdAt: new Date() });
       const createdUser = await this.userRepository.create(user);

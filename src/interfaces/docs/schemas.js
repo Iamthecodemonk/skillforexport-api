@@ -61,27 +61,21 @@ AuthErrorResponse.example = { success: false, error: { code: 'invalid_credential
 
 export const TokenSignInBody = {
   type: 'object',
-  required: ['idToken'],
+  required: ['id_token'],
   description: 'Google ID token obtained from the client after a successful Google sign-in flow.',
-  properties: { idToken: { type: 'string' } }
+  properties: { id_token: { type: 'string' } }
 };
-TokenSignInBody.example = { idToken: 'eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...' };
+TokenSignInBody.example = { id_token: 'eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...' };
 
 
 export const RequestOtpBody = {
   type: 'object',
   required: ['email'],
   properties: {
-    email: { type: 'string' },
-    purpose: {
-      type: 'string',
-      description: "Optional. Label describing why the OTP is requested. Common values: 'login', 'email_verification', 'password_reset', 'two_factor', 'registration'. Servers may use this to scope or validate OTPs; if omitted the server will apply a sensible default.",
-      enum: ['login', 'email_verification', 'password_reset', 'two_factor', 'registration'],
-      example: 'password_reset'
-    }
+    email: { type: 'string' }
   }
 };
-RequestOtpBody.example = { email: 'user@example.com', purpose: 'password_reset' };
+RequestOtpBody.example = { email: 'user@example.com' };
 
 export const ApiStringResponse = {
   type: 'object',
@@ -95,66 +89,83 @@ export const ApiStringResponse = {
 
 export const VerifyOtpBody = {
   type: 'object',
-  required: ['email', 'otpCode'],
+  required: ['email', 'otp'],
   properties: {
     email: { type: 'string' },
-    otpCode: { type: 'string' },
-    purpose: {
-      type: 'string',
-      description: "Optional. The purpose label that was used when requesting the OTP (e.g. 'password_reset' or 'two_factor'). Supplying this helps the server match the OTP to the intended flow; omit if unsure.",
-      enum: ['login', 'email_verification', 'password_reset', 'two_factor', 'registration'],
-      example: 'password_reset'
-    }
+    otp: { type: 'string' }
   }
 };
-VerifyOtpBody.example = { email: 'user@example.com', otpCode: '123456', purpose: 'registration' };
+VerifyOtpBody.example = { email: 'user@example.com', otp: '123456' };
+
+export const RegisterSetPasswordBody = {
+  type: 'object',
+  required: ['email', 'password'],
+  properties: {
+    email: { type: 'string' },
+    password: { type: 'string' }
+  },
+  example: { email: 'user@example.com', password: 'P@ssw0rd123' }
+};
 
 export const ResetPasswordBody = {
   type: 'object',
-  required: ['email', 'otpCode', 'newPassword'],
+  required: ['email', 'password', 'password_confirmation'],
+  anyOf: [
+    { required: ['otp'] },
+    { required: ['token'] }
+  ],
   properties: {
-    email: { type: 'string' },
-    otpCode: { type: 'string', description: "Password reset token sent to the user's email (or OTP). For password resets this is the secure token from the reset link.", example: 'f3a8... (token)'
-    },
-    newPassword: { type: 'string' }
+    otp: { type: 'string', example: '123456' },
+    token: { type: 'string', example: 'f3a8...token' },
+    email: { type: 'string', example: 'user@example.com' },
+    password: { type: 'string', example: 'NewP@ssw0rd123' },
+    password_confirmation: { type: 'string', example: 'NewP@ssw0rd123' }
   },
-  example: { email: 'user@example.com', otpCode: 'f3a8...token', newPassword: 'NewP@ssw0rd' }
+  example: {
+    token: 'f3a8...token',
+    email: 'user@example.com',
+    password: 'NewP@ssw0rd123',
+    password_confirmation: 'NewP@ssw0rd123'
+  }
 };
 
 export const RegisterCompleteBody = {
   type: 'object',
   required: ['email', 'name'],
-  description: 'Complete registration after OTP verification. `otp` and `password` are accepted when the flow requires them.',
+  description: 'Complete registration after OTP verification.',
   properties: {
     email: { type: 'string', example: 'user@example.com' },
     name: { type: 'string', example: 'Jane Doe' },
-    otp: { type: 'string', example: '123456' },
-    password: { type: 'string', example: 'P@ssw0rd123' }
+    ref_code: { type: 'string', example: 'ABC123' }
   }
 };
-RegisterCompleteBody.example = { email: 'user@example.com', name: 'Jane Doe', otp: '123456', password: 'P@ssw0rd123' };
+RegisterCompleteBody.example = { email: 'user@example.com', name: 'Jane Doe', ref_code: 'ABC123' };
 
 export const ChangePasswordBody = {
   type: 'object',
-  required: ['oldPassword', 'newPassword'],
+  required: ['current_password', 'password', 'password_confirmation'],
   description: 'Change the password for the authenticated user.',
   properties: {
-    oldPassword: { type: 'string', example: 'OldP@ssw0rd' },
-    newPassword: { type: 'string', example: 'NewP@ssw0rd123' }
+    current_password: { type: 'string', example: 'OldP@ssw0rd' },
+    password: { type: 'string', example: 'NewP@ssw0rd123' },
+    password_confirmation: { type: 'string', example: 'NewP@ssw0rd123' }
   }
 };
-ChangePasswordBody.example = { oldPassword: 'OldP@ssw0rd', newPassword: 'NewP@ssw0rd123' };
+ChangePasswordBody.example = {
+  current_password: 'OldP@ssw0rd',
+  password: 'NewP@ssw0rd123',
+  password_confirmation: 'NewP@ssw0rd123'
+};
 
 export const ChangeEmailBody = {
   type: 'object',
-  required: ['newEmail', 'password'],
-  description: 'Change the email address for the authenticated user after confirming the current password.',
+  required: ['new_email'],
+  description: 'Change the email address for the authenticated user.',
   properties: {
-    newEmail: { type: 'string', example: 'new-email@example.com' },
-    password: { type: 'string', example: 'P@ssw0rd123' }
+    new_email: { type: 'string', example: 'new-email@example.com' }
   }
 };
-ChangeEmailBody.example = { newEmail: 'new-email@example.com', password: 'P@ssw0rd123' };
+ChangeEmailBody.example = { new_email: 'new-email@example.com' };
 
 export const AuthSuccessResponse = {
   type: 'object',
@@ -290,7 +301,15 @@ export const PostResponse = {
     updated_at: { type: 'string' }
   }
 };
-PostResponse.example = { id: 'post-uuid', user_id: 'user-uuid', community_id: null, title: 'Hello world', content: 'Hello world — this is a test post.', created_at: '2026-04-09T12:00:00Z', updated_at: '2026-04-09T12:00:00Z' };
+PostResponse.example = { 
+  id: 'post-uuid', 
+  user_id: 'user-uuid', 
+  community_id: null, 
+  title: 'Hello world', 
+  content: 'Hello world — this is a test post.', 
+  created_at: '2026-04-09T12:00:00Z', 
+  updated_at: '2026-04-09T12:00:00Z' 
+};
 
 export const PostListResponse = {
   type: 'array',
@@ -303,7 +322,11 @@ export const PostMediaAttachBody = {
   required: ['url'],
   properties: { url: { type: 'string' }, mediaType: { type: 'string' }, displayOrder: { type: 'number' } }
 };
-PostMediaAttachBody.example = { url: 'https://example.com/image.jpg', mediaType: 'image', displayOrder: 0 };
+PostMediaAttachBody.example = { 
+  url: 'https://example.com/image.jpg', 
+  mediaType: 'image', 
+  displayOrder: 0 
+};
 
 export const MediaError = {
   type: 'object',
@@ -328,7 +351,24 @@ export const MediaValidationErrorResponse = {
     }
   }
 };
-MediaValidationErrorResponse.example = { success: false, error: { code: 'media_not_ready', message: 'One or more media assets are not yet processed', details: [ { assetId: 'asset-uuid-123', code: 'file_too_large', message: 'File exceeds 10MB' }, { assetId: 'asset-uuid-456', code: 'unsupported_media_type', message: 'Invalid file format: .exe' } ] } };
+MediaValidationErrorResponse.example = { 
+  success: false, 
+  error: { 
+    code: 'media_not_ready', 
+    message: 'One or more media assets are not yet processed', 
+    details: [ {
+       assetId: 'asset-uuid-123', 
+       code: 'file_too_large', 
+       message: 'File exceeds 10MB' 
+      }, 
+      { 
+        assetId: 'asset-uuid-456', 
+        code: 'unsupported_media_type', 
+        message: 'Invalid file format: .exe' 
+      } 
+    ] 
+  } 
+};
 
 export const UserProfileBody = {
   type: 'object',
@@ -404,7 +444,13 @@ export const Portfolio = {
     link: { type: 'string' }
   }
 };
-Portfolio.example = { id: 'portfolio-uuid', userId: 'user-uuid', title: 'Personal Website', description: 'Portfolio site', link: 'https://janedoe.dev' };
+Portfolio.example = { 
+  id: 'portfolio-uuid', 
+  userId: 'user-uuid', 
+  title: 'Personal Website', 
+  description: 'Portfolio site', 
+  link: 'https://janedoe.dev' 
+};
 
 export const Certification = {
   type: 'object',
@@ -808,6 +854,7 @@ export default {
   TokenSignInResponse,
   RequestOtpBody,
   VerifyOtpBody,
+  RegisterSetPasswordBody,
   ResetPasswordBody,
   RegisterCompleteBody,
   ChangePasswordBody,

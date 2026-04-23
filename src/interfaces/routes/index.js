@@ -63,68 +63,288 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('GoogleCallback'));
 
-  fastify.post('/auth/google/token', {
-    schema: {
-      operationId: 'googleTokenSignIn',
-      tags: ['Auth'],
-      description: 'Exchange a Google ID token for an application auth token.',
-      body: schemas.TokenSignInBody,
-      response: { 200: schemas.AuthSuccessResponse, 401: schemas.AuthErrorResponse, 422: schemas.GenericErrorResponse }
+  fastify.post(
+    '/auth/google/token',
+    {
+      schema: {
+        operationId: 'googleTokenSignIn',
+        tags: ['Auth'],
+        description: 'Exchange a Google ID token for an application auth token.',
+        body: schemas.TokenSignInBody,
+        response: {
+          200: schemas.AuthSuccessResponse,
+          401: schemas.AuthErrorResponse,
+          422: schemas.GenericErrorResponse
+        }
+      }
+    },
+    async (req, reply) => {
+      req.body = Object.assign({}, req.body, {
+        idToken: req.body && (req.body.id_token || req.body.idToken)
+      });
+
+      return handler('TokenSignIn')(req, reply);
     }
-  }, handler('TokenSignIn'));
+  );
 
   // ======= Unified API auth endpoints (single flow used by web and mobile)
   // Register the common API endpoints under `/api/*` and call existing controllers directly.
   const authPre = deps && deps.authRequired ? deps.authRequired : undefined;
 
-  fastify.post('/register/send-otp', { schema: { operationId: 'sendRegistrationOtp', tags: ['Auth'], description: 'Start registration by sending an OTP to the supplied email address.', body: schemas.RequestOtpBody, response: { 200: schemas.ApiStringResponse, 422: schemas.GenericErrorResponse } } }, handler('RequestOtp'));
+  fastify.post(
+    '/register/send-otp',
+    {
+      schema: {
+        operationId: 'sendRegistrationOtp',
+        tags: ['Auth'],
+        description: 'Start registration by sending an OTP to the supplied email address.',
+        body: schemas.RequestOtpBody,
+        response: {
+          200: schemas.ApiStringResponse,
+          422: schemas.GenericErrorResponse
+        }
+      }
+    },
+    handler('RequestRegistrationOtp')
+  );
 
-  fastify.post('/register/verify-otp', { schema: { operationId: 'verifyRegistrationOtp', tags: ['Auth'], description: 'Verify the OTP code sent during registration before completing account creation.', body: schemas.VerifyOtpBody, response: { 200: schemas.ApiStringResponse, 401: schemas.AuthErrorResponse, 422: schemas.GenericErrorResponse } } }, async (req, reply) => {
-    req.body = Object.assign({}, req.body, { otpCode: req.body && (req.body.otp || req.body.otpCode) });
-    return handler('VerifyOtp')(req, reply);
-  });
+  fastify.post(
+    '/register/verify-otp',
+    {
+      schema: {
+        operationId: 'verifyRegistrationOtp',
+        tags: ['Auth'],
+        description: 'Verify the OTP code sent during registration before completing account creation.',
+        body: schemas.VerifyOtpBody,
+        response: {
+          200: schemas.ApiStringResponse,
+          401: schemas.AuthErrorResponse,
+          422: schemas.GenericErrorResponse
+        }
+      }
+    },
+    async (req, reply) => {
+      req.body = Object.assign({}, req.body, {
+        otpCode: req.body && (req.body.otp || req.body.otpCode)
+      });
 
-  fastify.post('/register/resend-otp', { schema: { operationId: 'resendRegistrationOtp', tags: ['Auth'], description: 'Resend the registration OTP to the provided email address.', body: schemas.RequestOtpBody, response: { 200: schemas.ApiStringResponse, 422: schemas.GenericErrorResponse } } }, handler('RequestOtp'));
+      return handler('VerifyOtp')(req, reply);
+    }
+  );
 
-  fastify.post('/register/set-password', { schema: { operationId: 'setRegistrationPassword', tags: ['Auth'], description: 'Set the password during the registration flow after email ownership has been verified.', body: schemas.ResetPasswordBody, response: { 200: schemas.IdSuccessResponse, 422: schemas.GenericErrorResponse } } }, async (req, reply) => {
-    req.body = Object.assign({}, req.body, { otpCode: req.body && (req.body.otp || req.body.otpCode), newPassword: req.body && (req.body.password || req.body.newPassword) });
-    return handler('ResetPassword')(req, reply);
-  });
+  fastify.post(
+    '/register/resend-otp',
+    {
+      schema: {
+        operationId: 'resendRegistrationOtp',
+        tags: ['Auth'],
+        description: 'Resend the registration OTP to the provided email address.',
+        body: schemas.RequestOtpBody,
+        response: {
+          200: schemas.ApiStringResponse,
+          422: schemas.GenericErrorResponse
+        }
+      }
+    },
+    handler('ResendRegistrationOtp')
+  );
 
-  fastify.post('/register/complete', { schema: { operationId: 'completeRegistration', tags: ['Auth'], description: 'Complete the registration flow and return the created user with an API token.', body: schemas.RegisterCompleteBody, response: { 201: schemas.AuthSuccessResponse, 422: schemas.GenericErrorResponse } } }, async (req, reply) => {
-    req.body = Object.assign({}, req.body, { otpCode: req.body && (req.body.otp || req.body.otpCode) });
-    return handler('CompleteRegistration')(req, reply);
-  });
+  fastify.post(
+    '/register/set-password',
+    {
+      schema: {
+        operationId: 'setRegistrationPassword',
+        tags: ['Auth'],
+        description: 'Set the password during the registration flow after email ownership has been verified.',
+        body: schemas.RegisterSetPasswordBody,
+        response: {
+          200: schemas.IdSuccessResponse,
+          422: schemas.GenericErrorResponse
+        }
+      }
+    },
+    handler('SetRegistrationPassword')
+  );
 
-  fastify.post('/login', { schema: { operationId: 'loginWithEmailPassword', tags: ['Auth'], description: 'Authenticate with email and password and return the authenticated user plus API token.', body: schemas.LoginBody, response: { 200: schemas.AuthSuccessResponse, 401: schemas.AuthErrorResponse, 422: schemas.GenericErrorResponse } } }, handler('LoginUserWithEmailPassword'));
+  fastify.post(
+    '/register/complete',
+    {
+      schema: {
+        operationId: 'completeRegistration',
+        tags: ['Auth'],
+        description: 'Complete the registration flow and return the created user with an API token.',
+        body: schemas.RegisterCompleteBody,
+        response: {
+          201: schemas.AuthSuccessResponse,
+          422: schemas.GenericErrorResponse
+        }
+      }
+    },
+    handler('CompleteRegistration')
+  );
 
-  fastify.post('/forgot-password', { schema: { operationId: 'requestPasswordReset', tags: ['Auth'], description: 'Request a password reset token or OTP for the supplied email address.', body: Object.assign({}, schemas.RequestOtpBody, { example: { email: 'user@example.com', purpose: 'password_reset' } }), response: { 200: schemas.ApiStringResponse, 422: schemas.GenericErrorResponse } } }, async (req, reply) => {
-    req.body = Object.assign({}, req.body, { purpose: 'password_reset' });
-    return handler('RequestOtp')(req, reply);
-  });
+  fastify.post(
+    '/login',
+    {
+      schema: {
+        operationId: 'loginWithEmailPassword',
+        tags: ['Auth'],
+        description: 'Authenticate with email and password and return the authenticated user plus API token.',
+        body: schemas.LoginBody,
+        response: {
+          200: schemas.AuthSuccessResponse,
+          401: schemas.AuthErrorResponse,
+          422: schemas.GenericErrorResponse
+        }
+      }
+    },
+    handler('LoginUserWithEmailPassword')
+  );
 
-  fastify.post('/reset-password', { schema: { operationId: 'resetPassword', tags: ['Auth'], description: 'Reset a user password with a reset token or OTP previously issued by the platform.', body: schemas.ResetPasswordBody, response: { 200: schemas.IdSuccessResponse, 422: schemas.GenericErrorResponse } } }, async (req, reply) => {
-    req.body = Object.assign({}, req.body, { otpCode: req.body && (req.body.token || req.body.otpCode), newPassword: req.body && (req.body.password || req.body.newPassword) });
-    return handler('ResetPassword')(req, reply);
-  });
+  fastify.post(
+    '/forgot-password',
+    {
+      schema: {
+        operationId: 'requestPasswordReset',
+        tags: ['Auth'],
+        description: 'Request a password reset token or OTP for the supplied email address.',
+        body: schemas.RequestOtpBody,
+        response: {
+          200: schemas.ApiStringResponse,
+          422: schemas.GenericErrorResponse
+        }
+      }
+    },
+    async (req, reply) => {
+      req.body = Object.assign({}, req.body, { purpose: 'password_reset' });
 
-  fastify.post('/logout', { schema: { operationId: 'logoutUser', tags: ['Auth'], description: 'Invalidate the current authenticated session or token.', response: { 200: schemas.SimpleSuccessResponse, 401: schemas.AuthErrorResponse } } }, handler('Logout'));
+      return handler('RequestOtp')(req, reply);
+    }
+  );
 
-  fastify.post('/refresh-token', { schema: { operationId: 'refreshAuthToken', tags: ['Auth'], description: 'Refresh the current authentication token and return a new token payload.', response: { 200: schemas.AuthSuccessResponse, 401: schemas.AuthErrorResponse } } }, async (req, reply) => {
-    if (!deps.controllers || !deps.controllers.RefreshToken) return sendError(reply, 501, 'not_implemented', 'Refresh token endpoint is not implemented on server');
-    return handler('RefreshToken')(req, reply);
-  });
+  fastify.post(
+    '/reset-password',
+    {
+      schema: {
+        operationId: 'resetPassword',
+        tags: ['Auth'],
+        description: 'Reset a user password with a reset token or OTP previously issued by the platform.',
+        body: schemas.ResetPasswordBody,
+        response: {
+          200: schemas.IdSuccessResponse,
+          422: schemas.GenericErrorResponse
+        }
+      }
+    },
+    async (req, reply) => {
+      req.body = Object.assign({}, req.body, {
+        otpCode: req.body && (req.body.otp || req.body.token || req.body.otpCode),
+        newPassword: req.body && (req.body.password || req.body.newPassword)
+      });
+
+      return handler('ResetPassword')(req, reply);
+    }
+  );
+
+  fastify.post(
+    '/logout',
+    {
+      preHandler: authPre,
+      schema: {
+        operationId: 'logoutUser',
+        tags: ['Auth'],
+        description: 'Invalidate the current authenticated session or token.',
+        response: {
+          200: schemas.SimpleSuccessResponse,
+          401: schemas.AuthErrorResponse
+        }
+      }
+    },
+    handler('Logout')
+  );
+
+  fastify.post(
+    '/refresh-token',
+    {
+      preHandler: authPre,
+      schema: {
+        operationId: 'refreshAuthToken',
+        tags: ['Auth'],
+        description: 'Refresh the current authentication token and return a new token payload.',
+        response: {
+          200: schemas.AuthSuccessResponse,
+          401: schemas.AuthErrorResponse
+        }
+      }
+    },
+    async (req, reply) => {
+      if (!deps.controllers || !deps.controllers.RefreshToken) {
+        return sendError(reply, 501, 'not_implemented', 'Refresh token endpoint is not implemented on server');
+      }
+
+      return handler('RefreshToken')(req, reply);
+    }
+  );
 
   // Auth-required endpoints for changing password/email
-  fastify.post('/user/change-password', { preHandler: authPre, schema: { operationId: 'changeUserPassword', tags: ['Auth'], description: 'Change the password for the currently authenticated user.', body: schemas.ChangePasswordBody, response: { 200: schemas.SimpleSuccessResponse, 401: schemas.AuthErrorResponse, 422: schemas.GenericErrorResponse } } }, async (req, reply) => {
-    if (!deps.controllers || !deps.controllers.ChangePassword) return sendError(reply, 501, 'not_implemented', 'Change password not implemented');
-    return handler('ChangePassword')(req, reply);
-  });
+  fastify.put(
+    '/user/change-password',
+    {
+      preHandler: authPre,
+      schema: {
+        operationId: 'changeUserPassword',
+        tags: ['Auth'],
+        description: 'Change the password for the currently authenticated user.',
+        body: schemas.ChangePasswordBody,
+        response: {
+          200: schemas.SimpleSuccessResponse,
+          401: schemas.AuthErrorResponse,
+          422: schemas.GenericErrorResponse
+        }
+      }
+    },
+    async (req, reply) => {
+      if (!deps.controllers || !deps.controllers.ChangePassword) {
+        return sendError(reply, 501, 'not_implemented', 'Change password not implemented');
+      }
 
-  fastify.post('/user/change-email', { preHandler: authPre, schema: { operationId: 'changeUserEmail', tags: ['Auth'], description: 'Change the email address for the currently authenticated user.', body: schemas.ChangeEmailBody, response: { 200: schemas.SimpleSuccessResponse, 401: schemas.AuthErrorResponse, 422: schemas.GenericErrorResponse } } }, async (req, reply) => {
-    if (!deps.controllers || !deps.controllers.ChangeEmail) return sendError(reply, 501, 'not_implemented', 'Change email not implemented');
-    return handler('ChangeEmail')(req, reply);
-  });
+      req.body = Object.assign({}, req.body, {
+        oldPassword: req.body && (req.body.current_password || req.body.oldPassword),
+        newPassword: req.body && (req.body.password || req.body.newPassword)
+      });
+
+      return handler('ChangePassword')(req, reply);
+    }
+  );
+
+  fastify.put(
+    '/user/change-email',
+    {
+      preHandler: authPre,
+      schema: {
+        operationId: 'changeUserEmail',
+        tags: ['Auth'],
+        description: 'Change the email address for the currently authenticated user.',
+        body: schemas.ChangeEmailBody,
+        response: {
+          200: schemas.SimpleSuccessResponse,
+          401: schemas.AuthErrorResponse,
+          422: schemas.GenericErrorResponse
+        }
+      }
+    },
+    async (req, reply) => {
+      if (!deps.controllers || !deps.controllers.ChangeEmail) {
+        return sendError(reply, 501, 'not_implemented', 'Change email not implemented');
+      }
+
+      req.body = Object.assign({}, req.body, {
+        newEmail: req.body && (req.body.new_email || req.body.newEmail)
+      });
+
+      return handler('ChangeEmail')(req, reply);
+    }
+  );
 
   // ========== Users ==========
   fastify.get('/users/:id', {
@@ -1478,10 +1698,12 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'followPage',
       tags: ['Pages'],
       description: 'Follow a page',
-      body: { type: 'object', 
-        description: 'Empty body accepted; request requires Authorization header. Server ignores body and uses the authenticated user from the Authorization token.', 
-        properties: {}, 
-        example: { "note": "No body required. Include Authorization: Bearer <token>" } },
+      body: {
+        type: 'object',
+        description: 'Empty body accepted; request requires Authorization header. Server ignores body and uses the authenticated user from the Authorization token.',
+        properties: {},
+        example: { "note": "No body required. Include Authorization: Bearer <token>" }
+      },
       response: {
         200: {
           type: 'object',

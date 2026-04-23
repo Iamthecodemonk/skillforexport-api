@@ -7,6 +7,124 @@ const authLogger = logger.child('AUTH_CONTROLLER');
 
 export function makeAuthController({ useCase }) {
   return {
+    RequestRegistrationOtp: async (req, reply) => {
+      try {
+        const { email } = req.body || {};
+        const validationErrors = {};
+
+        if (!email) validationErrors.email = ['email is required'];
+
+        if (Object.keys(validationErrors).length > 0) {
+          return reply.code(422).send({
+            success: false,
+            error: {
+              code: 'validation_failed',
+              message: 'Validation failed',
+              details: validationErrors
+            }
+          });
+        }
+
+        const result = await useCase.RequestRegistrationOtp({ email });
+
+        return reply.code(200).send({
+          success: true,
+          message: 'OTP sent successfully',
+          data: result.email
+        });
+      } catch (err) {
+        authLogger.error('RequestRegistrationOtp error', { message: err.message, stack: err.stack });
+
+        if (err.message === 'invalid_email_format') {
+          return reply.code(422).send({
+            success: false,
+            error: {
+              code: 'validation_failed',
+              message: 'Validation failed',
+              details: { email: ['email must be a valid email address'] }
+            }
+          });
+        }
+
+        if (err.message === 'email_taken') {
+          return reply.code(409).send({
+            success: false,
+            error: {
+              code: 'email_already_exists',
+              message: 'Email already registered'
+            }
+          });
+        }
+
+        return reply.code(500).send({
+          success: false,
+          error: {
+            code: 'internal_error',
+            message: 'An unexpected error occurred'
+          }
+        });
+      }
+    },
+
+    ResendRegistrationOtp: async (req, reply) => {
+      try {
+        const { email } = req.body || {};
+        const validationErrors = {};
+
+        if (!email) validationErrors.email = ['email is required'];
+
+        if (Object.keys(validationErrors).length > 0) {
+          return reply.code(422).send({
+            success: false,
+            error: {
+              code: 'validation_failed',
+              message: 'Validation failed',
+              details: validationErrors
+            }
+          });
+        }
+
+        const result = await useCase.ResendRegistrationOtp({ email });
+
+        return reply.code(200).send({
+          success: true,
+          message: 'OTP sent successfully',
+          data: result.email
+        });
+      } catch (err) {
+        authLogger.error('ResendRegistrationOtp error', { message: err.message, stack: err.stack });
+
+        if (err.message === 'invalid_email_format') {
+          return reply.code(422).send({
+            success: false,
+            error: {
+              code: 'validation_failed',
+              message: 'Validation failed',
+              details: { email: ['email must be a valid email address'] }
+            }
+          });
+        }
+
+        if (err.message === 'email_taken') {
+          return reply.code(409).send({
+            success: false,
+            error: {
+              code: 'email_already_exists',
+              message: 'Email already registered'
+            }
+          });
+        }
+
+        return reply.code(500).send({
+          success: false,
+          error: {
+            code: 'internal_error',
+            message: 'An unexpected error occurred'
+          }
+        });
+      }
+    },
+
     RegisterUserWithEmailPassword: async (req, reply) => {
       try {
         const { email, password, fullName } = req.body;
@@ -63,10 +181,10 @@ export function makeAuthController({ useCase }) {
 
     CompleteRegistration: async (req, reply) => {
       try {
-        const { email, password, otpCode } = req.body || {};
+        const { email, name, ref_code: refCode, otpCode, password } = req.body || {};
         const validationErrors = {};
         if (!email) validationErrors.email = ['email is required'];
-        if (!otpCode) validationErrors.otpCode = ['otpCode is required'];
+        if (!name) validationErrors.name = ['name is required'];
 
         if (Object.keys(validationErrors).length > 0) {
           return reply.code(422).send({
@@ -80,7 +198,13 @@ export function makeAuthController({ useCase }) {
         }
 
         // password is optional here because a temporary hashed password may be stored with the OTP
-        const { user, token } = await useCase.CompleteRegistration({ email, otpCode, password });
+        const { user, token } = await useCase.CompleteRegistration({
+          email,
+          name,
+          refCode,
+          otpCode,
+          password
+        });
         const decoded = jwt.decode(token) || {};
         const now = Math.floor(Date.now() / 1000);
         const expiresIn = decoded.exp ? Math.max(0, decoded.exp - now) : 0;
@@ -288,19 +412,17 @@ export function makeAuthController({ useCase }) {
 
     VerifyOtp: async (req, reply) => {
       try {
-        // Normalize inputs to avoid whitespace/case mismatches and accept common aliases
         const rawEmail = req.body && req.body.email;
         const rawOtp = req.body && req.body.otpCode;
-        const rawPurpose = req.body && req.body.purpose;
 
         const email = rawEmail ? String(rawEmail).trim().toLowerCase() : rawEmail;
         const otpCode = rawOtp ? String(rawOtp).trim() : rawOtp;
-        let purpose = rawPurpose ? String(rawPurpose).trim().toLowerCase() : undefined;
-        if (purpose === 'code') purpose = 'registration';
 
         const validationErrors = {};
-        if (!email) validationErrors.email = ['email is required'];
-        if (!otpCode) validationErrors.otpCode = ['otpCode is required'];
+        if (!email) 
+          validationErrors.email = ['email is required'];
+        if (!otpCode) 
+          validationErrors.otpCode = ['otpCode is required'];
 
         if (Object.keys(validationErrors).length > 0) {
           return reply.code(422).send({
@@ -313,27 +435,13 @@ export function makeAuthController({ useCase }) {
           });
         }
 
-        const { user, token } = await useCase.VerifyOtp({ email, otpCode, purpose });
-        const decoded = jwt.decode(token) || {};
-        const now = Math.floor(Date.now() / 1000);
-        const expiresIn = decoded.exp ? Math.max(0, decoded.exp - now) : 0;
-        try {
-          req.user = (user && typeof user.toPlainObject === 'function') ? user.toPlainObject() : (user || null);
-        } catch (e) {
-          req.user = user || null;
-        }
-        // Record login history (controllers have request context)
-        if (useCase && useCase.loginHistoryRepository && typeof useCase.loginHistoryRepository.create === 'function') {
-          await useCase.loginHistoryRepository.create({
-            id: uuidv4(),
-            user_id: user.id,
-            login_method: purpose === 'registration' ? 'registration' : 'otp',
-            ip_address: req.ip,
-            user_agent: req.headers['user-agent'] || null,
-            login_at: new Date()
-          });
-        }
-        return reply.code(200).send({ success: true, message: 'OTP verified successfully', data: token || null });
+        const result = await useCase.VerifyRegistrationOtp({ email, otpCode });
+
+        return reply.code(200).send({
+          success: true,
+          message: 'OTP verified successfully',
+          data: result.email
+        });
       } catch (err) {
         if (err.message === 'invalid_or_expired_otp') {
           authLogger.warn('VerifyOtp invalid or expired OTP', { email: req.body && req.body.email });
@@ -366,13 +474,93 @@ export function makeAuthController({ useCase }) {
       }
     },
 
+    SetRegistrationPassword: async (req, reply) => {
+      try {
+        const { email, password } = req.body || {};
+        const validationErrors = {};
+
+        if (!email) validationErrors.email = ['email is required'];
+        if (!password) validationErrors.password = ['password is required'];
+
+        if (Object.keys(validationErrors).length > 0) {
+          return reply.code(422).send({
+            success: false,
+            error: {
+              code: 'validation_failed',
+              message: 'Validation failed',
+              details: validationErrors
+            }
+          });
+        }
+
+        const result = await useCase.SetRegistrationPassword({ email, password });
+
+        return reply.code(200).send({
+          success: true,
+          message: 'Password set successfully',
+          data: result.email
+        });
+      } catch (err) {
+        authLogger.error('SetRegistrationPassword error', { message: err.message, stack: err.stack });
+
+        if (err.message === 'invalid_email_format') {
+          return reply.code(422).send({
+            success: false,
+            error: {
+              code: 'validation_failed',
+              message: 'Validation failed',
+              details: { email: ['email must be a valid email address'] }
+            }
+          });
+        }
+
+        if (err.message === 'registration_not_verified') {
+          return reply.code(400).send({
+            success: false,
+            error: {
+              code: 'registration_not_verified',
+              message: 'Email not verified. Please verify your email first.'
+            }
+          });
+        }
+
+        if (err.message === 'password_required') {
+          return reply.code(422).send({
+            success: false,
+            error: {
+              code: 'validation_failed',
+              message: 'Validation failed',
+              details: { password: ['password is required'] }
+            }
+          });
+        }
+
+        return reply.code(500).send({
+          success: false,
+          error: {
+            code: 'internal_error',
+            message: 'An unexpected error occurred'
+          }
+        });
+      }
+    },
+
     ResetPassword: async (req, reply) => {
       try {
-        const { email, otpCode, newPassword } = req.body || {};
+        const {
+          email,
+          otpCode,
+          newPassword,
+          password_confirmation: passwordConfirmation
+        } = req.body || {};
         const validationErrors = {};
         if (!email) validationErrors.email = ['email is required'];
         if (!otpCode) validationErrors.otpCode = ['otpCode is required'];
         if (!newPassword) validationErrors.newPassword = ['newPassword is required'];
+        if (!passwordConfirmation) validationErrors.password_confirmation = ['password_confirmation is required'];
+        if (newPassword && passwordConfirmation && newPassword !== passwordConfirmation) {
+          validationErrors.password_confirmation = ['password confirmation does not match'];
+        }
 
         if (Object.keys(validationErrors).length > 0) {
           return reply.code(422).send({

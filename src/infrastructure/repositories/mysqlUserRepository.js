@@ -56,8 +56,8 @@ export default class MysqlUserRepository {
       otp_code: otp.otpCode,
       purpose: otp.purpose || 'login',
       is_used: otp.isUsed || false,
-      temp_password_hash: otp.tempPasswordHash || null,
-      temp_profile_full_name: otp.tempProfileFullName || null,
+      temp_password_hash: otp.tempPasswordHash || '',
+      temp_profile_full_name: otp.tempProfileFullName || '',
       expires_at: otp.expiresAt,
       created_at: now,
     });
@@ -81,6 +81,35 @@ export default class MysqlUserRepository {
       used_at: now,
     });
     return { id, is_used: true, used_at: now };
+  }
+
+  async markOtpVerified(id) {
+    const now = new Date();
+    await db('user_otps').where({ id }).update({
+      used_at: now,
+    });
+    return { id, used_at: now };
+  }
+
+  async findLatestOtpByEmailPurpose(email, purpose) {
+    const otp = await db('user_otps')
+      .where({ email, purpose, is_used: false })
+      .orderBy('created_at', 'desc')
+      .first();
+
+    return otp || null;
+  }
+
+  async updateOtpTempPassword(id, hashedPassword) {
+    await db('user_otps').where({ id }).update({
+      temp_password_hash: hashedPassword,
+    });
+
+    return { id, temp_password_hash: hashedPassword };
+  }
+
+  async deleteOtpsByEmailPurpose(email, purpose) {
+    return db('user_otps').where({ email, purpose }).del();
   }
 
   async deleteOtp(id) {

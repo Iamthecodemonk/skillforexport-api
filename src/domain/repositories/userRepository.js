@@ -21,6 +21,18 @@ export class UserRepository {
   async markOtpUsed(id) {
     throw new Error('markOtpUsed() not implemented');
   }
+  async markOtpVerified(id) {
+    throw new Error('markOtpVerified() not implemented');
+  }
+  async findLatestOtpByEmailPurpose(email, purpose) {
+    throw new Error('findLatestOtpByEmailPurpose() not implemented');
+  }
+  async updateOtpTempPassword(id, hashedPassword) {
+    throw new Error('updateOtpTempPassword() not implemented');
+  }
+  async deleteOtpsByEmailPurpose(email, purpose) {
+    throw new Error('deleteOtpsByEmailPurpose() not implemented');
+  }
   async deleteOtp(id) {
     throw new Error('deleteOtp() not implemented');
   }
@@ -69,6 +81,22 @@ export class UserRepositoryImpl extends UserRepository {
 
   async markOtpUsed(id) {
     return this.adapter.markOtpUsed(id);
+  }
+
+  async markOtpVerified(id) {
+    return this.adapter.markOtpVerified(id);
+  }
+
+  async findLatestOtpByEmailPurpose(email, purpose) {
+    return this.adapter.findLatestOtpByEmailPurpose(email, purpose);
+  }
+
+  async updateOtpTempPassword(id, hashedPassword) {
+    return this.adapter.updateOtpTempPassword(id, hashedPassword);
+  }
+
+  async deleteOtpsByEmailPurpose(email, purpose) {
+    return this.adapter.deleteOtpsByEmailPurpose(email, purpose);
   }
 
   async deleteOtp(id) {

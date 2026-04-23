@@ -392,6 +392,7 @@ export const Skill = {
     level: { type: 'string', enum: ['beginner', 'intermediate', 'expert'] }
   }
 };
+Skill.example = { id: 'skill-uuid', name: 'JavaScript', level: 'expert' };
 
 export const Portfolio = {
   type: 'object',
@@ -403,6 +404,7 @@ export const Portfolio = {
     link: { type: 'string' }
   }
 };
+Portfolio.example = { id: 'portfolio-uuid', userId: 'user-uuid', title: 'Personal Website', description: 'Portfolio site', link: 'https://janedoe.dev' };
 
 export const Certification = {
   type: 'object',
@@ -414,6 +416,7 @@ export const Certification = {
     issueDate: { type: 'string' }
   }
 };
+Certification.example = { id: 'cert-uuid', userId: 'user-uuid', name: 'Certified Kubernetes Administrator', issuer: 'CNCF', issueDate: '2021-08-01' };
 
 export const Education = {
   type: 'object',
@@ -427,6 +430,7 @@ export const Education = {
     endDate: { type: ['string','null'] }
   }
 };
+Education.example = { id: 'education-uuid', userId: 'user-uuid', school: 'University of Lagos', degree: 'BSc Computer Science', field: 'Computer Science', startDate: '2015-09-01', endDate: '2019-06-01' };
 
 export const Experience = {
   type: 'object',
@@ -442,6 +446,7 @@ export const Experience = {
     description: { type: 'string' }
   }
 };
+Experience.example = { id: 'experience-uuid', userId: 'user-uuid', company: 'Acme Corp', title: 'Senior Engineer', employmentType: 'full-time', startDate: '2020-01-01', endDate: '2022-12-31', isCurrent: 0, description: 'Worked on backend services and APIs.' };
 
 export const Follower = {
   type: 'object',
@@ -452,6 +457,7 @@ export const Follower = {
     createdAt: { type: 'string' }
   }
 };
+Follower.example = { id: 'follow-uuid', followerId: 'user-uuid-2', followingId: 'user-uuid', createdAt: '2026-04-20T09:00:00Z' };
 
 export const OAuthAccount = {
   type: 'object',
@@ -464,6 +470,19 @@ export const OAuthAccount = {
     avatarUrl: { type: ['string','null'] }
   }
 };
+OAuthAccount.example = { id: 'oauth-uuid', userId: 'user-uuid', provider: 'google', providerId: 'google-12345', providerEmail: 'user@example.com', avatarUrl: 'https://example.com/avatar.jpg' };
+
+export const UserLoginHistory = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    userId: { type: 'string' },
+    loginMethod: { type: ['string', 'null'] },
+    ipAddress: { type: ['string', 'null'] },
+    loginAt: { type: ['string', 'null'], format: 'date-time' }
+  }
+};
+UserLoginHistory.example = { id: 'login-uuid', userId: 'user-uuid', loginMethod: 'email_password', ipAddress: '127.0.0.1', loginAt: '2026-04-23T08:15:00Z' };
 
 // schemas.js
 export const FullProfileResponse = {
@@ -582,6 +601,7 @@ export const CommentResponse = {
   type: 'object',
   properties: { id: { type: 'string' }, post_id: { type: 'string' }, user_id: { type: 'string' }, parent_comment_id: { type: ['string','null'] }, content: { type: 'string' }, created_at: { type: 'string' } }
 };
+CommentResponse.example = { id: 'comment-uuid', post_id: 'post-uuid', user_id: 'user-uuid', parent_comment_id: null, content: 'This is really helpful.', created_at: '2026-04-10T12:30:00Z' };
 
 export const PageCreateBody = {
   type: 'object',
@@ -664,8 +684,25 @@ export const PageResponse = {
     updatedAt: { type: 'string' }
   }
 };
+PageResponse.example = { id: 'page-uuid', ownerId: 'user-uuid', categoryId: 'page-category-uuid', name: 'My Page', slug: 'my-page', description: 'A public page', avatar: null, coverImage: null, isVerified: 0, isActive: 1, isApproved: 1, approvalNotes: null, approvedAt: '2026-04-20T10:00:00Z', approvedBy: 'admin-uuid', metadata: { theme: 'business' }, followers_count: 12, posts_count: 3, category_pages_count: 25, createdAt: '2026-04-10T09:00:00Z', updatedAt: '2026-04-20T10:00:00Z' };
 
 export const PageListResponse = { type: 'array', items: PageResponse };
+
+export const PageFollower = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    page_id: { type: 'string' },
+    user_id: { type: 'string' },
+    role: { type: 'string' },
+    is_notified: { type: 'number' },
+    is_muted: { type: 'number' },
+    created_at: { type: 'string', format: 'date-time' },
+    updated_at: { type: 'string', format: 'date-time' },
+    message: { type: ['string', 'null'] }
+  }
+};
+PageFollower.example = { id: 'page-follow-uuid', page_id: 'page-uuid', user_id: 'user-uuid', role: 'follower', is_notified: 1, is_muted: 0, created_at: '2026-04-23T10:00:00Z', updated_at: '2026-04-23T10:00:00Z', message: 'followed' };
 
 export const PageCategoryResponse = {
   type: 'object',
@@ -685,6 +722,7 @@ export const PageCategoryResponse = {
     total_pages: { type: ['number','null'], description: 'Total pages in this category (provided by GET /page-categories/:id)' }
   }
 };
+PageCategoryResponse.example = { id: 'page-category-uuid', name: 'Community', slug: 'community', description: 'Community pages', icon: 'users', is_active: 1, rules: { allowPosting: true }, max_pages_per_user: 5, requires_approval: 1, validation_rules: { slugPattern: '^[a-z0-9-]+$' }, created_at: '2026-04-01T12:00:00Z', updated_at: '2026-04-10T12:00:00Z', total_pages: 12 };
 
 export const CommunityCategoryCreateBody = {
   type: 'object',
@@ -697,6 +735,7 @@ export const CommunityCategoryResponse = {
   type: 'object',
   properties: { id: { type: 'string' }, name: { type: 'string' }, description: { type: 'string' } }
 };
+CommunityCategoryResponse.example = { id: 'community-category-uuid', name: 'Sports', description: 'Groups for sports fans' };
 
 export const CommunityCreateBody = {
   type: 'object',
@@ -723,11 +762,13 @@ export const CommunityResponse = {
     created_at: { type: 'string' }
   }
 };
+CommunityResponse.example = { id: 'community-uuid', categoryId: 'community-category-uuid', name: 'Local Chess Club', description: 'We meet weekly to play chess', is_active: 1, default_post_visibility: 'community', created_at: '2026-04-12T10:00:00Z' };
 
 export const CommunityMemberResponse = {
   type: 'object',
   properties: { id: { type: 'string' }, userId: { type: 'string' }, communityId: { type: 'string' }, role: { type: 'string' } }
 };
+CommunityMemberResponse.example = { id: 'membership-uuid', userId: 'user-uuid', communityId: 'community-uuid', role: 'member' };
 
 export const CommentListResponse = { type: 'array', items: CommentResponse };
 
@@ -806,6 +847,7 @@ export default {
   PageCreateBody,
   PageResponse,
   PageListResponse,
+  PageFollower,
   PageCategoryResponse,
   CommunityCategoryCreateBody,
   CommunityCategoryResponse,
@@ -823,5 +865,6 @@ export default {
   Education,
   Experience,
   Follower,
-  OAuthAccount
+  OAuthAccount,
+  UserLoginHistory
 };

@@ -131,11 +131,25 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'getUser',
       tags: ['Users'],
-      description: 'Get user by id'
-      ,
+      description: 'Get a user record by id.',
       response: {
-        200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } },
-        404: { type: 'object' }
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                email: { type: 'string' },
+                username: { type: ['string', 'null'] },
+                role: { type: ['string', 'null'] }
+              }
+            }
+          },
+          example: { success: true, data: { id: 'user-uuid', email: 'user@example.com', username: 'janedoe', role: 'user' } }
+        },
+        404: schemas.GenericErrorResponse
       }
     }
   }, handler('getUser'));
@@ -386,8 +400,16 @@ export default async function registerRoutes(fastify, deps) {
 
   fastify.get('/users/:id/skills', {
     schema: {
-      operationId: 'listUserSkills', tags: ['Users']
-      , response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { type: 'object' } } } } }
+      operationId: 'listUserSkills',
+      tags: ['Users'],
+      description: 'List the skills attached to a user profile.',
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: { type: 'array', items: schemas.Skill } },
+          example: { success: true, data: [schemas.Skill.example] }
+        }
+      }
     }
   }, handler('listUserSkills'));
 
@@ -396,11 +418,20 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'addUserSkill',
       tags: ['Users'],
+      description: 'Add a skill entry to the user profile.',
       body: {
         type: 'object',
         required: ['skill'],
         properties: { skill: { type: 'string' }, level: { type: 'string' } },
         example: { skill: 'JavaScript', level: 'advanced' }
+      },
+      response: {
+        201: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.Skill },
+          example: { success: true, data: schemas.Skill.example }
+        },
+        422: schemas.GenericErrorResponse
       }
     }
   }, handler('addUserSkill'));
@@ -410,8 +441,9 @@ export default async function registerRoutes(fastify, deps) {
       preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: {
         operationId:
           'deleteUserSkill',
-        tags: ['Users']
-        , response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } } }
+        tags: ['Users'],
+        description: 'Delete a specific skill from the user profile.',
+        response: { 200: schemas.IdSuccessResponse }
       }
     }, handler('deleteSkill'));
 
@@ -419,13 +451,15 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listUserPortfolios',
       tags: ['Users'],
+      description: 'List portfolio links or projects attached to a user profile.',
       response: {
         200: {
           type: 'object',
           properties: {
             success: { type: 'boolean' },
-            data: { type: 'array', items: { type: 'object' } }
-          }
+            data: { type: 'array', items: schemas.Portfolio }
+          },
+          example: { success: true, data: [schemas.Portfolio.example] }
         }
       }
     }
@@ -435,13 +469,21 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'addUserPortfolio',
       tags: ['Users'],
+      description: 'Create a portfolio entry for the user profile.',
       body: {
         type: 'object',
         required: ['title'],
         properties: { title: { type: 'string' }, description: { type: 'string' }, link: { type: 'string' } },
         example: { title: 'Personal Website', description: 'Portfolio site', link: 'https://janedoe.dev' }
       },
-      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 422: { type: 'object' } }
+      response: {
+        201: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.Portfolio },
+          example: { success: true, data: schemas.Portfolio.example }
+        },
+        422: schemas.GenericErrorResponse
+      }
     }
   }, handler('addUserPortfolio'));
   fastify.delete(
@@ -451,12 +493,8 @@ export default async function registerRoutes(fastify, deps) {
       schema: {
         operationId: 'deleteUserPortfolio',
         tags: ['Users'],
-        response: {
-          200: {
-            type: 'object',
-            properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } }
-          }
-        }
+        description: 'Delete a portfolio entry from the user profile.',
+        response: { 200: schemas.IdSuccessResponse }
       }
     },
     handler('deletePortfolio')
@@ -467,12 +505,20 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'followUser',
       tags: ['Users'],
+      description: 'Follow another user. The authenticated user becomes the follower.',
       body: {
         type: 'object',
         properties: { followerId: { type: 'string' } },
         example: { followerId: 'uuid-or-id' }
       },
-      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 422: { type: 'object' } }
+      response: {
+        201: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.Follower },
+          example: { success: true, data: schemas.Follower.example }
+        },
+        422: schemas.GenericErrorResponse
+      }
     }
   }, handler('followUser'));
 
@@ -481,23 +527,56 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'unfollowUser',
       tags: ['Users'],
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } } }
+      description: 'Unfollow a user. The response may indicate when the user was not being followed.',
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: {
+              type: 'object',
+              properties: {
+                id: { type: ['string', 'null'] },
+                followerId: { type: ['string', 'null'] },
+                followingId: { type: ['string', 'null'] },
+                createdAt: { type: ['string', 'null'] },
+                message: { type: ['string', 'null'] }
+              }
+            }
+          },
+          example: { success: true, data: { id: 'follow-uuid', followerId: 'user-uuid-2', followingId: 'user-uuid', createdAt: '2026-04-20T09:00:00Z', message: 'unfollowed' } }
+        }
+      }
     }
   }, handler('unfollowUser'));
 
   fastify.get('/users/:id/followers', {
     schema: {
       operationId: 'listFollowers',
-      tags: ['Users']
-      , response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { type: 'object' } } } } }
+      tags: ['Users'],
+      description: 'List followers for a user.',
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: { type: 'array', items: schemas.Follower } },
+          example: { success: true, data: [schemas.Follower.example] }
+        }
+      }
     }
   }, handler('listFollowers'));
 
   fastify.get('/users/:id/login-history', {
     schema: {
       operationId: 'listLoginHistory',
-      tags: ['Users']
-      , response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { type: 'object' } } } } }
+      tags: ['Users'],
+      description: 'List recent login history entries for a user.',
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: { type: 'array', items: schemas.UserLoginHistory } },
+          example: { success: true, data: [schemas.UserLoginHistory.example] }
+        }
+      }
     }
   }, handler('listLoginHistory'));
 
@@ -507,53 +586,164 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'createCommunityCategory',
       tags: ['Communities'],
-      body: { type: 'object', required: ['name'], properties: { name: { type: 'string' } }, example: { name: 'Sports' } },
-      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } } }
+      description: 'Create a community category used to organize communities.',
+      body: schemas.CommunityCategoryCreateBody,
+      response: {
+        201: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.CommunityCategoryResponse },
+          example: { success: true, data: schemas.CommunityCategoryResponse.example }
+        },
+        409: schemas.GenericErrorResponse,
+        422: schemas.GenericErrorResponse
+      }
     }
   }, handler('createCategory'));
 
   fastify.put('/community-categories/:id', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'updateCommunityCategory', tags: ['Communities'], body: { type: 'object', properties: { name: { type: 'string' } } }, response: { 200: { type: 'object' } } }
+    schema: {
+      operationId: 'updateCommunityCategory',
+      tags: ['Communities'],
+      description: 'Update a community category by id.',
+      body: { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' } }, example: { name: 'Sports', description: 'Groups for sports fans' } },
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.CommunityCategoryResponse },
+          example: { success: true, data: schemas.CommunityCategoryResponse.example }
+        },
+        404: schemas.GenericErrorResponse,
+        409: schemas.GenericErrorResponse
+      }
+    }
   }, handler('updateCategory'));
 
   fastify.delete('/community-categories/:id', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'deleteCommunityCategory', tags: ['Communities'], response: { 200: { type: 'object' } } }
+    schema: {
+      operationId: 'deleteCommunityCategory',
+      tags: ['Communities'],
+      description: 'Delete a community category.',
+      response: { 200: schemas.IdSuccessResponse, 404: schemas.GenericErrorResponse }
+    }
   }, handler('deleteCategory'));
 
   // Communities
   fastify.post('/communities', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'createCommunity', tags: ['Communities'], body: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, description: { type: 'string' }, categoryId: { type: 'string' } }, example: { name: 'Local Chess Club', description: 'We play chess', categoryId: null } }, response: { 201: { type: 'object' } } }
+    schema: {
+      operationId: 'createCommunity',
+      tags: ['Communities'],
+      description: 'Create a community. The authenticated user becomes the owner.',
+      body: schemas.CommunityCreateBody,
+      response: {
+        201: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.CommunityResponse },
+          example: { success: true, data: schemas.CommunityResponse.example }
+        },
+        401: schemas.AuthErrorResponse,
+        422: schemas.GenericErrorResponse
+      }
+    }
   }, handler('createCommunity'));
 
   fastify.get('/communities/:id', {
-    schema: { operationId: 'getCommunity', tags: ['Communities'], response: { 200: { type: 'object' } } }
+    schema: {
+      operationId: 'getCommunity',
+      tags: ['Communities'],
+      description: 'Get a community by id.',
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.CommunityResponse },
+          example: { success: true, data: schemas.CommunityResponse.example }
+        },
+        404: schemas.GenericErrorResponse
+      }
+    }
   }, handler('getCommunity'));
 
   fastify.put('/communities/:id', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'updateCommunity', tags: ['Communities'], body: { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' }, defaultPostVisibility: { type: 'string', enum: ['public', 'connections', 'community'] }, is_active: { type: 'number' } } }, response: { 200: { type: 'object' } } }
+    schema: {
+      operationId: 'updateCommunity',
+      tags: ['Communities'],
+      description: 'Update community settings. Only the owner or an admin may perform this action.',
+      body: schemas.CommunityUpdateBody,
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.CommunityResponse },
+          example: { success: true, data: schemas.CommunityResponse.example }
+        },
+        401: schemas.AuthErrorResponse,
+        403: schemas.GenericErrorResponse,
+        404: schemas.GenericErrorResponse
+      }
+    }
   }, handler('updateCommunity'));
 
   fastify.delete('/communities/:id', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'deleteCommunity', tags: ['Communities'], response: { 200: { type: 'object' } } }
+    schema: {
+      operationId: 'deleteCommunity',
+      tags: ['Communities'],
+      description: 'Delete a community. Only the owner or an admin may perform this action.',
+      response: { 200: schemas.IdSuccessResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse }
+    }
   }, handler('deleteCommunity'));
 
   fastify.post('/communities/:id/join', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'joinCommunity', tags: ['Communities'], response: { 200: { type: 'object' } } }
+    schema: {
+      operationId: 'joinCommunity',
+      tags: ['Communities'],
+      description: 'Join a community as the authenticated user.',
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.CommunityMemberResponse },
+          example: { success: true, data: schemas.CommunityMemberResponse.example }
+        },
+        401: schemas.AuthErrorResponse,
+        422: schemas.GenericErrorResponse
+      }
+    }
   }, handler('joinCommunity'));
 
   fastify.delete('/communities/:id/join', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'leaveCommunity', tags: ['Communities'], response: { 200: { type: 'object' } } }
+    schema: {
+      operationId: 'leaveCommunity',
+      tags: ['Communities'],
+      description: 'Leave a community as the authenticated user.',
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { removed: { type: 'boolean' } } } },
+          example: { success: true, data: { removed: true } }
+        },
+        401: schemas.AuthErrorResponse,
+        422: schemas.GenericErrorResponse
+      }
+    }
   }, handler('leaveCommunity'));
 
   fastify.get('/communities/:id/members', {
-    schema: { operationId: 'listCommunityMembers', tags: ['Communities'], response: { 200: { type: 'object' } } }
+    schema: {
+      operationId: 'listCommunityMembers',
+      tags: ['Communities'],
+      description: 'List members in a community.',
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: { type: 'array', items: schemas.CommunityMemberResponse } },
+          example: { success: true, data: [schemas.CommunityMemberResponse.example] }
+        }
+      }
+    }
   }, handler('listMembers'));
 
   fastify.post('/users/:id/oauth-accounts', {
@@ -561,13 +751,21 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'createOauthAccount',
       tags: ['Users'],
+      description: 'Link an OAuth account to a user.',
       body: {
         type: 'object',
         required: ['provider', 'providerId'],
         properties: { provider: { type: 'string' }, providerId: { type: 'string' }, accessToken: { type: 'string' } },
         example: { provider: 'google', providerId: 'google-12345', accessToken: 'ya29.a0Af...' }
       },
-      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 422: { type: 'object' } }
+      response: {
+        201: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.OAuthAccount },
+          example: { success: true, data: schemas.OAuthAccount.example }
+        },
+        422: schemas.GenericErrorResponse
+      }
     }
   }, handler('createOauthAccount'));
 
@@ -576,13 +774,15 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listCertifications',
       tags: ['Users'],
+      description: 'List certification entries for a user profile.',
       response: {
         200: {
           type: 'object',
           properties: {
             success: { type: 'boolean' },
-            data: { type: 'array', items: { type: 'object' } }
-          }
+            data: { type: 'array', items: schemas.Certification }
+          },
+          example: { success: true, data: [schemas.Certification.example] }
         }
       }
     }
@@ -593,6 +793,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'addCertification',
       tags: ['Users'],
+      description: 'Add a certification to a user profile.',
       body: {
         type: 'object',
         required: ['name'],
@@ -600,8 +801,12 @@ export default async function registerRoutes(fastify, deps) {
         example: { name: 'Certified Kubernetes Administrator', issuer: 'CNCF', issueDate: '2021-08-01' }
       },
       response: {
-        201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } },
-        422: { type: 'object' }
+        201: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.Certification },
+          example: { success: true, data: schemas.Certification.example }
+        },
+        422: schemas.GenericErrorResponse
       }
     }
   }, handler('addCertification'));
@@ -611,7 +816,8 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'deleteCertification',
       tags: ['Users'],
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } } }
+      description: 'Delete a certification from a user profile.',
+      response: { 200: schemas.IdSuccessResponse }
     }
   }, handler('deleteCertification'));
 
@@ -620,8 +826,13 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listEducation',
       tags: ['Users'],
+      description: 'List education entries for a user profile.',
       response: {
-        200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { type: 'object' } } } }
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: { type: 'array', items: schemas.Education } },
+          example: { success: true, data: [schemas.Education.example] }
+        }
       }
     }
   }, handler('listEducation'));
@@ -631,24 +842,43 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'addEducation',
       tags: ['Users'],
+      description: 'Add an education entry to a user profile.',
       body: {
         type: 'object',
         required: ['school'],
         properties: { school: { type: 'string' }, degree: { type: 'string' }, field: { type: 'string' }, startDate: { type: 'string' }, endDate: { type: 'string' } },
         example: { school: 'University', degree: 'BSc Computer Science', field: 'Computer Science', startDate: '2015-09-01', endDate: '2019-06-01' }
       },
-      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 422: { type: 'object' } }
+      response: {
+        201: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.Education },
+          example: { success: true, data: schemas.Education.example }
+        },
+        422: schemas.GenericErrorResponse
+      }
     }
   }, handler('addEducation'));
 
   fastify.delete('/users/:id/education/:eduId', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'deleteEducation', tags: ['Users'], response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } } } }
+    schema: { operationId: 'deleteEducation', tags: ['Users'], description: 'Delete an education entry from a user profile.', response: { 200: schemas.IdSuccessResponse } }
   }, handler('deleteEducation'));
 
   // ========== User Experiences ==========
   fastify.get('/users/:id/experiences', {
-    schema: { operationId: 'listExperiences', tags: ['Users'], response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { type: 'object' } } } } } }
+    schema: {
+      operationId: 'listExperiences',
+      tags: ['Users'],
+      description: 'List work experience entries for a user profile.',
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: { type: 'array', items: schemas.Experience } },
+          example: { success: true, data: [schemas.Experience.example] }
+        }
+      }
+    }
   }, handler('listExperiences'));
 
   fastify.post('/users/:id/experiences', {
@@ -656,13 +886,21 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'addExperience',
       tags: ['Users'],
+      description: 'Add a work experience entry to a user profile.',
       body: {
         type: 'object',
         required: ['company', 'title'],
         properties: { company: { type: 'string' }, title: { type: 'string' }, employmentType: { type: 'string' }, startDate: { type: 'string' }, endDate: { type: 'string' }, isCurrent: { type: 'boolean' }, description: { type: 'string' } },
         example: { company: 'Acme Corp', title: 'Senior Engineer', employmentType: 'full-time', startDate: '2020-01-01', endDate: '2022-12-31', isCurrent: false, description: 'Worked on X' }
       },
-      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 422: { type: 'object' } }
+      response: {
+        201: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.Experience },
+          example: { success: true, data: schemas.Experience.example }
+        },
+        422: schemas.GenericErrorResponse
+      }
     }
   }, handler('addExperience'));
 
@@ -673,15 +911,8 @@ export default async function registerRoutes(fastify, deps) {
       schema: {
         operationId: 'deleteExperience',
         tags: ['Users'],
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              success: { type: 'boolean' },
-              data: { type: 'object', properties: { id: { type: 'string' } } }
-            }
-          }
-        }
+        description: 'Delete a work experience entry from a user profile.',
+        response: { 200: schemas.IdSuccessResponse }
       }
     },
     handler('deleteExperience')
@@ -743,8 +974,16 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'updatePost',
       tags: ['Posts'],
       description: 'Update a post. Provide `userId` and `content` in body.',
-      body: { type: 'object', properties: { userId: { type: 'string' }, content: { type: 'string' } } },
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 403: { type: 'object' }, 404: { type: 'object' } }
+      body: { type: 'object', properties: { userId: { type: 'string' }, content: { type: 'string' } }, example: { userId: 'user-uuid', content: 'Updated post content' } },
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.PostResponse },
+          example: { success: true, data: schemas.PostResponse.example }
+        },
+        403: schemas.GenericErrorResponse,
+        404: schemas.GenericErrorResponse
+      }
     }
   }, handler('updatePost'));
 
@@ -755,7 +994,7 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Posts'],
       description: 'Delete a post. Provide `userId` in body to verify ownership.',
       body: { type: 'object', properties: { userId: { type: 'string' } } },
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } }, 403: { type: 'object' }, 404: { type: 'object' } }
+      response: { 200: schemas.IdSuccessResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse }
     }
   }, handler('deletePost'));
 
@@ -779,7 +1018,14 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Posts', 'Comments'],
       description: 'Create a comment on a post',
       body: schemas.CommentCreateBody,
-      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.CommentResponse } }, 422: { type: 'object' } }
+      response: {
+        201: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.CommentResponse },
+          example: { success: true, data: schemas.CommentResponse.example }
+        },
+        422: schemas.GenericErrorResponse
+      }
     }
   }, handler('createComment'));
 
@@ -813,7 +1059,24 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Posts', 'Interactions'],
       description: 'Toggle save for a post (save/unsave).',
       body: schemas.PostSaveBody,
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 422: { type: 'object' } }
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: {
+              type: 'object',
+              properties: {
+                postId: { type: 'string' },
+                userId: { type: 'string' },
+                saved: { type: 'boolean' }
+              }
+            }
+          },
+          example: { success: true, data: { postId: 'post-uuid', userId: 'user-uuid', saved: true } }
+        },
+        422: schemas.GenericErrorResponse
+      }
     }
   }, handler('toggleSave'));
 
@@ -1003,7 +1266,14 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'getPageCategory',
       tags: ['Pages', 'Categories'],
       description: 'Get page category details (includes total pages count)',
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 404: { type: 'object' } }
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.PageCategoryResponse },
+          example: { success: true, data: schemas.PageCategoryResponse.example }
+        },
+        404: schemas.GenericErrorResponse
+      }
     }
   }, async (req, reply) => {
     try {
@@ -1090,8 +1360,16 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'updatePage',
       tags: ['Pages'],
       description: 'Update a page. Only the page owner may update.',
-      body: { type: 'object', properties: { name: { type: 'string' }, slug: { type: 'string' }, description: { type: 'string' }, metadata: { type: 'object' } } },
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PageResponse } }, 403: { type: 'object' }, 404: { type: 'object' } }
+      body: { type: 'object', properties: { name: { type: 'string' }, slug: { type: 'string' }, description: { type: 'string' }, metadata: { type: 'object' } }, example: { name: 'My Updated Page', slug: 'my-updated-page', description: 'Updated page description', metadata: { theme: 'business' } } },
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.PageResponse },
+          example: { success: true, data: schemas.PageResponse.example }
+        },
+        403: schemas.GenericErrorResponse,
+        404: schemas.GenericErrorResponse
+      }
     }
   }, handler('updatePage'));
 
@@ -1180,7 +1458,7 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'deletePage',
       tags: ['Pages'],
       description: 'Delete a page. Only the page owner may delete.',
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } }, 403: { type: 'object' }, 404: { type: 'object' } }
+      response: { 200: schemas.IdSuccessResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse }
     }
   }, handler('deletePage'));
 
@@ -1204,7 +1482,19 @@ export default async function registerRoutes(fastify, deps) {
         description: 'Empty body accepted; request requires Authorization header. Server ignores body and uses the authenticated user from the Authorization token.', 
         properties: {}, 
         example: { "note": "No body required. Include Authorization: Bearer <token>" } },
-      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object' } } }, 401: { type: 'object' } }
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.PageFollower },
+          example: { success: true, data: Object.assign({}, schemas.PageFollower.example, { message: 'already_following' }) }
+        },
+        201: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: schemas.PageFollower },
+          example: { success: true, data: schemas.PageFollower.example }
+        },
+        401: schemas.AuthErrorResponse
+      }
     }
   }, handler('followPage'));
 
@@ -1214,7 +1504,14 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'unfollowPage',
       tags: ['Pages'],
       description: 'Unfollow a page',
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' } } } } }, 401: { type: 'object' } }
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' }, message: { type: 'string' } } } },
+          example: { success: true, data: { id: 'page-uuid', message: 'unfollowed' } }
+        },
+        401: schemas.AuthErrorResponse
+      }
     }
   }, handler('unfollowPage'));
 
@@ -1224,7 +1521,13 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Pages'],
       description: 'List followers for a page',
       parameters: [{ name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { type: 'object' } } } } }
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: { type: 'array', items: schemas.PageFollower } },
+          example: { success: true, data: [schemas.PageFollower.example] }
+        }
+      }
     }
   }, handler('listPageFollowers'));
 

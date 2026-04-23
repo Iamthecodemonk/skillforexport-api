@@ -62,8 +62,10 @@ AuthErrorResponse.example = { success: false, error: { code: 'invalid_credential
 export const TokenSignInBody = {
   type: 'object',
   required: ['idToken'],
+  description: 'Google ID token obtained from the client after a successful Google sign-in flow.',
   properties: { idToken: { type: 'string' } }
 };
+TokenSignInBody.example = { idToken: 'eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...' };
 
 
 export const RequestOtpBody = {
@@ -117,6 +119,81 @@ export const ResetPasswordBody = {
     newPassword: { type: 'string' }
   },
   example: { email: 'user@example.com', otpCode: 'f3a8...token', newPassword: 'NewP@ssw0rd' }
+};
+
+export const RegisterCompleteBody = {
+  type: 'object',
+  required: ['email', 'name'],
+  description: 'Complete registration after OTP verification. `otp` and `password` are accepted when the flow requires them.',
+  properties: {
+    email: { type: 'string', example: 'user@example.com' },
+    name: { type: 'string', example: 'Jane Doe' },
+    otp: { type: 'string', example: '123456' },
+    password: { type: 'string', example: 'P@ssw0rd123' }
+  }
+};
+RegisterCompleteBody.example = { email: 'user@example.com', name: 'Jane Doe', otp: '123456', password: 'P@ssw0rd123' };
+
+export const ChangePasswordBody = {
+  type: 'object',
+  required: ['oldPassword', 'newPassword'],
+  description: 'Change the password for the authenticated user.',
+  properties: {
+    oldPassword: { type: 'string', example: 'OldP@ssw0rd' },
+    newPassword: { type: 'string', example: 'NewP@ssw0rd123' }
+  }
+};
+ChangePasswordBody.example = { oldPassword: 'OldP@ssw0rd', newPassword: 'NewP@ssw0rd123' };
+
+export const ChangeEmailBody = {
+  type: 'object',
+  required: ['newEmail', 'password'],
+  description: 'Change the email address for the authenticated user after confirming the current password.',
+  properties: {
+    newEmail: { type: 'string', example: 'new-email@example.com' },
+    password: { type: 'string', example: 'P@ssw0rd123' }
+  }
+};
+ChangeEmailBody.example = { newEmail: 'new-email@example.com', password: 'P@ssw0rd123' };
+
+export const AuthSuccessResponse = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean' },
+    data: AuthTokenResponse
+  },
+  example: {
+    success: true,
+    data: {
+      id: 'user-uuid',
+      email: 'user@example.com',
+      username: 'janedoe',
+      api_token: 'eyJhbGciOiJI...'
+    }
+  }
+};
+
+export const SimpleSuccessResponse = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean' },
+    message: { type: ['string', 'null'] }
+  },
+  example: { success: true, message: 'Operation completed successfully' }
+};
+
+export const IdSuccessResponse = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean' },
+    data: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' }
+      }
+    }
+  },
+  example: { success: true, data: { id: 'user-uuid' } }
 };
 
 export const RegisterBody = {
@@ -691,7 +768,13 @@ export default {
   RequestOtpBody,
   VerifyOtpBody,
   ResetPasswordBody,
+  RegisterCompleteBody,
+  ChangePasswordBody,
+  ChangeEmailBody,
   RegisterBody,
+  AuthSuccessResponse,
+  SimpleSuccessResponse,
+  IdSuccessResponse,
   PostCreateBody,
   PostResponse,
   PostListResponse,

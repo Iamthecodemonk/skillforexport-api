@@ -54,6 +54,12 @@ export default class MysqlPageRepository {
     return rows || [];
   }
 
+  async countAll() {
+    const row = await db('pages').count({ cnt: 'id' }).first();
+    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+    return parseInt(cnt || 0, 10);
+  }
+
   async update(id, updates) {
     const now = new Date();
     const payload = {};

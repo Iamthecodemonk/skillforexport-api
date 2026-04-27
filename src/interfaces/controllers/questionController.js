@@ -1,4 +1,5 @@
 import logger from '../../utils/logger.js';
+import { buildPaginatedResponse, parsePagination } from '../paginationResponse.js';
 
 const questionLogger = logger.child('QUESTION_CONTROLLER');
 
@@ -26,10 +27,13 @@ export function makeQuestionController({ useCase = null }) {
 
     listQuestions: async (req, reply) => {
       try {
-        const limit = parseInt(req.query.limit || '20', 10);
-        const offset = parseInt(req.query.offset || '0', 10);
+        const { page, perPage, limit, offset } = parsePagination(req.query, 20);
         const rows = await useCase.listQuestions({ limit, offset });
-        return reply.send({ success: true, data: rows.map(r => (r && r.toPlainObject) ? r.toPlainObject() : r) });
+        const data = rows.map(r => (r && r.toPlainObject) ? r.toPlainObject() : r);
+        const total = useCase.questionRepository && typeof useCase.questionRepository.countAll === 'function'
+          ? await useCase.questionRepository.countAll()
+          : data.length;
+        return reply.send(buildPaginatedResponse(req, { data, page, perPage, total }));
       } catch (err) {
         questionLogger.error('listQuestions error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -69,10 +73,13 @@ export function makeQuestionController({ useCase = null }) {
     listAnswers: async (req, reply) => {
       try {
         const { questionId } = req.params;
-        const limit = parseInt(req.query.limit || '50', 10);
-        const offset = parseInt(req.query.offset || '0', 10);
+        const { page, perPage, limit, offset } = parsePagination(req.query, 50);
         const rows = await useCase.listAnswers({ questionId, limit, offset });
-        return reply.send({ success: true, data: rows.map(r => (r && r.toPlainObject) ? r.toPlainObject() : r) });
+        const data = rows.map(r => (r && r.toPlainObject) ? r.toPlainObject() : r);
+        const total = useCase.answerRepository && typeof useCase.answerRepository.countByQuestion === 'function'
+          ? await useCase.answerRepository.countByQuestion(questionId)
+          : data.length;
+        return reply.send(buildPaginatedResponse(req, { data, page, perPage, total }));
       } catch (err) {
         questionLogger.error('listAnswers error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });

@@ -1,4 +1,5 @@
 import logger from '../../utils/logger.js';
+import { buildPaginatedResponse, parsePagination } from '../paginationResponse.js';
 
 const postLogger = logger.child('POST_CONTROLLER');
 
@@ -61,12 +62,14 @@ export function makePostController({ useCase = null }) {
 
     listPosts: async (req, reply) => {
       try {
-        const limit = parseInt(req.query.limit || '20', 10);
-        const offset = parseInt(req.query.offset || '0', 10);
+        const { page, perPage, limit, offset } = parsePagination(req.query, 20);
         const lastCreatedAt = req.query && req.query.lastCreatedAt ? req.query.lastCreatedAt : null;
         const lastId = req.query && req.query.lastId ? req.query.lastId : null;
         const rows = await useCase.ListPosts({ limit, offset, lastCreatedAt, lastId });
-        return reply.send({ success: true, data: rows });
+        const total = useCase.postRepository && typeof useCase.postRepository.countAll === 'function'
+          ? await useCase.postRepository.countAll()
+          : rows.length;
+        return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
       } catch (err) {
         postLogger.error('listPosts error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });

@@ -28,6 +28,12 @@ export default class MysqlQuestionRepository {
     return db('questions').orderBy('created_at', 'desc').limit(limit).offset(offset);
   }
 
+  async countAll() {
+    const row = await db('questions').count({ cnt: 'id' }).first();
+    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+    return parseInt(cnt || 0, 10);
+  }
+
   async update(id, patch) {
     const now = new Date();
     await db('questions').where({ id }).update({ ...patch, updated_at: now });

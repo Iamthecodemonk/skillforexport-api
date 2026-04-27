@@ -498,23 +498,31 @@ export function makeAuthController({ useCase }) {
         const userCtx = req.user;
         if (!userCtx || !userCtx.id) 
           return reply.code(401).send(buildErrorResponse('Authentication required'));
-        const { current_password, password, password_confirmation } = req.body || {};
+        const {
+          current_password,
+          oldPassword,
+          password,
+          newPassword,
+          password_confirmation
+        } = req.body || {};
+        const currentPassword = current_password || oldPassword;
+        const nextPassword = password || newPassword;
         const validationErrors = {};
-        if (!current_password) 
+        if (!currentPassword) 
           validationErrors.current_password = ['current_password is required'];
-        if (!password) 
+        if (!nextPassword) 
           validationErrors.password = ['password is required'];
-        if (password !== password_confirmation) 
+        if (nextPassword !== password_confirmation) 
           validationErrors.password_confirmation = ['password confirmation does not match'];
         if (Object.keys(validationErrors).length) 
           return reply.code(422).send(buildValidationResponse(validationErrors));
         const user = await useCase.userRepository.findById(userCtx.id);
         if (!user) 
           return reply.code(404).send(buildErrorResponse('User not found'));
-        const ok = await bcrypt.compare(current_password, user.password);
+        const ok = await bcrypt.compare(currentPassword, user.password);
         if (!ok) 
           return reply.code(401).send(buildErrorResponse('Current password is incorrect'));
-        const hashed = await bcrypt.hash(password, 10);
+        const hashed = await bcrypt.hash(nextPassword, 10);
         await useCase.userRepository.updatePassword(user.id, hashed);
         return reply.code(200).send(buildSuccessResponse({
           message: 'Password updated successfully',
@@ -530,13 +538,14 @@ export function makeAuthController({ useCase }) {
       try {
         const userCtx = req.user;
         if (!userCtx || !userCtx.id) return reply.code(401).send(buildErrorResponse('Authentication required'));
-        const { new_email } = req.body || {};
-        if (!new_email) return reply.code(422).send(buildValidationResponse({ new_email: ['new_email is required'] }));
+        const { new_email, newEmail } = req.body || {};
+        const requestedEmail = new_email || newEmail;
+        if (!requestedEmail) return reply.code(422).send(buildValidationResponse({ new_email: ['new_email is required'] }));
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
         const otp = {
           id: uuidv4(),
           userId: userCtx.id,
-          email: new_email,
+          email: requestedEmail,
           otpCode,
           purpose: 'email_change',
           isUsed: false,
@@ -549,14 +558,14 @@ export function makeAuthController({ useCase }) {
         await useCase.userRepository.createOtp(otp);
         if (useCase.emailQueue) {
           try {
-            await useCase.emailQueue.add('email_change', { to: new_email, otpCode }, { attempts: 1, removeOnComplete: true });
+            await useCase.emailQueue.add('email_change', { to: requestedEmail, otpCode }, { attempts: 1, removeOnComplete: true });
           } catch (qerr) {
             authLogger.warn('Failed to queue change-email notification', { message: qerr.message });
           }
         }
         return reply.code(200).send(buildSuccessResponse({
           message: 'Email change requested. Please verify.',
-          data: { email: new_email }
+          data: { email: requestedEmail }
         }));
       } catch (err) {
         authLogger.error('ChangeEmail error', { message: err.message, stack: err.stack });

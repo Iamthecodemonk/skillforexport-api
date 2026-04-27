@@ -1,4 +1,5 @@
 import logger from '../../utils/logger.js';
+import { buildPaginatedResponse, parsePagination } from '../paginationResponse.js';
 
 const pageLogger = logger.child('PAGE_CONTROLLER');
 
@@ -179,12 +180,14 @@ export function makePageController({ useCase = null, followersRepository = null 
     listPageFollowers: async (req, reply) => {
       try {
         const { id } = req.params;
-        const limit = parseInt(req.query.limit || '50', 10);
-        const offset = parseInt(req.query.offset || '0', 10);
+        const { page, perPage, limit, offset } = parsePagination(req.query, 50);
         if (!followersRepository) 
             return reply.code(501).send({ success: false, error: { code: 'not_implemented' } });
         const rows = await followersRepository.listByPage(id, { limit, offset });
-        return reply.send({ success: true, data: rows });
+        const total = typeof followersRepository.countByPage === 'function'
+          ? await followersRepository.countByPage(id)
+          : rows.length;
+        return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
       } catch (err) {
         pageLogger.error('listPageFollowers error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -255,10 +258,12 @@ export function makePageController({ useCase = null, followersRepository = null 
     listPagesByCategoryId: async (req, reply) => {
       try {
         const { id } = req.params;
-        const limit = parseInt(req.query.limit || '20', 10);
-        const offset = parseInt(req.query.offset || '0', 10);
+        const { page, perPage, limit, offset } = parsePagination(req.query, 20);
         const rows = await useCase.pageRepository.listByCategory(id, { limit, offset });
-        return reply.send({ success: true, data: rows });
+        const total = typeof useCase.pageRepository.countByCategory === 'function'
+          ? await useCase.pageRepository.countByCategory(id)
+          : rows.length;
+        return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
       } catch (err) {
         pageLogger.error('listPagesByCategoryId error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -275,10 +280,12 @@ export function makePageController({ useCase = null, followersRepository = null 
         const cat = await useCase.pageCategoryRepository.findByName(name);
         if (!cat) 
           return reply.code(404).send({ success: false, error: { code: 'category_not_found' } });
-        const limit = parseInt(req.query.limit || '20', 10);
-        const offset = parseInt(req.query.offset || '0', 10);
+        const { page, perPage, limit, offset } = parsePagination(req.query, 20);
         const rows = await useCase.pageRepository.listByCategory(cat.id, { limit, offset });
-        return reply.send({ success: true, data: rows });
+        const total = typeof useCase.pageRepository.countByCategory === 'function'
+          ? await useCase.pageRepository.countByCategory(cat.id)
+          : rows.length;
+        return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
       } catch (err) {
         pageLogger.error('listPagesByCategoryName error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -289,8 +296,7 @@ export function makePageController({ useCase = null, followersRepository = null 
     listPostsByPage: async (req, reply) => {
       try {
         const { id } = req.params; // page id
-        const limit = parseInt(req.query.limit || '20', 10);
-        const offset = parseInt(req.query.offset || '0', 10);
+        const { page, perPage, limit, offset } = parsePagination(req.query, 20);
         // Try domain repo first, then adapter on server
         let rows = null;
         const postDomain = req.server && req.server.postRepository ? req.server.postRepository : null;
@@ -302,7 +308,13 @@ export function makePageController({ useCase = null, followersRepository = null 
         } else {
           return reply.code(501).send({ success: false, error: { code: 'not_implemented' } });
         }
-        return reply.send({ success: true, data: rows });
+        let total = rows.length;
+        if (postDomain && typeof postDomain.countByPage === 'function') {
+          total = await postDomain.countByPage(id);
+        } else if (postAdapter && typeof postAdapter.countByPage === 'function') {
+          total = await postAdapter.countByPage(id);
+        }
+        return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
       } catch (err) {
         pageLogger.error('listPostsByPage error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -311,10 +323,12 @@ export function makePageController({ useCase = null, followersRepository = null 
 
     listPages: async (req, reply) => {
       try {
-        const limit = parseInt(req.query.limit || '20', 10);
-        const offset = parseInt(req.query.offset || '0', 10);
+        const { page, perPage, limit, offset } = parsePagination(req.query, 20);
         const rows = await useCase.ListPages({ limit, offset });
-        return reply.send({ success: true, data: rows });
+        const total = useCase.pageRepository && typeof useCase.pageRepository.countAll === 'function'
+          ? await useCase.pageRepository.countAll()
+          : rows.length;
+        return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
       } catch (err) {
         pageLogger.error('listPages error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });

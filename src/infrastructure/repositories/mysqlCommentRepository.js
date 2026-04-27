@@ -27,6 +27,12 @@ export default class MysqlCommentRepository {
     return rows || [];
   }
 
+  async countByPost(postId) {
+    const row = await db('comments').where({ post_id: postId }).count({ cnt: 'id' }).first();
+    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+    return parseInt(cnt || 0, 10);
+  }
+
   async update(id, updates) {
     const now = new Date();
     const payload = {};

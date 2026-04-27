@@ -224,7 +224,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
           return reply.code(202).send({ success: true, data: { jobId: job.id } });
         }
 
-        // Fallback: JSON body with imageUrl not needed for now sha
+        // JSON image-url fallback intentionally left disabled for now.
         // const { imageUrl } = req.body || {};
         // if (!imageUrl) 
         //   return sendError(reply, 422, 'validation_failed', 'Validation failed');
@@ -287,8 +287,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
           return reply.code(202).send({ success: true, data: { jobId: job.id } });
         }
         
-        //omo i dont need a fall back oo for code consistency
-        // Fallback: JSON body with imageUrl
+        // JSON image-url fallback intentionally left disabled for consistency.
         // const { imageUrl } = req.body || {};
         // if (!imageUrl) return sendError(reply, 422, 'validation_failed', 'Validation failed');
         // if (!mediaQueue) return sendError(reply, 503, 'service_unavailable', 'Service unavailable');
@@ -404,7 +403,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
         if (err) {
           const msg = String(err.message || err.sqlMessage || '');
           const lower = msg.toLowerCase();
-          if (err.code === 'ER_DUP_ENTRY' || lower.includes('duplicate entry')) {//just incase sha
+          if (err.code === 'ER_DUP_ENTRY' || lower.includes('duplicate entry')) {
             // Detect whether the username unique constraint caused the failure
             const isUsername = msg.includes('user_profiles.username') || lower.includes('username');
             const errorCode = isUsername ? 'username_taken' : 'duplicate_entry';

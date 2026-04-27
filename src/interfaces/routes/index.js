@@ -101,7 +101,7 @@ export default async function registerRoutes(fastify, deps) {
         body: schemas.RequestOtpBody,
         response: {
           200: schemas.ApiStringResponse,
-          422: schemas.GenericErrorResponse
+          422: schemas.ValidationErrorResponse
         }
       }
     },
@@ -119,7 +119,7 @@ export default async function registerRoutes(fastify, deps) {
         response: {
           200: schemas.ApiStringResponse,
           401: schemas.AuthErrorResponse,
-          422: schemas.GenericErrorResponse
+          422: schemas.ValidationErrorResponse
         }
       }
     },
@@ -142,7 +142,7 @@ export default async function registerRoutes(fastify, deps) {
         body: schemas.RequestOtpBody,
         response: {
           200: schemas.ApiStringResponse,
-          422: schemas.GenericErrorResponse
+          422: schemas.ValidationErrorResponse
         }
       }
     },
@@ -158,8 +158,8 @@ export default async function registerRoutes(fastify, deps) {
         description: 'Set the password during the registration flow after email ownership has been verified.',
         body: schemas.RegisterSetPasswordBody,
         response: {
-          200: schemas.IdSuccessResponse,
-          422: schemas.GenericErrorResponse
+          200: schemas.ApiStringResponse,
+          422: schemas.ValidationErrorResponse
         }
       }
     },
@@ -176,7 +176,8 @@ export default async function registerRoutes(fastify, deps) {
         body: schemas.RegisterCompleteBody,
         response: {
           201: schemas.AuthSuccessResponse,
-          422: schemas.GenericErrorResponse
+          401: schemas.AuthErrorResponse,
+          422: schemas.ValidationErrorResponse
         }
       }
     },
@@ -193,8 +194,8 @@ export default async function registerRoutes(fastify, deps) {
         body: schemas.LoginBody,
         response: {
           200: schemas.AuthSuccessResponse,
-          401: schemas.AuthErrorResponse,
-          422: schemas.GenericErrorResponse
+          401: schemas.MessageOnlyErrorResponse,
+          422: schemas.ValidationErrorResponse
         }
       }
     },
@@ -211,7 +212,7 @@ export default async function registerRoutes(fastify, deps) {
         body: schemas.RequestOtpBody,
         response: {
           200: schemas.ApiStringResponse,
-          422: schemas.GenericErrorResponse
+          422: schemas.ValidationErrorResponse
         }
       }
     },
@@ -231,8 +232,9 @@ export default async function registerRoutes(fastify, deps) {
         description: 'Reset a user password with a reset token or OTP previously issued by the platform.',
         body: schemas.ResetPasswordBody,
         response: {
-          200: schemas.IdSuccessResponse,
-          422: schemas.GenericErrorResponse
+          200: schemas.SimpleSuccessResponse,
+          401: schemas.AuthErrorResponse,
+          422: schemas.ValidationErrorResponse
         }
       }
     },
@@ -297,9 +299,9 @@ export default async function registerRoutes(fastify, deps) {
         description: 'Change the password for the currently authenticated user.',
         body: schemas.ChangePasswordBody,
         response: {
-          200: schemas.SimpleSuccessResponse,
+          200: schemas.EmptyArraySuccessResponse,
           401: schemas.AuthErrorResponse,
-          422: schemas.GenericErrorResponse
+          422: schemas.ValidationErrorResponse
         }
       }
     },
@@ -327,9 +329,9 @@ export default async function registerRoutes(fastify, deps) {
         description: 'Change the email address for the currently authenticated user.',
         body: schemas.ChangeEmailBody,
         response: {
-          200: schemas.SimpleSuccessResponse,
+          200: schemas.EmailObjectSuccessResponse,
           401: schemas.AuthErrorResponse,
-          422: schemas.GenericErrorResponse
+          422: schemas.ValidationErrorResponse
         }
       }
     },
@@ -399,7 +401,14 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'getUserProfile',
       tags: ['Users'],
       response: {
-        200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.UserProfileResponse } },
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+            data: schemas.FullProfileResponse
+          }
+        },
         404: schemas.GenericErrorResponse
       }
     }
@@ -412,7 +421,14 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Users'],
       description: 'Get complete profile for the authenticated user (profile, skills, portfolios, certs, education, experiences, followers, oauth accounts)',
       response: {
-        200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.FullProfileResponse } },
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+            data: schemas.FullProfileResponse
+          }
+        },
         401: schemas.AuthErrorResponse
       }
     }
@@ -1173,9 +1189,9 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listPosts',
       tags: ['Posts'],
-      description: 'List posts (feed). Supports `limit` and `offset` query params.',
-      parameters: [{ name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }, { name: 'lastCreatedAt', in: 'query', schema: { type: 'string', description: 'Use for keyset pagination: ISO timestamp of last item from previous page' } }, { name: 'lastId', in: 'query', schema: { type: 'string', description: 'Use with `lastCreatedAt` for keyset pagination: last item id from previous page' } }],
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PostListResponse } } }
+      description: 'List posts (feed). Returns a paginator payload at the root.',
+      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }, { name: 'lastCreatedAt', in: 'query', schema: { type: 'string', description: 'Use for keyset pagination: ISO timestamp of last item from previous page' } }, { name: 'lastId', in: 'query', schema: { type: 'string', description: 'Use with `lastCreatedAt` for keyset pagination: last item id from previous page' } }],
+      response: { 200: schemas.PostPaginatedResponse }
     }
   }, handler('listPosts'));
 
@@ -1214,7 +1230,7 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Posts'],
       description: 'Delete a post. Provide `userId` in body to verify ownership.',
       body: { type: 'object', properties: { userId: { type: 'string' } } },
-      response: { 200: schemas.IdSuccessResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse }
+      response: { 200: schemas.EmptyArraySuccessResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse }
     }
   }, handler('deletePost'));
 
@@ -1253,9 +1269,9 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listComments',
       tags: ['Posts', 'Comments'],
-      description: 'List comments for a post',
-      parameters: [{ name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.CommentListResponse } } }
+      description: 'List comments for a post. Returns a paginator payload at the root.',
+      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
+      response: { 200: schemas.CommentPaginatedResponse }
     }
   }, handler('listComments'));
 
@@ -1364,15 +1380,9 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listQuestions',
       tags: ['Questions'],
-      description: 'List questions. Supports pagination via `page` & `perPage` and optional `communityId` filter.',
-      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'perPage', in: 'query', schema: { type: 'number' } }, { name: 'communityId', in: 'query', schema: { type: 'string' } }],
-      response: {
-        200: {
-          type: 'object',
-          properties: { success: { type: 'boolean' }, data: schemas.QuestionListResponse },
-          example: { success: true, data: [schemas.QuestionResponse.example] }
-        }
-      }
+      description: 'List questions. Returns a paginator payload at the root.',
+      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'perPage', in: 'query', schema: { type: 'number' } }, { name: 'communityId', in: 'query', schema: { type: 'string' } }],
+      response: { 200: schemas.QuestionPaginatedResponse }
     }
   }, handler('listQuestions'));
 
@@ -1416,14 +1426,9 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listAnswers',
       tags: ['Questions', 'Answers'],
-      description: 'List answers for a question. Supports pagination via `limit` and `offset` query params.',
-      response: {
-        200: {
-          type: 'object',
-          properties: { success: { type: 'boolean' }, data: { type: 'array', items: schemas.AnswerResponse } },
-          example: { success: true, data: [schemas.AnswerResponse.example] }
-        }
-      }
+      description: 'List answers for a question. Returns a paginator payload at the root.',
+      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
+      response: { 200: schemas.AnswerPaginatedResponse }
     }
   }, handler('listAnswers'));
 
@@ -1443,9 +1448,9 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listPages',
       tags: ['Pages'],
-      description: 'List pages',
-      parameters: [{ name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PageListResponse } } }
+      description: 'List pages. Returns a paginator payload at the root.',
+      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
+      response: { 200: schemas.PagePaginatedResponse }
     }
   }, handler('listPages'));
 
@@ -1463,9 +1468,9 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listPagesByCategoryId',
       tags: ['Pages', 'Categories'],
-      description: 'List pages under a category id',
-      parameters: [{ name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PageListResponse } } }
+      description: 'List pages under a category id. Returns a paginator payload at the root.',
+      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
+      response: { 200: schemas.PagePaginatedResponse }
     }
   }, handler('listPagesByCategoryId'));
 
@@ -1474,9 +1479,9 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listPagesByCategoryName',
       tags: ['Pages', 'Categories'],
-      description: 'List pages under a category name',
-      parameters: [{ name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PageListResponse } }, 404: { type: 'object' } }
+      description: 'List pages under a category name. Returns a paginator payload at the root.',
+      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
+      response: { 200: schemas.PagePaginatedResponse, 404: { type: 'object' } }
     }
   }, handler('listPagesByCategoryName'));
 
@@ -1497,11 +1502,6 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, async (req, reply) => {
     try {
-      const { id } = req.params;
-      const categoryRepo = req.server && req.server.profileRepository ? null : null; // placeholder
-      // prefer pageCategoryRepository from controllers' use case if available
-      const handlers = req.server && req.server.routes && req.server.routes; // no-op
-      // Delegate to controller handler if present
       return handler('getPageCategory')(req, reply);
     } catch (e) {
       return sendError(reply, 500, 'internal_error', 'Internal server error');
@@ -1707,13 +1707,21 @@ export default async function registerRoutes(fastify, deps) {
       response: {
         200: {
           type: 'object',
-          properties: { success: { type: 'boolean' }, data: schemas.PageFollower },
-          example: { success: true, data: Object.assign({}, schemas.PageFollower.example, { message: 'already_following' }) }
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+            data: { type: 'object', properties: { following: { type: 'boolean' } } }
+          },
+          example: { success: true, message: 'Followed successfully.', data: { following: true } }
         },
         201: {
           type: 'object',
-          properties: { success: { type: 'boolean' }, data: schemas.PageFollower },
-          example: { success: true, data: schemas.PageFollower.example }
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+            data: { type: 'object', properties: { following: { type: 'boolean' } } }
+          },
+          example: { success: true, message: 'Followed successfully.', data: { following: true } }
         },
         401: schemas.AuthErrorResponse
       }
@@ -1729,8 +1737,12 @@ export default async function registerRoutes(fastify, deps) {
       response: {
         200: {
           type: 'object',
-          properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { id: { type: 'string' }, message: { type: 'string' } } } },
-          example: { success: true, data: { id: 'page-uuid', message: 'unfollowed' } }
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+            data: { type: 'object', properties: { following: { type: 'boolean' } } }
+          },
+          example: { success: true, message: 'Unfollowed successfully.', data: { following: false } }
         },
         401: schemas.AuthErrorResponse
       }
@@ -1741,15 +1753,9 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listPageFollowers',
       tags: ['Pages'],
-      description: 'List followers for a page',
-      parameters: [{ name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
-      response: {
-        200: {
-          type: 'object',
-          properties: { success: { type: 'boolean' }, data: { type: 'array', items: schemas.PageFollower } },
-          example: { success: true, data: [schemas.PageFollower.example] }
-        }
-      }
+      description: 'List followers for a page. Returns a paginator payload at the root.',
+      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
+      response: { 200: schemas.PageFollowerPaginatedResponse }
     }
   }, handler('listPageFollowers'));
 

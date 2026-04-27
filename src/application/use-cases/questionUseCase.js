@@ -46,7 +46,7 @@ export default class QuestionUseCase {
     if (!id) throw new Error('id_required');
     const existing = await this.questionRepository.findById(id);
     if (!existing) throw new Error('question_not_found');
-    if (existing.userId !== userId) throw new Error('not_authorized');
+    if ((existing.user_id || existing.userId) !== userId) throw new Error('not_authorized');
     return this.questionRepository.update(id, updates);
   }
 
@@ -54,7 +54,7 @@ export default class QuestionUseCase {
     if (!id) throw new Error('id_required');
     const existing = await this.questionRepository.findById(id);
     if (!existing) throw new Error('question_not_found');
-    if (existing.userId !== userId) throw new Error('not_authorized');
+    if ((existing.user_id || existing.userId) !== userId) throw new Error('not_authorized');
     return this.questionRepository.delete(id);
   }
 

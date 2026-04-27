@@ -53,6 +53,18 @@ export default class MysqlPostRepository {
     return rows || [];
   }
 
+  async countAll() {
+    const row = await db('posts').count({ cnt: 'id' }).first();
+    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+    return parseInt(cnt || 0, 10);
+  }
+
+  async countByPage(pageId) {
+    const row = await db('posts').where({ page_id: pageId }).count({ cnt: 'id' }).first();
+    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+    return parseInt(cnt || 0, 10);
+  }
+
   async update(id, updates) {
     const now = new Date();
     const payload = {};

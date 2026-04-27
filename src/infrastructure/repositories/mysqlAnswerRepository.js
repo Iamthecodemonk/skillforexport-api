@@ -25,6 +25,12 @@ export default class MysqlAnswerRepository {
     return db('answers').where({ question_id: questionId }).orderBy('created_at', 'asc').limit(limit).offset(offset);
   }
 
+  async countByQuestion(questionId) {
+    const row = await db('answers').where({ question_id: questionId }).count({ cnt: 'id' }).first();
+    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+    return parseInt(cnt || 0, 10);
+  }
+
   async delete(id) {
     await db('answers').where({ id }).del();
     return true;

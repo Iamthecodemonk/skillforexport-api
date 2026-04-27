@@ -54,10 +54,44 @@ export const AuthErrorResponse = {
   type: 'object',
   properties: {
     success: { type: 'boolean' },
-    error: {...AuthError}
+    message: { type: 'string' },
+    data: { type: ['object', 'null'] }
   }
 };
-AuthErrorResponse.example = { success: false, error: { code: 'invalid_credentials', message: 'Invalid email or password' } };
+AuthErrorResponse.example = { success: false, message: 'Token invalid or expired', data: null };
+
+export const MessageOnlyErrorResponse = {
+  type: 'object',
+  properties: {
+    message: { type: 'string' }
+  }
+};
+MessageOnlyErrorResponse.example = { message: 'Invalid credentials' };
+
+export const ValidationErrorResponse = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean' },
+    message: { type: 'string' },
+    data: {
+      type: 'object',
+      properties: {
+        errors: {
+          type: 'object',
+          additionalProperties: {
+            type: 'array',
+            items: { type: 'string' }
+          }
+        }
+      }
+    }
+  }
+};
+ValidationErrorResponse.example = {
+  success: false,
+  message: 'email is required',
+  data: { errors: { email: ['email is required'] } }
+};
 
 export const TokenSignInBody = {
   type: 'object',
@@ -84,7 +118,7 @@ export const ApiStringResponse = {
     message: { type: ['string','null'] },
     data: { type: ['string','null'] }
   },
-  example: { success: true, message: 'OTP sent successfully', data: 'temp_session_token_xyz' }
+  example: { success: true, message: 'OTP sent to your email', data: 'user@example.com' }
 };
 
 export const VerifyOtpBody = {
@@ -171,10 +205,13 @@ export const AuthSuccessResponse = {
   type: 'object',
   properties: {
     success: { type: 'boolean' },
+    message: { type: ['string', 'null'] },
+    token: { type: ['string', 'null'] },
     data: AuthTokenResponse
   },
   example: {
     success: true,
+    token: 'eyJhbGciOiJI...',
     data: {
       id: 'user-uuid',
       email: 'user@example.com',
@@ -191,6 +228,34 @@ export const SimpleSuccessResponse = {
     message: { type: ['string', 'null'] }
   },
   example: { success: true, message: 'Operation completed successfully' }
+};
+
+export const EmptyArraySuccessResponse = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean' },
+    message: { type: 'string' },
+    data: {
+      type: 'array',
+      items: {}
+    }
+  },
+  example: { success: true, message: 'Deleted success', data: [] }
+};
+
+export const EmailObjectSuccessResponse = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean' },
+    message: { type: 'string' },
+    data: {
+      type: 'object',
+      properties: {
+        email: { type: 'string' }
+      }
+    }
+  },
+  example: { success: true, message: 'Email change requested. Please verify.', data: { email: 'new-email@example.com' } }
 };
 
 export const IdSuccessResponse = {
@@ -316,6 +381,42 @@ export const PostListResponse = {
   items: PostResponse
 };
 PostListResponse.example = [PostResponse.example];
+
+function makePaginatedRootSchema(itemSchema, exampleItem) {
+  return {
+    type: 'object',
+    properties: {
+      current_page: { type: 'number' },
+      data: { type: 'array', items: itemSchema },
+      first_page_url: { type: ['string', 'null'] },
+      from: { type: ['number', 'null'] },
+      last_page: { type: 'number' },
+      last_page_url: { type: ['string', 'null'] },
+      links: { type: 'array', items: { type: 'object' } },
+      next_page_url: { type: ['string', 'null'] },
+      path: { type: 'string' },
+      per_page: { type: 'number' },
+      prev_page_url: { type: ['string', 'null'] },
+      to: { type: ['number', 'null'] },
+      total: { type: 'number' }
+    },
+    example: {
+      current_page: 1,
+      data: exampleItem ? [exampleItem] : [],
+      first_page_url: 'http://localhost:3000/resource?page=1&per_page=20',
+      from: 1,
+      last_page: 1,
+      last_page_url: 'http://localhost:3000/resource?page=1&per_page=20',
+      links: [],
+      next_page_url: null,
+      path: 'http://localhost:3000/resource',
+      per_page: 20,
+      prev_page_url: null,
+      to: 1,
+      total: 1
+    }
+  };
+}
 
 export const PostMediaAttachBody = {
   type: 'object',
@@ -818,6 +919,13 @@ CommunityMemberResponse.example = { id: 'membership-uuid', userId: 'user-uuid', 
 
 export const CommentListResponse = { type: 'array', items: CommentResponse };
 
+export const PostPaginatedResponse = makePaginatedRootSchema(PostResponse, PostResponse.example);
+export const QuestionPaginatedResponse = makePaginatedRootSchema(QuestionResponse, QuestionResponse.example);
+export const AnswerPaginatedResponse = makePaginatedRootSchema(AnswerResponse, AnswerResponse.example);
+export const PagePaginatedResponse = makePaginatedRootSchema(PageResponse, PageResponse.example);
+export const CommentPaginatedResponse = makePaginatedRootSchema(CommentResponse, CommentResponse.example);
+export const PageFollowerPaginatedResponse = makePaginatedRootSchema(PageFollower, PageFollower.example);
+
 export const ReactionBody = {
   type: 'object',
   properties: { userId: { type: 'string' }, type: { type: 'string', enum: ['like','love','clap','dislike'], example: 'like' } }
@@ -862,6 +970,8 @@ export default {
   RegisterBody,
   AuthSuccessResponse,
   SimpleSuccessResponse,
+  EmptyArraySuccessResponse,
+  EmailObjectSuccessResponse,
   IdSuccessResponse,
   PostCreateBody,
   PostResponse,
@@ -877,6 +987,12 @@ export default {
   CommentCreateBody,
   CommentResponse,
   CommentListResponse,
+  PostPaginatedResponse,
+  QuestionPaginatedResponse,
+  AnswerPaginatedResponse,
+  PagePaginatedResponse,
+  CommentPaginatedResponse,
+  PageFollowerPaginatedResponse,
   ReactionBody,
   ReactionToggleResponse,
   PostSaveBody,
@@ -906,6 +1022,8 @@ export default {
   GenericError,
   GenericErrorResponse,
   AuthErrorResponse,
+  MessageOnlyErrorResponse,
+  ValidationErrorResponse,
   Skill,
   Portfolio,
   Certification,

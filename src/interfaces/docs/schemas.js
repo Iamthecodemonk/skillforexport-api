@@ -121,6 +121,19 @@ export const ApiStringResponse = {
   example: { success: true, message: 'OTP sent to your email', data: 'user@example.com' }
 };
 
+export const EmptyObjectSuccessResponse = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean' },
+    message: { type: 'string' },
+    data: {
+      type: 'object',
+      additionalProperties: true
+    }
+  },
+  example: { success: true, message: 'Password set successfully', data: {} }
+};
+
 export const VerifyOtpBody = {
   type: 'object',
   required: ['email', 'otp'],
@@ -970,6 +983,7 @@ export default {
   RegisterBody,
   AuthSuccessResponse,
   SimpleSuccessResponse,
+  EmptyObjectSuccessResponse,
   EmptyArraySuccessResponse,
   EmailObjectSuccessResponse,
   IdSuccessResponse,

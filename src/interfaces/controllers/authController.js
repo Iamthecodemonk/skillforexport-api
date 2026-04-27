@@ -344,7 +344,7 @@ export function makeAuthController({ useCase }) {
 
         return reply.code(200).send(buildSuccessResponse({
           message: 'Password set successfully',
-          data: result.email
+          data: {}
         }));
       } catch (err) {
         authLogger.error('SetRegistrationPassword error', { message: err.message, stack: err.stack });

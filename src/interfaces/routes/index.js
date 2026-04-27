@@ -158,7 +158,7 @@ export default async function registerRoutes(fastify, deps) {
         description: 'Set the password during the registration flow after email ownership has been verified.',
         body: schemas.RegisterSetPasswordBody,
         response: {
-          200: schemas.ApiStringResponse,
+          200: schemas.EmptyObjectSuccessResponse,
           422: schemas.ValidationErrorResponse
         }
       }

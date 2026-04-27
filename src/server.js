@@ -540,14 +540,16 @@ export default async function startServer() {
           if (!authHeader)
             return reply.code(401).send({
               success: false,
-              error: { code: 'unauthorized', message: 'Authorization header required' }
+              message: 'Authorization header required',
+              data: null
             });
 
           const parts = String(authHeader).split(' ');
           if (parts.length !== 2 || parts[0] !== 'Bearer')
             return reply.code(401).send({
               success: false,
-              error: { code: 'unauthorized', message: 'Invalid authorization header' }
+              message: 'Invalid authorization header',
+              data: null
             });
 
           const token = parts[1];
@@ -556,7 +558,8 @@ export default async function startServer() {
           if (!userId)
             return reply.code(401).send({
               success: false,
-              error: { code: 'unauthorized', message: 'Token missing subject' }
+              message: 'Token missing subject',
+              data: null
             });
 
           await loginHistoryRepo.create({
@@ -577,19 +580,21 @@ export default async function startServer() {
             serverLogger.warn('Failed to increment token version on logout', { message: revErr.message });
           }
 
-          return reply.code(200).send({ success: true });
+          return reply.code(200).send({ success: true, message: 'Logged out successfully' });
         } catch (err) {
           if (err && (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError')) {
             serverLogger.warn('Logout invalid token', { message: err.message });
             return reply.code(401).send({
               success: false,
-              error: { code: 'invalid_token', message: 'Token invalid or expired' }
+              message: 'Token invalid or expired',
+              data: null
             });
           }
           serverLogger.error('Logout handler error', { message: err.message, stack: err.stack });
           return reply.code(500).send({
             success: false,
-            error: { code: 'internal_error', message: 'An unexpected error occurred' }
+            message: 'An unexpected error occurred',
+            data: null
           });
         }
       };

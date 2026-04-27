@@ -16,7 +16,7 @@ export function makeQuestionController({ useCase = null }) {
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         if (!title || !body) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         const created = await useCase.createQuestion({ userId: actorId, communityId, title, body, visibility });
-        return reply.code(201).send({ success: true, data: created && created.toPlainObject ? created.toPlainObject() : created });
+        return reply.code(201).send({ success: true, message: 'Question created successfully', data: created && created.toPlainObject ? created.toPlainObject() : created });
       } catch (err) {
         questionLogger.error('createQuestion error', { message: err.message, stack: err.stack });
         if (err.message === 'user_required' || err.message === 'title_required' || err.message === 'body_required') return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
@@ -42,7 +42,7 @@ export function makeQuestionController({ useCase = null }) {
         const includeAnswers = req.query.includeAnswers === '1' || req.query.includeAnswers === 'true';
         const q = await useCase.getQuestion({ id, includeAnswers });
         if (!q) return reply.code(404).send({ success: false, error: { code: 'question_not_found' } });
-        return reply.send({ success: true, data: q && q.toPlainObject ? q.toPlainObject() : q });
+        return reply.send({ success: true, message: 'Success', data: q && q.toPlainObject ? q.toPlainObject() : q });
       } catch (err) {
         questionLogger.error('getQuestion error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -57,7 +57,7 @@ export function makeQuestionController({ useCase = null }) {
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         if (!content) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         const created = await useCase.createAnswer({ questionId, userId: actorId, parentAnswerId, content });
-        return reply.code(201).send({ success: true, data: created && created.toPlainObject ? created.toPlainObject() : created });
+        return reply.code(201).send({ success: true, message: 'Answer created successfully', data: created && created.toPlainObject ? created.toPlainObject() : created });
       } catch (err) {
         questionLogger.error('createAnswer error', { message: err.message, stack: err.stack });
         if (['content_required', 'question_required', 'user_required'].includes(err.message)) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });

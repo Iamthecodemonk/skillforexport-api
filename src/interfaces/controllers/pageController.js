@@ -16,7 +16,7 @@ export function makePageController({ useCase = null, followersRepository = null 
             return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const { categoryId, name, slug, description, metadata } = req.body || {};
         const created = await useCase.CreatePage({ ownerId: actorId, categoryId, name, slug, description, metadata });
-        return reply.code(201).send({ success: true, data: created });
+        return reply.code(201).send({ success: true, message: 'Page created successfully', data: created });
       } catch (err) {
         if ((err && err.message === 'name_required') || (err && err.message === 'slug_required'))
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
@@ -136,13 +136,13 @@ export function makePageController({ useCase = null, followersRepository = null 
         try {
           const existing = await followersRepository.findByPageAndUser(id, actorId);
           if (existing) {
-            return reply.code(200).send({ success: true, data: Object.assign({}, existing, { message: 'already_following' }) });
+            return reply.code(200).send({ success: true, message: 'Followed successfully.', data: { following: true } });
           }
         } catch (e) {
           // ignore and proceed to create
         }
-        const created = await followersRepository.create({ pageId: id, userId: actorId });
-        return reply.code(201).send({ success: true, data: Object.assign({}, created, { message: 'followed' }) });
+        await followersRepository.create({ pageId: id, userId: actorId });
+        return reply.code(201).send({ success: true, message: 'Followed successfully.', data: { following: true } });
       } catch (err) {
         pageLogger.error('followPage error', { message: err.message, stack: err.stack });
         // Handle duplicate key gracefully in case of race condition
@@ -150,11 +150,11 @@ export function makePageController({ useCase = null, followersRepository = null 
           try {
             const existing = await followersRepository.findByPageAndUser(req.params.id, req.user && req.user.id);
             if (existing)
-              return reply.code(200).send({ success: true, data: Object.assign({}, existing, { message: 'already_following' }) });
+              return reply.code(200).send({ success: true, message: 'Followed successfully.', data: { following: true } });
           } catch (e) {
             // fallthrough
           }
-          return reply.code(200).send({ success: true, data: { message: 'followed' } });
+          return reply.code(200).send({ success: true, message: 'Followed successfully.', data: { following: true } });
         }
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
@@ -169,7 +169,7 @@ export function makePageController({ useCase = null, followersRepository = null 
         if (!followersRepository)
             return reply.code(501).send({ success: false, error: { code: 'not_implemented' } });
         await followersRepository.deleteByPageAndUser(id, actorId);
-        return reply.code(200).send({ success: true, data: { id, message: 'unfollowed' } });
+        return reply.code(200).send({ success: true, message: 'Unfollowed successfully.', data: { following: false } });
       } catch (err) {
         pageLogger.error('unfollowPage error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });

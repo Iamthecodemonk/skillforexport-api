@@ -34,7 +34,7 @@ export function makePostController({ useCase = null }) {
           postLogger.warn('feed cache invalidation failed', { message: cacheErr && cacheErr.message });
         }
 
-        return reply.code(201).send({ success: true, data: created });
+        return reply.code(201).send({ success: true, message: 'Post created successfully', data: created });
       } catch (err) {
         postLogger.error('createPost error', { message: err.message, stack: err.stack });
         if (err.message === 'user_required' || err.message === 'content_required') {
@@ -51,7 +51,7 @@ export function makePostController({ useCase = null }) {
       try {
         const { id } = req.params;
         const post = await useCase.GetPost(id);
-        return reply.send({ success: true, data: post });
+        return reply.send({ success: true, message: 'Success', data: post });
       } catch (err) {
         postLogger.error('getPost error', { message: err.message, stack: err.stack });
         if (err.message === 'post_not_found') return reply.code(404).send({ success: false, error: { code: 'post_not_found' } });
@@ -83,7 +83,7 @@ export function makePostController({ useCase = null }) {
       if (typeof title === 'undefined' && typeof content === 'undefined') 
         return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
       const updated = await useCase.UpdatePost({ id, userId: actorId, title, content });
-        return reply.send({ success: true, data: updated });
+        return reply.send({ success: true, message: 'Post updated successfully', data: updated });
       } catch (err) {
         postLogger.error('updatePost error', { message: err.message, stack: err.stack });
         if (err.message === 'post_not_found')
@@ -102,7 +102,7 @@ export function makePostController({ useCase = null }) {
         if (!actorId) 
           return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         await useCase.DeletePost({ id, userId: actorId });
-        return reply.code(200).send({ success: true, data: { id } });
+        return reply.code(200).send({ success: true, message: 'Deleted success', data: [] });
       } catch (err) {
         postLogger.error('deletePost error', { message: err.message, stack: err.stack });
         if (err.message === 'post_not_found') return reply.code(404).send({ success: false, error: { code: 'post_not_found' } });

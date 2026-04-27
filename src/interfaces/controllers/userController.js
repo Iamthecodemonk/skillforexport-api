@@ -24,7 +24,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
             success: false,
             error: { code: 'user_not_found' }
           });
-        return reply.send({ success: true, data: user.toPlainObject() });
+        return reply.send({ success: true, message: 'Success', data: user.toPlainObject() });
       } catch (err) {
         userLogger.error('getUser error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -62,7 +62,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
 
         const cachedParsed = await readProfileFromCache(redis, cacheKey);
         if (cachedParsed) 
-          return reply.send({ success: true, data: cachedParsed });
+          return reply.send({ success: true, message: 'Profile fetched successfully', data: cachedParsed });
 
         const full = await useCase.getFullProfile(id);
         if (!full) 
@@ -70,7 +70,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
 
         await writeProfileToCache(redis, cacheKey, full);
 
-        return reply.send({ success: true, data: full });
+        return reply.send({ success: true, message: 'Profile fetched successfully', data: full });
       } catch (err) {
         userLogger.error('getUserProfile error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -86,7 +86,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
         const cacheKey = `user:profile:${userId}`;
 
         const cachedParsed = await readProfileFromCache(redis, cacheKey);
-        if (cachedParsed) return reply.send({ success: true, data: cachedParsed });
+        if (cachedParsed) return reply.send({ success: true, message: 'Profile fetched successfully', data: cachedParsed });
 
         const full = await useCase.getFullProfile(userId);
         if (!full) 
@@ -94,7 +94,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
 
         await writeProfileToCache(redis, cacheKey, full);
 
-        return reply.send({ success: true, data: full });
+        return reply.send({ success: true, message: 'Profile fetched successfully', data: full });
       } catch (err) {
         userLogger.error('getMyProfile error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -127,7 +127,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
         } catch (e) {
           userLogger.warn('Failed to invalidate profile cache', { err: e.message });
         }
-        return reply.send({ success: true, data: updated.toPlainObject() });
+        return reply.send({ success: true, message: 'Profile updated successfully', data: updated.toPlainObject() });
       } catch (err) {
         if (err.message === 'profile_not_found')
           return reply.code(404).send({
@@ -159,7 +159,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
             error: { code: 'validation_failed' }
           });
         const created = await useCase.addSkill(id, { skill, level });
-        return reply.code(201).send({ success: true, data: created.toPlainObject() });
+        return reply.code(201).send({ success: true, message: 'Skill added', data: created.toPlainObject() });
       } catch (err) {
         userLogger.error('addUserSkill error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -186,7 +186,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
             error: { code: 'validation_failed' }
           });
         const created = await useCase.addPortfolio(id, { title, description, link });
-        return reply.code(201).send({ success: true, data: created.toPlainObject() });
+        return reply.code(201).send({ success: true, message: 'Portfolio added', data: created.toPlainObject() });
       } catch (err) {
         userLogger.error('addUserPortfolio error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -319,7 +319,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
           if (followerRepository && typeof followerRepository.findByFollowerAndFollowing === 'function') {
             const existing = await followerRepository.findByFollowerAndFollowing(actorId, id);
             if (existing) {
-              return reply.code(200).send({ success: true, data: Object.assign({}, existing.toPlainObject ? existing.toPlainObject() : existing, { message: 'already_following' }) });
+              return reply.code(200).send({ success: true, message: 'Followed', data: { following: true } });
             }
           }
         } catch (e) {
@@ -327,8 +327,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
         }
 
         const created = await useCase.followUser(id, actorId);
-        const payload = created && created.toPlainObject ? created.toPlainObject() : created;
-        return reply.code(201).send({ success: true, data: Object.assign({}, payload, { message: 'followed' }) });
+        return reply.code(201).send({ success: true, message: 'Followed', data: { following: true } });
       } catch (err) {
         userLogger.error('followUser error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -343,8 +342,8 @@ export function makeUserController({ useCase = null, followerRepository = null }
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         // Attempt to unfollow; idempotent: if not following, return 200
         const deleted = await useCase.unfollowUser(id, actorId);
-        if (!deleted) return reply.code(200).send({ success: true, data: { message: 'not_following' } });
-        return reply.code(200).send({ success: true, data: Object.assign({}, deleted.toPlainObject ? deleted.toPlainObject() : deleted, { message: 'unfollowed' }) });
+        if (!deleted) return reply.code(200).send({ success: true, message: 'Unfollowed', data: { following: false } });
+        return reply.code(200).send({ success: true, message: 'Unfollowed', data: { following: false } });
       } catch (err) {
         userLogger.error('unfollowUser error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -390,7 +389,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
 
         const created = await useCase.createProfile(userId, data);
         const payload = created && typeof created.toPlainObject === 'function' ? created.toPlainObject() : created;
-        return reply.code(201).send({ success: true, data: payload });
+        return reply.code(201).send({ success: true, message: 'Profile created successfully', data: payload });
       } catch (err) {
         if (err && err.message === 'user_not_found') {
           return sendError(reply, 404, 'user_not_found', 'User not found');

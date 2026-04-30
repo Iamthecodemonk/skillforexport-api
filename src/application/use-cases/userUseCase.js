@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import bcrypt from 'bcryptjs';
 import User from '../../domain/entities/User.js';
 import UserProfile from '../../domain/entities/UserProfile.js';
 import UserSkill from '../../domain/entities/UserSkill.js';
@@ -31,7 +32,9 @@ export default class UserUseCase {
     const existing = await this.userRepository.findByEmail(email);
     if (existing) 
       throw new Error('email_taken');
-    const user = new User({ id: uuidv4(), email, password, role, createdAt: new Date() });
+    // Hash the plaintext password before storing
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    const user = new User({ id: uuidv4(), email, password: hashedPassword, role, createdAt: new Date() });
     return this.userRepository.create(user);
   }
 

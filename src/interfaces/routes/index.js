@@ -399,8 +399,8 @@ export default async function registerRoutes(fastify, deps) {
             data: { type: 'object', properties: { id: { type: 'string' }, email: { type: 'string' } } }
           }
         },
-        422: { type: 'object' },
-        409: { type: 'object' }
+        422: schemas.ValidationErrorResponse,
+        409: schemas.GenericErrorResponse
       }
     }
   }, handler('createUser'));
@@ -924,7 +924,7 @@ export default async function registerRoutes(fastify, deps) {
         { name: 'offset', in: 'query', schema: { type: 'number' } }
       ],
       response: {
-        200: schemas.PostPaginatedResponse
+        200: schemas.CommunityPaginatedResponse
       }
     }
   }, handler('listCommunities'));

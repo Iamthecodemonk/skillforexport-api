@@ -938,6 +938,7 @@ export const AnswerPaginatedResponse = makePaginatedRootSchema(AnswerResponse, A
 export const PagePaginatedResponse = makePaginatedRootSchema(PageResponse, PageResponse.example);
 export const CommentPaginatedResponse = makePaginatedRootSchema(CommentResponse, CommentResponse.example);
 export const PageFollowerPaginatedResponse = makePaginatedRootSchema(PageFollower, PageFollower.example);
+export const CommunityPaginatedResponse = makePaginatedRootSchema(CommunityResponse, CommunityResponse.example);
 
 export const ReactionBody = {
   type: 'object',
@@ -1032,6 +1033,7 @@ export default {
   CommunityResponse,
   CommunityMemberResponse,
   CommunityUpdateBody,
+  CommunityPaginatedResponse,
   FullProfileResponse,
   GenericError,
   GenericErrorResponse,

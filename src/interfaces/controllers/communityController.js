@@ -1,4 +1,5 @@
 import logger from '../../utils/logger.js';
+import { parsePagination, buildPaginatedResponse } from '../paginationResponse.js';
 const log = logger.child('COMMUNITY_CONTROLLER');
 
 export function makeCommunityController({ useCase = null }) {
@@ -104,6 +105,30 @@ export function makeCommunityController({ useCase = null }) {
       }
     }
     ,
+
+    listCommunities: async (req, reply) => {
+      try {
+        const { page, perPage, offset } = parsePagination(req.query || {});
+        const q = req.query && (req.query.q || req.query.search) ? String(req.query.q || req.query.search) : null;
+        const categoryId = req.query && (req.query.categoryId || req.query.category_id) ? String(req.query.categoryId || req.query.category_id) : null;
+
+        const res = await useCase.listCommunities({ page, perPage, q, categoryId, offset });
+        return reply.send(buildPaginatedResponse(req, { data: res.data || [], page: res.page, perPage: res.perPage, total: res.total }));
+      } catch (err) {
+        log.error('listCommunities error', { message: err.message });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    listCategories: async (req, reply) => {
+      try {
+        const rows = await useCase.listCategories();
+        return reply.send({ success: true, data: rows });
+      } catch (err) {
+        log.error('listCategories error', { message: err.message });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
 
     getCommunity: async (req, reply) => {
       try {

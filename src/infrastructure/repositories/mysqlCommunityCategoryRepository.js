@@ -26,4 +26,8 @@ export default class MysqlCommunityCategoryRepository {
     await db('community_categories').where({ id }).del();
     return { id };
   }
+
+  async listAll() {
+    return db('community_categories').orderBy('name', 'asc');
+  }
 }

@@ -381,7 +381,16 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'createUser',
       tags: ['Users'],
       description: 'Create a user',
-      body: { type: 'object', required: ['email', 'password'], properties: { email: { type: 'string' }, password: { type: 'string' } }, example: { email: 'user@example.com', password: 'P@ssw0rd' } },
+      body: {
+        type: 'object',
+        required: ['email', 'password'],
+        properties: {
+          email: { type: 'string' },
+          password: { type: 'string' },
+          role: { type: 'string', enum: ['user', 'admin'] }
+        },
+        example: { email: 'user@example.com', password: 'P@ssw0rd', role: 'user' }
+      },
       response: {
         201: {
           type: 'object',
@@ -836,6 +845,21 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('createCategory'));
 
+  // Public: list all community categories
+  fastify.get('/community-categories', {
+    schema: {
+      operationId: 'listCommunityCategories',
+      tags: ['Communities'],
+      description: 'List all community categories',
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: { type: 'array', items: schemas.CommunityCategoryResponse } }
+        }
+      }
+    }
+  }, handler('listCategories'));
+
   fastify.put('/community-categories/:id', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
@@ -884,6 +908,26 @@ export default async function registerRoutes(fastify, deps) {
       }
     }
   }, handler('createCommunity'));
+
+  // Public: list communities (supports pagination and filtering)
+  fastify.get('/communities', {
+    schema: {
+      operationId: 'listCommunities',
+      tags: ['Communities'],
+      description: 'List communities. Supports query params: page, per_page, q (search), categoryId, limit, offset.',
+      parameters: [
+        { name: 'page', in: 'query', schema: { type: 'number' } },
+        { name: 'per_page', in: 'query', schema: { type: 'number' } },
+        { name: 'q', in: 'query', schema: { type: 'string' }, description: 'Search term for name or description' },
+        { name: 'categoryId', in: 'query', schema: { type: 'string' } },
+        { name: 'limit', in: 'query', schema: { type: 'number' } },
+        { name: 'offset', in: 'query', schema: { type: 'number' } }
+      ],
+      response: {
+        200: schemas.PostPaginatedResponse
+      }
+    }
+  }, handler('listCommunities'));
 
   fastify.get('/communities/:id', {
     schema: {

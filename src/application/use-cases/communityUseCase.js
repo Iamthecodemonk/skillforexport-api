@@ -84,4 +84,26 @@ export default class CommunityUseCase {
   async listMembers(communityId) {
     return this.communityMemberRepository.listMembers(communityId);
   }
+
+  async listCommunities({ page = 1, perPage = 20, q = null, categoryId = null, offset = undefined } = {}) {
+    const limit = parseInt(perPage, 10) || 20;
+    const pg = Math.max(parseInt(page, 10) || 1, 1);
+    const off = typeof offset !== 'undefined' && offset !== null ? Math.max(parseInt(offset, 10) || 0, 0) : (pg - 1) * limit;
+
+    if (this.communityRepository && typeof this.communityRepository.list === 'function') {
+      const data = await this.communityRepository.list({ offset: off, limit, q, categoryId });
+      const total = await (typeof this.communityRepository.count === 'function' ? this.communityRepository.count({ q, categoryId }) : (data.length || 0));
+      return { data, page: pg, perPage: limit, total };
+    }
+    // Fallback to listAll if list not implemented
+    const rows = (this.communityRepository && typeof this.communityRepository.listAll === 'function') ? await this.communityRepository.listAll() : [];
+    return { data: rows, page: 1, perPage: rows.length, total: rows.length };
+  }
+
+  async listCategories() {
+    if (this.communityCategoryRepository && typeof this.communityCategoryRepository.listAll === 'function') {
+      return this.communityCategoryRepository.listAll();
+    }
+    return [];
+  }
 }

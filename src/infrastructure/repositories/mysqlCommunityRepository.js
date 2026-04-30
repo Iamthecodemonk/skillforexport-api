@@ -34,4 +34,35 @@ export default class MysqlCommunityRepository {
   async listByCategory(categoryId) {
     return db('communities').where({ category_id: categoryId }).orderBy('name', 'asc');
   }
+
+  async listAll() {
+    return db('communities').orderBy('name', 'asc');
+  }
+
+  async list({ offset = 0, limit = 20, q = null, categoryId = null } = {}) {
+    const qb = db('communities').select('*');
+    if (categoryId) qb.where('category_id', categoryId);
+    if (q) {
+      const like = `%${q}%`;
+      qb.andWhere(function () {
+        this.where('name', 'like', like).orWhere('description', 'like', like);
+      });
+    }
+    qb.orderBy('name', 'asc').offset(offset).limit(limit);
+    return qb;
+  }
+
+  async count({ q = null, categoryId = null } = {}) {
+    const qb = db('communities').count({ cnt: 'id' });
+    if (categoryId) qb.where('category_id', categoryId);
+    if (q) {
+      const like = `%${q}%`;
+      qb.andWhere(function () {
+        this.where('name', 'like', like).orWhere('description', 'like', like);
+      });
+    }
+    const row = await qb.first();
+    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+    return parseInt(cnt || 0, 10);
+  }
 }

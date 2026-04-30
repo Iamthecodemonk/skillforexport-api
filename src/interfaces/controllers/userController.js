@@ -33,10 +33,24 @@ export function makeUserController({ useCase = null, followerRepository = null }
 
     createUser: async (req, reply) => {
       try {
-        const { email, password } = req.body;
-        if (!email || !password) 
+        const { email, password, role } = req.body;
+        if (!email || !password)
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
-        const created = await useCase.createUser({ email, password });
+
+        // Validate role if provided; only allow 'user' or 'admin'
+        const allowedRoles = ['user', 'admin'];
+        const roleToUse = role && typeof role === 'string' ? role : undefined;
+        if (typeof roleToUse !== 'undefined' && !allowedRoles.includes(roleToUse)) {
+          return reply.code(422).send({ 
+            success: false, 
+            error: { 
+              code: 'validation_failed', 
+              message: 'role must be one of: user, admin' 
+            } 
+          });
+        }
+
+        const created = await useCase.createUser({ email, password, role: roleToUse });
         return reply.code(201).send({ success: true, data: created.toPlainObject() });
       } catch (err) {
         if (err.message === 'invalid_email_format')

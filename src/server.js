@@ -110,7 +110,7 @@ export default async function startServer() {
       // If body empty, only accept silently for follow/unfollow endpoints
       if (!body || body.length === 0) {
         try {
-          const rawUrl = (req && req.raw && req.raw.url) ? req.raw.url.split('?')[0] : '';
+          const rawUrl = (req && req.raw && req.raw.Qurl) ? req.raw.url.split('?')[0] : '';
           // Match /pages/:id/follow and /users/:id/follow paths
           const followPathRegex = /^\/(?:pages|users)\/[0-9a-fA-F-]+\/follow$/;
           if (followPathRegex.test(rawUrl)) {

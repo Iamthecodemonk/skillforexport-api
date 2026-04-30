@@ -1,5 +1,7 @@
 import db from '../knexConfig.js';
 import { v4 as uuidv4 } from 'uuid';
+import logger from '../../utils/logger.js';
+const repoLog = logger.child('mysqlCommunityCategoryRepository');
 
 export default class MysqlCommunityCategoryRepository {
   async findById(id) {
@@ -28,6 +30,12 @@ export default class MysqlCommunityCategoryRepository {
   }
 
   async listAll() {
-    return db('community_categories').orderBy('name', 'asc');
+    const rows = await db('community_categories').orderBy('name', 'asc');
+    try {
+      repoLog.info('listAll fetched rows', { count: Array.isArray(rows) ? rows.length : 0 });
+    } catch (e) {
+      // ignore logging errors
+    }
+    return rows;
   }
 }

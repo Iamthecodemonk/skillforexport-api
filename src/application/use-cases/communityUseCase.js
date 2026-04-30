@@ -35,10 +35,14 @@ export default class CommunityUseCase {
     return this.communityCategoryRepository.delete(id);
   }
 
-  async createCommunity({ id = null, categoryId = null, name, description = null, ownerId = null }) {
+  async createCommunity({ id = null, categoryId = null, name, description = null, ownerId = null, defaultPostVisibility = 'public' }) {
     if (!name || !ownerId) 
         throw new Error('validation_failed');
-      const payload = { id: id || uuidv4(), category_id: categoryId, name, description, created_at: new Date(), owner_id: ownerId, default_post_visibility: defaultPostVisibility };
+    const allowedVisibility = ['public', 'connections', 'community'];
+    if (defaultPostVisibility && !allowedVisibility.includes(defaultPostVisibility)) {
+      throw new Error('validation_failed');
+    }
+    const payload = { id: id || uuidv4(), category_id: categoryId, name, description, created_at: new Date(), owner_id: ownerId, default_post_visibility: defaultPostVisibility };
     const created = await this.communityRepository.create(payload);
     // add owner as admin member
     if (this.communityMemberRepository) {

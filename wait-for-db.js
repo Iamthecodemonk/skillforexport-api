@@ -3,7 +3,9 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import logger from './src/utils/logger.js';
+import 'dotenv/config'
 
+dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const MAX_RETRIES = 30;

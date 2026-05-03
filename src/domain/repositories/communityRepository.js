@@ -4,6 +4,9 @@ export class CommunityRepository {
   async update(id, updates) { throw new Error('update() not implemented'); }
   async delete(id) { throw new Error('delete() not implemented'); }
   async listByCategory(categoryId) { throw new Error('listByCategory() not implemented'); }
+  async listAll() { throw new Error('listAll() not implemented'); }
+  async list(params) { throw new Error('list() not implemented'); }
+  async count(params) { throw new Error('count() not implemented'); }
 }
 
 export class CommunityRepositoryImpl extends CommunityRepository {
@@ -22,4 +25,10 @@ export class CommunityRepositoryImpl extends CommunityRepository {
     return this.adapter.delete(id); }
   async listByCategory(categoryId) { 
     return this.adapter.listByCategory(categoryId); }
+  async listAll() {
+    return this.adapter.listAll(); }
+  async list(params) {
+    return this.adapter.list(params); }
+  async count(params) {
+    return this.adapter.count(params); }
 }

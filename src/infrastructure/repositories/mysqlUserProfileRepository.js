@@ -5,6 +5,7 @@ const repoLog = logger.child('MYSQL_USER_PROFILE_REPO');
 
 export default class MysqlUserProfileRepository {
   async findByUserId(userId) {
+    if (!userId) return null;
     return db('user_profiles').where({ user_id: userId }).first();
   }
 

@@ -20,6 +20,7 @@ async function enqueueProfileImageFromUrl({ req, reply, useCase, mediaQueue, use
   const body = req.body || {};
   const imageUrl = body.imageUrl || body.url || body.secureUrl || body.secure_url;
   const publicId = body.publicId || body.public_id;
+  if (!userId) return sendError(reply, 422, 'validation_failed', 'User id is required');
   if (!imageUrl && !publicId) return sendError(reply, 422, 'validation_failed', 'Provide imageUrl or publicId');
   if (!mediaQueue) return sendError(reply, 503, 'service_unavailable', 'Service unavailable');
 

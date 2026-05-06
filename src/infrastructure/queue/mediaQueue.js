@@ -12,6 +12,10 @@ import 'dotenv/config';
 //i trusted buffer for upload but i am using streams sha for speed and memory efficiency, especially for larger files. The file-type library is used to validate MIME types without fully loading the file into memory, which adds an extra layer of security against malicious uploads.
 const queueLogger = logger.child('MEDIA_QUEUE');
 
+function getUserId(data = {}) {
+  return data.userId || data.user_id || null;
+}
+
 export function createMediaQueue(redisConnection) {
   return new Queue('media', { connection: redisConnection });
 }
@@ -53,7 +57,8 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
 
       try {
         if (name === 'avatar') {
-          const { userId, imageUrl } = data;
+          const userId = getUserId(data);
+          const { imageUrl } = data;
           // Upload from URL to Cloudinary
           const result = await cloudinary.uploadFromUrl(imageUrl, { folder: 'avatars' });
           // Create asset record if adapter available
@@ -75,12 +80,14 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
           }
 
           // Update user profile avatar if profileRepository provided
-          if (profileRepository) {
+          if (profileRepository && userId) {
             const profile = await profileRepository.findByUserId(userId);
             if (profile) {
               await profileRepository.update(profile.id, { avatar: result.secure_url || result.url });
               queueLogger.info('Profile avatar updated', { userId });
             }
+          } else if (profileRepository && !data.pageId) {
+            queueLogger.warn('Skipping profile avatar update: userId missing', { jobId: job.id });
           }
           // Update page avatar if a pageId was supplied and pageRepository available
           if (pageRepository && data.pageId) {
@@ -95,7 +102,8 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
           return result;
         }
         if (name === 'banner') {
-          const { userId, imageUrl } = data;
+          const userId = getUserId(data);
+          const { imageUrl } = data;
           const folder = process.env.CLOUDINARY_FOLDER_BANNERS || 'banners';
           const result = await cloudinary.uploadFromUrl(imageUrl, { folder });
           if (assetAdapter) {
@@ -114,18 +122,21 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
             });
             if (asset && asset.id) queueLogger.info('Asset record created (banner)', { assetId: asset.id });
           }
-          if (profileRepository) {
+          if (profileRepository && userId) {
             const profile = await profileRepository.findByUserId(userId);
             if (profile) {
               await profileRepository.update(profile.id, { banner: result.secure_url || result.url });
               queueLogger.info('Profile banner updated', { userId });
             }
+          } else if (profileRepository && !data.pageId) {
+            queueLogger.warn('Skipping profile banner update: userId missing', { jobId: job.id });
           }
           return result;
         }
 
         if (name === 'avatar-file' || name === 'banner-file') {
-          const { userId, tmpFilePath } = data;
+          const userId = getUserId(data);
+          const { tmpFilePath } = data;
           const kind = data.kind || 'avatar';
           // ensure file exists
           try { 
@@ -186,7 +197,7 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
             if (asset && asset.id) queueLogger.info('Asset record created from file upload', { assetId: asset.id });
           }
 
-          if (profileRepository) {
+          if (profileRepository && userId) {
             const profile = await profileRepository.findByUserId(userId);
             if (profile) {
               if (kind === 'banner') {
@@ -197,6 +208,8 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
                 queueLogger.info('Profile avatar updated from file', { userId });
               }
             }
+          } else if (profileRepository && !data.pageId) {
+            queueLogger.warn('Skipping profile image update from file: userId missing', { jobId: job.id, kind });
           }
           // Update page record if pageId provided
           if (pageRepository && data.pageId) {
@@ -224,7 +237,8 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
         }
 
         if (name === 'register-direct') {
-          const { userId, publicId, kind } = data;
+          const userId = getUserId(data);
+          const { publicId, kind } = data;
           // Verify resource exists in Cloudinary
           let info = null;
           try {
@@ -250,7 +264,7 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
             if (asset && asset.id) queueLogger.info('Asset record created for direct upload', { assetId: asset.id });
           }
           // Optionally update profile image for avatar/banner-kind
-          if ((kind === 'avatar' || kind === 'banner') && profileRepository) {
+          if ((kind === 'avatar' || kind === 'banner') && profileRepository && userId) {
             const profile = await profileRepository.findByUserId(userId);
             if (profile) {
               if (kind === 'banner') {
@@ -259,6 +273,8 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
                 await profileRepository.update(profile.id, { avatar: info.secure_url || info.url });
               }
             }
+          } else if ((kind === 'avatar' || kind === 'banner') && profileRepository && !data.pageId) {
+            queueLogger.warn('Skipping direct profile image update: userId missing', { jobId: job.id, kind });
           }
           // Optionally update page image for avatar/banner-kind
           if ((kind === 'avatar' || kind === 'banner') && pageRepository && data.pageId) {

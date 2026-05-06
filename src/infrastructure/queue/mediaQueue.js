@@ -20,6 +20,17 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
   const safeCreateAsset = async (asset) => {
     if (!assetAdapter) return null;
     try {
+      // If no explicit userId provided but a pageId exists, try to resolve owner from page
+      if ((!asset.userId || asset.userId === '') && asset.pageId && pageRepository && typeof pageRepository.findById === 'function') {
+        try {
+          const page = await pageRepository.findById(asset.pageId).catch(() => null);
+          if (page && (page.owner_id || page.ownerId)) {
+            asset.userId = page.owner_id || page.ownerId;
+          }
+        } catch (e) {
+          /* ignore resolution errors and let DB validation handle missing user */
+        }
+      }
       return await assetAdapter.create(asset);
     } catch (err) {
       const msg = String(err.message || '');
@@ -51,6 +62,7 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
             const asset = await safeCreateAsset({
               id: assetId,
               userId,
+              pageId: data.pageId,
               kind: 'avatar',
               provider: 'cloudinary',
               providerPublicId: result.public_id,
@@ -91,6 +103,7 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
             const asset = await safeCreateAsset({
               id: assetId,
               userId,
+              pageId: data.pageId,
               kind: 'banner',
               provider: 'cloudinary',
               providerPublicId: result.public_id,
@@ -161,6 +174,7 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
             const asset = await safeCreateAsset({
               id: assetId,
               userId,
+              pageId: data.pageId,
               kind: kind || 'avatar',
               provider: 'cloudinary',
               providerPublicId: result.public_id,
@@ -224,6 +238,7 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
             const asset = await safeCreateAsset({
               id: assetId,
               userId,
+              pageId: data.pageId,
               kind: kind || 'other',
               provider: 'cloudinary',
               providerPublicId: info.public_id,

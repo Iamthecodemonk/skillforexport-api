@@ -155,7 +155,8 @@ export function makeCommunityController({ useCase = null }) {
         if (!existing) 
             return reply.code(404).send({ success: false, error: { code: 'community_not_found' } });
         const actorRole = req.user && req.user.role;
-        if (existing.owner_id !== actorId && actorRole !== 'admin') {
+        const canManage = await useCase.canManageCommunity({ communityId: id, userId: actorId, actorRole });
+        if (!canManage) {
           return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
         }
         const updated = await useCase.updateCommunity({ id, updates });
@@ -177,7 +178,8 @@ export function makeCommunityController({ useCase = null }) {
         if (!existing) 
             return reply.code(404).send({ success: false, error: { code: 'community_not_found' } });
         const actorRole = req.user && req.user.role;
-        if (existing.owner_id !== actorId && actorRole !== 'admin') {
+        const canManage = await useCase.canManageCommunity({ communityId: id, userId: actorId, actorRole });
+        if (!canManage) {
           return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
         }
         await useCase.deleteCommunity({ id });

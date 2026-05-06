@@ -37,7 +37,7 @@ export default class MysqlCommunityRepository {
     const id = record.id || uuidv4();
     const payload = {
       id,
-      ...this.toPersistence(record, { includeOwner: true }),
+      ...this.toPersistence(record),
       is_active: typeof record.is_active !== 'undefined'
         ? record.is_active
         : (typeof record.isActive !== 'undefined' ? record.isActive : 1),

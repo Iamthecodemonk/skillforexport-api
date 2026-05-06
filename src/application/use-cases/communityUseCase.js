@@ -62,6 +62,21 @@ export default class CommunityUseCase {
         throw new Error('community_not_found');
     return this.communityRepository.update(id, updates);
   }
+
+  async canManageCommunity({ communityId, userId, actorRole = null }) {
+    if (!communityId || !userId) return false;
+    if (actorRole === 'admin') return true;
+
+    const existing = await this.communityRepository.findById(communityId);
+    if (!existing) throw new Error('community_not_found');
+    if (existing.owner_id && existing.owner_id === userId) return true;
+
+    if (!this.communityMemberRepository || typeof this.communityMemberRepository.findByUserAndCommunity !== 'function') {
+      return false;
+    }
+    const membership = await this.communityMemberRepository.findByUserAndCommunity(userId, communityId);
+    return Boolean(membership && membership.role === 'admin');
+  }
   
   async deleteCommunity({ id }) {
     const existing = await this.communityRepository.findById(id);

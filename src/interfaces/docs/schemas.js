@@ -893,9 +893,14 @@ export const CommunityCategoryCreateBody = {
 
 export const CommunityCategoryResponse = {
   type: 'object',
-  properties: { id: { type: 'string' }, name: { type: 'string' }, description: { type: 'string' } }
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    description: { type: 'string' },
+    total_communities: { type: 'number', description: 'Total number of communities under this category' }
+  }
 };
-CommunityCategoryResponse.example = { id: 'community-category-uuid', name: 'Sports', description: 'Groups for sports fans' };
+CommunityCategoryResponse.example = { id: 'community-category-uuid', name: 'Sports', description: 'Groups for sports fans', total_communities: 8 };
 
 export const CommunityCreateBody = {
   type: 'object',
@@ -915,14 +920,27 @@ export const CommunityResponse = {
   properties: {
     id: { type: 'string' },
     categoryId: { type: ['string','null'] },
+    category_id: { type: ['string','null'] },
+    category: {
+      type: ['object','null'],
+      description: 'Community category this community belongs to. Present on GET /communities list results.',
+      properties: {
+        id: { type: 'string' },
+        name: { type: 'string' }
+      }
+    },
     name: { type: 'string' },
     description: { type: 'string' },
     is_active: { type: 'number' },
     default_post_visibility: { type: ['string','null'], description: 'Default visibility for new posts in this community' },
+    posts_count: { type: 'number', description: 'Total number of posts under this community' },
+    post_likes_count: { type: 'number', description: 'Total number of like reactions on posts under this community' },
+    post_reactions_count: { type: 'number', description: 'Total number of all post reactions under this community' },
+    comments_count: { type: 'number', description: 'Total number of comments on posts under this community' },
     created_at: { type: 'string' }
   }
 };
-CommunityResponse.example = { id: 'community-uuid', categoryId: 'community-category-uuid', name: 'Local Chess Club', description: 'We meet weekly to play chess', is_active: 1, default_post_visibility: 'community', created_at: '2026-04-12T10:00:00Z' };
+CommunityResponse.example = { id: 'community-uuid', categoryId: 'community-category-uuid', category_id: 'community-category-uuid', category: { id: 'community-category-uuid', name: 'Sports' }, name: 'Local Chess Club', description: 'We meet weekly to play chess', is_active: 1, default_post_visibility: 'community', posts_count: 24, post_likes_count: 41, post_reactions_count: 58, comments_count: 103, created_at: '2026-04-12T10:00:00Z' };
 
 export const CommunityMemberResponse = {
   type: 'object',

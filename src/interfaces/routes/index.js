@@ -850,11 +850,12 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listCommunityCategories',
       tags: ['Communities'],
-      description: 'List all community categories',
+      description: 'List all community categories with the total number of communities under each category.',
       response: {
         200: {
           type: 'object',
-          properties: { success: { type: 'boolean' }, data: { type: 'array', items: schemas.CommunityCategoryResponse } }
+          properties: { success: { type: 'boolean' }, data: { type: 'array', items: schemas.CommunityCategoryResponse } },
+          example: { success: true, data: [schemas.CommunityCategoryResponse.example] }
         }
       }
     }
@@ -914,7 +915,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listCommunities',
       tags: ['Communities'],
-      description: 'List communities. Supports query params: page, per_page, q (search), categoryId, limit, offset.',
+      description: 'List communities with their category details and aggregate post, post reaction, post like, and post comment counts. Supports query params: page, per_page, q (search), categoryId, limit, offset.',
       parameters: [
         { name: 'page', in: 'query', schema: { type: 'number' } },
         { name: 'per_page', in: 'query', schema: { type: 'number' } },

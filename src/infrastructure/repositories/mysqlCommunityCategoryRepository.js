@@ -30,12 +30,21 @@ export default class MysqlCommunityCategoryRepository {
   }
 
   async listAll() {
-    const rows = await db('community_categories').orderBy('name', 'asc');
+    const rows = await db('community_categories as cc')
+      .leftJoin('communities as c', 'c.category_id', 'cc.id')
+      .select('cc.*')
+      .count({ total_communities: 'c.id' })
+      .groupBy('cc.id')
+      .orderBy('cc.name', 'asc');
+    const normalizedRows = rows.map((row) => ({
+      ...row,
+      total_communities: parseInt(row.total_communities || 0, 10)
+    }));
     try {
-      repoLog.info('listAll fetched rows', { count: Array.isArray(rows) ? rows.length : 0 });
+      repoLog.info('listAll fetched rows', { count: Array.isArray(normalizedRows) ? normalizedRows.length : 0 });
     } catch (e) {
       // ignore logging errors
     }
-    return rows;
+    return normalizedRows;
   }
 }

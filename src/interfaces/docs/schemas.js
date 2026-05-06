@@ -330,6 +330,16 @@ export const QuestionResponse = {
     acceptedAnswerId: { type: ['string','null'] },
     createdAt: { type: 'string' },
     updatedAt: { type: 'string' },
+    asker: {
+      type: ['object','null'],
+      properties: {
+        id: { type: 'string' },
+        name: { type: ['string','null'] },
+        email: { type: ['string','null'] }
+      }
+    },
+    totalAnswers: { type: 'number' },
+    totalAnswerers: { type: 'number' },
     answers: { type: ['array','null'], items: { type: 'object' } }
   }
 };
@@ -344,6 +354,9 @@ QuestionResponse.example = {
   acceptedAnswerId: null,
   createdAt: '2026-04-01T12:00:00Z',
   updatedAt: '2026-04-01T12:00:00Z',
+  asker: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com' },
+  totalAnswers: 1,
+  totalAnswerers: 1,
   answers: [
     {
       id: 'a-uuid',
@@ -352,7 +365,8 @@ QuestionResponse.example = {
       parentAnswerId: null,
       content: 'This is how...',
       createdAt: '2026-04-01T13:00:00Z',
-      updatedAt: '2026-04-01T13:00:00Z'
+      updatedAt: '2026-04-01T13:00:00Z',
+      user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com' }
     }
   ]
 };
@@ -362,8 +376,8 @@ export const QuestionListResponse = { type: 'array', items: QuestionResponse };
 export const AnswerCreateBody = { type: 'object', required: ['content'], properties: { content: { type: 'string' }, parentAnswerId: { type: ['string','null'] } } };
 AnswerCreateBody.example = { content: 'You can fix it by...' };
 
-export const AnswerResponse = { type: 'object', properties: { id: { type: 'string' }, questionId: { type: 'string' }, userId: { type: 'string' }, parentAnswerId: { type: ['string','null'] }, content: { type: 'string' }, createdAt: { type: 'string' }, updatedAt: { type: 'string' } } };
-AnswerResponse.example = { id: 'a-uuid', questionId: 'q-uuid', userId: 'user-uuid', parentAnswerId: null, content: 'This is how...', createdAt: '2026-04-01T13:00:00Z', updatedAt: '2026-04-01T13:00:00Z' };
+export const AnswerResponse = { type: 'object', properties: { id: { type: 'string' }, questionId: { type: 'string' }, userId: { type: 'string' }, parentAnswerId: { type: ['string','null'] }, content: { type: 'string' }, createdAt: { type: 'string' }, updatedAt: { type: 'string' }, user: { type: ['object','null'], properties: { id: { type: 'string' }, name: { type: ['string','null'] }, email: { type: ['string','null'] } } } } };
+AnswerResponse.example = { id: 'a-uuid', questionId: 'q-uuid', userId: 'user-uuid', parentAnswerId: null, content: 'This is how...', createdAt: '2026-04-01T13:00:00Z', updatedAt: '2026-04-01T13:00:00Z', user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com' } };
 
 
 export const PostResponse = {

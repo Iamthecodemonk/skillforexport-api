@@ -22,11 +22,33 @@ export default class MysqlAnswerRepository {
   }
 
   async listByQuestion(questionId, { limit = 50, offset = 0 } = {}) {
-    return db('answers').where({ question_id: questionId }).orderBy('created_at', 'asc').limit(limit).offset(offset);
+    const rows = await db('answers as a')
+      .leftJoin('users as u', 'u.id', 'a.user_id')
+      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+      .where('a.question_id', questionId)
+      .orderBy('a.created_at', 'asc')
+      .limit(limit)
+      .offset(offset)
+      .select('a.*', 'u.email as answerer_email', 'up.username as answerer_name');
+
+    return rows.map(({ answerer_email, answerer_name, ...answer }) => ({
+      ...answer,
+      user: {
+        id: answer.user_id,
+        name: answerer_name || null,
+        email: answerer_email || null
+      }
+    }));
   }
 
   async countByQuestion(questionId) {
     const row = await db('answers').where({ question_id: questionId }).count({ cnt: 'id' }).first();
+    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+    return parseInt(cnt || 0, 10);
+  }
+
+  async countDistinctAnswerersByQuestion(questionId) {
+    const row = await db('answers').where({ question_id: questionId }).countDistinct({ cnt: 'user_id' }).first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);
   }

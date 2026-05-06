@@ -1445,7 +1445,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'getQuestion',
       tags: ['Questions'],
-      description: 'Get a single question by id. Set `includeAnswers=true` to include answers in the response.',
+      description: 'Get a single question by id with asker details, answer aggregates, and answers by default. Set `includeAnswers=false` to omit answers.',
       parameters: [{ name: 'includeAnswers', in: 'query', schema: { type: 'boolean' } }],
       response: {
         200: {

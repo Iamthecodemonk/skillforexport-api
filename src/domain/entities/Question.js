@@ -1,15 +1,41 @@
 export default class Question {
-  constructor({ id = null, userId = null, communityId = null, title = '', body = '', visibility = 'public', isClosed = false, acceptedAnswerId = null, createdAt = null, updatedAt = null, answers = [] } = {}) {
+  constructor({
+    id = null,
+    userId = null,
+    user_id = null,
+    communityId = null,
+    community_id = null,
+    title = '',
+    body = '',
+    visibility = 'public',
+    isClosed = false,
+    is_closed = false,
+    acceptedAnswerId = null,
+    accepted_answer_id = null,
+    createdAt = null,
+    created_at = null,
+    updatedAt = null,
+    updated_at = null,
+    asker = null,
+    totalAnswers = 0,
+    total_answers = 0,
+    totalAnswerers = 0,
+    total_answerers = 0,
+    answers = []
+  } = {}) {
     this.id = id;
-    this.userId = userId;
-    this.communityId = communityId;
+    this.userId = userId || user_id;
+    this.communityId = communityId || community_id;
     this.title = title;
     this.body = body;
     this.visibility = visibility;
-    this.isClosed = !!isClosed;
-    this.acceptedAnswerId = acceptedAnswerId;
-    this.createdAt = createdAt instanceof Date ? createdAt : (createdAt ? new Date(createdAt) : null);
-    this.updatedAt = updatedAt instanceof Date ? updatedAt : (updatedAt ? new Date(updatedAt) : null);
+    this.isClosed = !!(isClosed || is_closed);
+    this.acceptedAnswerId = acceptedAnswerId || accepted_answer_id;
+    this.createdAt = createdAt instanceof Date ? createdAt : ((createdAt || created_at) ? new Date(createdAt || created_at) : null);
+    this.updatedAt = updatedAt instanceof Date ? updatedAt : ((updatedAt || updated_at) ? new Date(updatedAt || updated_at) : null);
+    this.asker = asker;
+    this.totalAnswers = parseInt(totalAnswers || total_answers || 0, 10);
+    this.totalAnswerers = parseInt(totalAnswerers || total_answerers || 0, 10);
     this.answers = answers;
   }
 
@@ -40,6 +66,9 @@ export default class Question {
       acceptedAnswerId: this.acceptedAnswerId,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
+      asker: this.asker,
+      totalAnswers: this.totalAnswers,
+      totalAnswerers: this.totalAnswerers,
       answers: this.answers
     };
   }

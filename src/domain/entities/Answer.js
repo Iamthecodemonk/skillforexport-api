@@ -1,12 +1,27 @@
 export default class Answer {
-  constructor({ id = null, questionId = null, userId = null, parentAnswerId = null, content = '', createdAt = null, updatedAt = null } = {}) {
+  constructor({
+    id = null,
+    questionId = null,
+    question_id = null,
+    userId = null,
+    user_id = null,
+    parentAnswerId = null,
+    parent_answer_id = null,
+    content = '',
+    createdAt = null,
+    created_at = null,
+    updatedAt = null,
+    updated_at = null,
+    user = null
+  } = {}) {
     this.id = id;
-    this.questionId = questionId;
-    this.userId = userId;
-    this.parentAnswerId = parentAnswerId;
+    this.questionId = questionId || question_id;
+    this.userId = userId || user_id;
+    this.parentAnswerId = parentAnswerId || parent_answer_id;
     this.content = content;
-    this.createdAt = createdAt instanceof Date ? createdAt : (createdAt ? new Date(createdAt) : null);
-    this.updatedAt = updatedAt instanceof Date ? updatedAt : (updatedAt ? new Date(updatedAt) : null);
+    this.createdAt = createdAt instanceof Date ? createdAt : ((createdAt || created_at) ? new Date(createdAt || created_at) : null);
+    this.updatedAt = updatedAt instanceof Date ? updatedAt : ((updatedAt || updated_at) ? new Date(updatedAt || updated_at) : null);
+    this.user = user;
   }
 
   toRecord() {
@@ -29,7 +44,8 @@ export default class Answer {
       parentAnswerId: this.parentAnswerId,
       content: this.content,
       createdAt: this.createdAt,
-      updatedAt: this.updatedAt
+      updatedAt: this.updatedAt,
+      user: this.user
     };
   }
 }

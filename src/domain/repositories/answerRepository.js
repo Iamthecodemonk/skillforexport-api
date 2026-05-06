@@ -9,6 +9,12 @@ export class AnswerRepository {
   async listByQuestion(questionId, { limit, offset } = {}) {
     throw new Error('listByQuestion() not implemented');
   }
+  async countByQuestion(questionId) {
+    throw new Error('countByQuestion() not implemented');
+  }
+  async countDistinctAnswerersByQuestion(questionId) {
+    throw new Error('countDistinctAnswerersByQuestion() not implemented');
+  }
   async delete(id) {
     throw new Error('delete() not implemented');
   }
@@ -35,6 +41,15 @@ export class AnswerRepositoryImpl extends AnswerRepository {
   async listByQuestion(questionId, { limit = 50, offset = 0 } = {}) {
     const rows = await this.adapter.listByQuestion(questionId, { limit, offset });
     return (rows || []).map(r => new Answer(r));
+  }
+
+  async countByQuestion(questionId) {
+    return this.adapter.countByQuestion(questionId);
+  }
+
+  async countDistinctAnswerersByQuestion(questionId) {
+    if (typeof this.adapter.countDistinctAnswerersByQuestion !== 'function') return 0;
+    return this.adapter.countDistinctAnswerersByQuestion(questionId);
   }
 
   async delete(id) {

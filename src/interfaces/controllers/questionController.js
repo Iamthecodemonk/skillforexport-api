@@ -43,7 +43,8 @@ export function makeQuestionController({ useCase = null }) {
     getQuestion: async (req, reply) => {
       try {
         const { id } = req.params;
-        const includeAnswers = req.query.includeAnswers === '1' || req.query.includeAnswers === 'true';
+        const query = req.query || {};
+        const includeAnswers = query.includeAnswers !== '0' && query.includeAnswers !== 'false';
         const q = await useCase.getQuestion({ id, includeAnswers });
         if (!q) return reply.code(404).send({ success: false, error: { code: 'question_not_found' } });
         return reply.send({ success: true, message: 'Success', data: q && q.toPlainObject ? q.toPlainObject() : q });

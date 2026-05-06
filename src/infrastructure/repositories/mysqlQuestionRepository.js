@@ -21,7 +21,37 @@ export default class MysqlQuestionRepository {
   }
 
   async findById(id) {
-    return db('questions').where({ id }).first();
+    const answerCounts = db('answers')
+      .select('question_id')
+      .count({ total_answers: 'id' })
+      .countDistinct({ total_answerers: 'user_id' })
+      .groupBy('question_id')
+      .as('ac');
+
+    const row = await db('questions as q')
+      .leftJoin('users as u', 'u.id', 'q.user_id')
+      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+      .leftJoin(answerCounts, 'ac.question_id', 'q.id')
+      .where('q.id', id)
+      .select(
+        'q.*',
+        'u.email as asker_email',
+        'up.username as asker_name',
+        db.raw('COALESCE(ac.total_answers, 0) as total_answers'),
+        db.raw('COALESCE(ac.total_answerers, 0) as total_answerers')
+      )
+      .first();
+
+    if (!row) return null;
+    const { asker_email, asker_name, ...question } = row;
+    return {
+      ...question,
+      asker: {
+        id: question.user_id,
+        name: asker_name || null,
+        email: asker_email || null
+      }
+    };
   }
 
   async list({ limit = 20, offset = 0 } = {}) {

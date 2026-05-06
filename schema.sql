@@ -155,6 +155,7 @@ DROP TABLE IF EXISTS `communities`;
 CREATE TABLE `communities` (
   `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `category_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `owner_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `is_active` tinyint(1) DEFAULT '1',
@@ -162,7 +163,9 @@ CREATE TABLE `communities` (
   `default_post_visibility` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_category_id` (`category_id`),
-  CONSTRAINT `communities_ibfk_1` FOREIGN KEY (`category_id`) REFERENCES `community_categories` (`id`) ON DELETE SET NULL
+  KEY `idx_owner_id` (`owner_id`),
+  CONSTRAINT `communities_ibfk_1` FOREIGN KEY (`category_id`) REFERENCES `community_categories` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `communities_ibfk_2` FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -172,7 +175,7 @@ CREATE TABLE `communities` (
 
 LOCK TABLES `communities` WRITE;
 /*!40000 ALTER TABLE `communities` DISABLE KEYS */;
-INSERT INTO `communities` VALUES ('208c3b8e-ee49-45d6-805c-88de0e97c13b','2deb48ba-a207-4636-966e-e2ad11cd7c38','Local Chess Club','We meet weekly to play chess',1,'2026-04-30 20:25:26','public');
+INSERT INTO `communities` VALUES ('208c3b8e-ee49-45d6-805c-88de0e97c13b','2deb48ba-a207-4636-966e-e2ad11cd7c38','09874b5f-da13-4f3d-b074-b2094cafcac6','Local Chess Club','We meet weekly to play chess',1,'2026-04-30 20:25:26','public');
 /*!40000 ALTER TABLE `communities` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -804,6 +807,36 @@ CREATE TABLE `post_reports` (
 LOCK TABLES `post_reports` WRITE;
 /*!40000 ALTER TABLE `post_reports` DISABLE KEYS */;
 /*!40000 ALTER TABLE `post_reports` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `post_saves`
+--
+
+DROP TABLE IF EXISTS `post_saves`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `post_saves` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `post_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_post_save` (`user_id`,`post_id`),
+  KEY `idx_post_saves_post` (`post_id`),
+  KEY `idx_post_saves_user` (`user_id`),
+  CONSTRAINT `post_saves_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `post_saves_ibfk_2` FOREIGN KEY (`post_id`) REFERENCES `posts` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `post_saves`
+--
+
+LOCK TABLES `post_saves` WRITE;
+/*!40000 ALTER TABLE `post_saves` DISABLE KEYS */;
+/*!40000 ALTER TABLE `post_saves` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --

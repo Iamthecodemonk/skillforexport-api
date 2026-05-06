@@ -2,6 +2,33 @@ import db from '../knexConfig.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export default class MysqlCommunityRepository {
+  toPersistence(record = {}, { includeOwner = false } = {}) {
+    const payload = {};
+
+    if (Object.prototype.hasOwnProperty.call(record, 'category_id') || Object.prototype.hasOwnProperty.call(record, 'categoryId')) {
+      payload.category_id = record.category_id || record.categoryId || null;
+    }
+    if (includeOwner && (Object.prototype.hasOwnProperty.call(record, 'owner_id') || Object.prototype.hasOwnProperty.call(record, 'ownerId'))) {
+      payload.owner_id = record.owner_id || record.ownerId || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(record, 'name')) {
+      payload.name = record.name || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(record, 'description')) {
+      payload.description = record.description || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(record, 'default_post_visibility') || Object.prototype.hasOwnProperty.call(record, 'defaultPostVisibility')) {
+      payload.default_post_visibility = typeof record.default_post_visibility !== 'undefined'
+        ? record.default_post_visibility
+        : record.defaultPostVisibility;
+    }
+    if (Object.prototype.hasOwnProperty.call(record, 'is_active') || Object.prototype.hasOwnProperty.call(record, 'isActive')) {
+      payload.is_active = typeof record.is_active !== 'undefined' ? record.is_active : record.isActive;
+    }
+
+    return payload;
+  }
+
   async findById(id) {
     return db('communities').where({ id }).first();
   }
@@ -10,11 +37,10 @@ export default class MysqlCommunityRepository {
     const id = record.id || uuidv4();
     const payload = {
       id,
-      category_id: record.category_id || record.categoryId || null,
-      name: record.name || null,
-      description: record.description || null,
-      default_post_visibility: typeof record.default_post_visibility !== 'undefined' ? record.default_post_visibility : null,
-      is_active: typeof record.is_active !== 'undefined' ? record.is_active : 1,
+      ...this.toPersistence(record, { includeOwner: true }),
+      is_active: typeof record.is_active !== 'undefined'
+        ? record.is_active
+        : (typeof record.isActive !== 'undefined' ? record.isActive : 1),
       created_at: new Date()
     };
     await db('communities').insert(payload);
@@ -22,7 +48,10 @@ export default class MysqlCommunityRepository {
   }
 
   async update(id, updates) {
-    await db('communities').where({ id }).update(updates);
+    const payload = this.toPersistence(updates);
+    if (Object.keys(payload).length > 0) {
+      await db('communities').where({ id }).update(payload);
+    }
     return db('communities').where({ id }).first();
   }
 

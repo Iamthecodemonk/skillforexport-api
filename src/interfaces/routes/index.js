@@ -501,11 +501,11 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'uploadUserAvatar',
       tags: ['Users'],
-      description: 'Upload a profile avatar by URL; validation and Cloudinary upload happen in background. If avatar already exists, pass ?replace=true or clear it first using PUT /users/:id/profile with { avatar: null }.',
+      description: 'Upload a profile avatar by URL, Cloudinary publicId, or multipart file; validation and profile update happen in background. If avatar already exists, pass ?replace=true or clear it first using PUT /users/:id/profile with { avatar: null }.',
       parameters: [
         { name: 'replace', in: 'query', schema: { type: 'boolean' }, description: 'When true, replace existing avatar' }
       ],
-      // Support both application/json { imageUrl } and multipart/form-data { file }
+      // Support application/json { imageUrl } or { publicId }, and multipart/form-data { file }
       requestBody: {
         content: {
           'multipart/form-data': {
@@ -533,11 +533,11 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'uploadUserBanner',
       tags: ['Users'],
-      description: 'Upload a profile banner by URL or multipart file; validation and Cloudinary upload happen in background. If banner already exists, pass ?replace=true or clear it first using PUT /users/:id/profile with { banner: null }.',
+      description: 'Upload a profile banner by URL, Cloudinary publicId, or multipart file; validation and profile update happen in background. If banner already exists, pass ?replace=true or clear it first using PUT /users/:id/profile with { banner: null }.',
       parameters: [
         { name: 'replace', in: 'query', schema: { type: 'boolean' }, description: 'When true, replace existing banner' }
       ],
-      // Support both application/json { imageUrl } and multipart/form-data { file }
+      // Support application/json { imageUrl } or { publicId }, and multipart/form-data { file }
       requestBody: {
         content: {
           'multipart/form-data': {

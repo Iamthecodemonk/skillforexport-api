@@ -17,8 +17,10 @@ function shouldReplace(req) {
 }
 
 async function enqueueProfileImageFromUrl({ req, reply, useCase, mediaQueue, userId, kind }) {
-  const { imageUrl } = req.body || {};
-  if (!imageUrl) return sendError(reply, 422, 'validation_failed', 'Validation failed');
+  const body = req.body || {};
+  const imageUrl = body.imageUrl || body.url || body.secureUrl || body.secure_url;
+  const publicId = body.publicId || body.public_id;
+  if (!imageUrl && !publicId) return sendError(reply, 422, 'validation_failed', 'Provide imageUrl or publicId');
   if (!mediaQueue) return sendError(reply, 503, 'service_unavailable', 'Service unavailable');
 
   const field = kind === 'banner' ? 'banner' : 'avatar';
@@ -27,7 +29,11 @@ async function enqueueProfileImageFromUrl({ req, reply, useCase, mediaQueue, use
     return sendError(reply, 409, `${field}_already_set`, `${field === 'banner' ? 'Banner' : 'Avatar'} already set`);
   }
 
-  const job = await mediaQueue.add(kind, { userId, imageUrl, assetId: uuidv4() }, {
+  const jobName = publicId ? 'register-direct' : kind;
+  const payload = publicId
+    ? { userId, publicId, kind, assetId: uuidv4() }
+    : { userId, imageUrl, assetId: uuidv4() };
+  const job = await mediaQueue.add(jobName, payload, {
     attempts: 2,
     backoff: { type: 'exponential', delay: 2000 }
   });

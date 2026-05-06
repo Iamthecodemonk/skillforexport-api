@@ -714,8 +714,8 @@ GenericErrorResponse.example = { success: false, error: { code: 'profile_already
 
 export const AvatarUploadBody = {
   type: 'object',
-  required: ['imageUrl'],
-  properties: { imageUrl: { type: 'string' } },
+  properties: { imageUrl: { type: 'string' }, publicId: { type: 'string' } },
+  anyOf: [{ required: ['imageUrl'] }, { required: ['publicId'] }],
   example: { imageUrl: 'https://example.com/photo.jpg' }
 };
 

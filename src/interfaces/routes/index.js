@@ -1518,6 +1518,16 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('getPage'));
 
+  fastify.get('/page-categories', {
+    schema: {
+      operationId: 'listPageCategories',
+      tags: ['Pages', 'Categories'],
+      description: 'List all page categories with the total number of pages under each category.',
+      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'perPage', in: 'query', schema: { type: 'number' } }, { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
+      response: { 200: schemas.PageCategoryPaginatedResponse }
+    }
+  }, handler('listPageCategories'));
+
   // pages by category id
   fastify.get('/page-categories/:id/pages', {
     schema: {

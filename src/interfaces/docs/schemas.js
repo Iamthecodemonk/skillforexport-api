@@ -904,7 +904,7 @@ export const PageCategoryResponse = {
     validation_rules: { type: ['object','null'] },
     created_at: { type: 'string' },
     updated_at: { type: 'string' },
-    total_pages: { type: ['number','null'], description: 'Total pages in this category (provided by GET /page-categories/:id)' }
+    total_pages: { type: ['number','null'], description: 'Total pages in this category' }
   }
 };
 PageCategoryResponse.example = { id: 'page-category-uuid', name: 'Community', slug: 'community', description: 'Community pages', icon: 'users', is_active: 1, rules: { allowPosting: true }, max_pages_per_user: 5, requires_approval: 1, validation_rules: { slugPattern: '^[a-z0-9-]+$' }, created_at: '2026-04-01T12:00:00Z', updated_at: '2026-04-10T12:00:00Z', total_pages: 12 };
@@ -979,6 +979,7 @@ export const PostPaginatedResponse = makePaginatedRootSchema(PostResponse, PostR
 export const QuestionPaginatedResponse = makePaginatedRootSchema(QuestionResponse, QuestionResponse.example);
 export const AnswerPaginatedResponse = makePaginatedRootSchema(AnswerResponse, AnswerResponse.example);
 export const PagePaginatedResponse = makePaginatedRootSchema(PageResponse, PageResponse.example);
+export const PageCategoryPaginatedResponse = makePaginatedRootSchema(PageCategoryResponse, PageCategoryResponse.example);
 export const CommentPaginatedResponse = makePaginatedRootSchema(CommentResponse, CommentResponse.example);
 export const PageFollowerPaginatedResponse = makePaginatedRootSchema(PageFollower, PageFollower.example);
 export const CommunityPaginatedResponse = makePaginatedRootSchema(CommunityResponse, CommunityResponse.example);
@@ -1049,6 +1050,7 @@ export default {
   QuestionPaginatedResponse,
   AnswerPaginatedResponse,
   PagePaginatedResponse,
+  PageCategoryPaginatedResponse,
   CommentPaginatedResponse,
   PageFollowerPaginatedResponse,
   ReactionBody,

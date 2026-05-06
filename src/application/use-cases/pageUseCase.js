@@ -154,6 +154,20 @@ export default class PageUseCase {
     return this.pageCategoryRepository.create(cat);
   }
 
+  async ListPageCategories({ limit = 50, offset = 0 } = {}) {
+    if (!this.pageCategoryRepository || typeof this.pageCategoryRepository.list !== 'function') {
+      throw new Error('not_implemented');
+    }
+    return this.pageCategoryRepository.list({ limit, offset });
+  }
+
+  async CountPageCategories() {
+    if (!this.pageCategoryRepository || typeof this.pageCategoryRepository.countAll !== 'function') {
+      return 0;
+    }
+    return this.pageCategoryRepository.countAll();
+  }
+
   async GetPage(id) {
     if (!id) throw new Error('id_required');
     const row = await this.pageRepository.findById(id);

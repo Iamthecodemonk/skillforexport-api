@@ -237,19 +237,23 @@ export function makePageController({ useCase = null, followersRepository = null 
         }
         const cat = await useCase.pageCategoryRepository.findById(id);
         if (!cat) return reply.code(404).send({ success: false, error: { code: 'category_not_found' } });
-        let total = null;
-        try {
-          if (useCase && useCase.pageRepository && typeof useCase.pageRepository.countByCategory === 'function') {
-            total = await useCase.pageRepository.countByCategory(id);
-          }
-        } catch (e) {
-          pageLogger.warn('Failed to count pages for category', { err: e && e.message });
-        }
-
-        const out = Object.assign({}, cat, { total_pages: total !== null ? total : undefined });
-        return reply.send({ success: true, data: out });
+        return reply.send({ success: true, data: cat });
       } catch (err) {
         pageLogger.error('getPageCategory error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    listPageCategories: async (req, reply) => {
+      try {
+        const { page, perPage, limit, offset } = parsePagination(req.query, 50);
+        const rows = await useCase.ListPageCategories({ limit, offset });
+        const total = await useCase.CountPageCategories();
+        return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
+      } catch (err) {
+        if (err && err.message === 'not_implemented')
+          return reply.code(501).send({ success: false, error: { code: 'not_implemented' } });
+        pageLogger.error('listPageCategories error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
     },

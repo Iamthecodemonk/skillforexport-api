@@ -10,6 +10,12 @@ export class PageCategoryRepository {
   async findByName(name) {
     throw new Error('findByName() not implemented');
   }
+  async list(params = {}) {
+    throw new Error('list() not implemented');
+  }
+  async countAll() {
+    throw new Error('countAll() not implemented');
+  }
 }
 
 export class PageCategoryRepositoryImpl extends PageCategoryRepository {
@@ -28,6 +34,14 @@ export class PageCategoryRepositoryImpl extends PageCategoryRepository {
   async findByName(name) {
     if (typeof this.adapter.findByName === 'function') return this.adapter.findByName(name);
     return null;
+  }
+  async list(params = {}) {
+    if (typeof this.adapter.list === 'function') return this.adapter.list(params);
+    return [];
+  }
+  async countAll() {
+    if (typeof this.adapter.countAll === 'function') return this.adapter.countAll();
+    return 0;
   }
   async update(id, updates) {
     if (typeof this.adapter.update === 'function') return this.adapter.update(id, updates);

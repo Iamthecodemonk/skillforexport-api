@@ -1435,7 +1435,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listQuestions',
       tags: ['Questions'],
-      description: 'List questions. Returns a paginator payload at the root.',
+      description: 'List questions. Returns a paginator payload at the root and includes community details when a question belongs to a community.',
       parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'perPage', in: 'query', schema: { type: 'number' } }, { name: 'communityId', in: 'query', schema: { type: 'string' } }],
       response: { 200: schemas.QuestionPaginatedResponse }
     }
@@ -1445,7 +1445,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'getQuestion',
       tags: ['Questions'],
-      description: 'Get a single question by id with asker details, answer aggregates, and answers by default. Set `includeAnswers=false` to omit answers.',
+      description: 'Get a single question by id with asker details, community details when available, answer aggregates, and answers by default. Set `includeAnswers=false` to omit answers.',
       parameters: [{ name: 'includeAnswers', in: 'query', schema: { type: 'boolean' } }],
       response: {
         200: {

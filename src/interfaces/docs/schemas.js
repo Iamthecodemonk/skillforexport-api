@@ -338,6 +338,14 @@ export const QuestionResponse = {
         email: { type: ['string','null'] }
       }
     },
+    community: {
+      type: ['object','null'],
+      properties: {
+        id: { type: 'string' },
+        name: { type: ['string','null'] },
+        description: { type: ['string','null'] }
+      }
+    },
     totalAnswers: { type: 'number' },
     totalAnswerers: { type: 'number' },
     answers: { type: ['array','null'], items: { type: 'object' } }
@@ -355,6 +363,7 @@ QuestionResponse.example = {
   createdAt: '2026-04-01T12:00:00Z',
   updatedAt: '2026-04-01T12:00:00Z',
   asker: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com' },
+  community: { id: 'community-uuid', name: 'Local Chess Club', description: 'We meet weekly to play chess' },
   totalAnswers: 1,
   totalAnswerers: 1,
   answers: [

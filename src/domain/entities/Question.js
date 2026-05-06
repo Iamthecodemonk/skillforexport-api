@@ -17,6 +17,7 @@ export default class Question {
     updatedAt = null,
     updated_at = null,
     asker = null,
+    community = null,
     totalAnswers = 0,
     total_answers = 0,
     totalAnswerers = 0,
@@ -34,6 +35,7 @@ export default class Question {
     this.createdAt = createdAt instanceof Date ? createdAt : ((createdAt || created_at) ? new Date(createdAt || created_at) : null);
     this.updatedAt = updatedAt instanceof Date ? updatedAt : ((updatedAt || updated_at) ? new Date(updatedAt || updated_at) : null);
     this.asker = asker;
+    this.community = community;
     this.totalAnswers = parseInt(totalAnswers || total_answers || 0, 10);
     this.totalAnswerers = parseInt(totalAnswerers || total_answerers || 0, 10);
     this.answers = answers;
@@ -67,6 +69,7 @@ export default class Question {
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       asker: this.asker,
+      community: this.community,
       totalAnswers: this.totalAnswers,
       totalAnswerers: this.totalAnswerers,
       answers: this.answers

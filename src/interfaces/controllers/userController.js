@@ -8,6 +8,32 @@ import path from 'path';
 
 const userLogger = logger.child('USER_CONTROLLER');
 
+function isMultipartRequest(req) {
+  return typeof req.isMultipart === 'function' ? req.isMultipart() : Boolean(req.isMultipart);
+}
+
+function shouldReplace(req) {
+  return Boolean(req.query && (req.query.replace === 'true' || req.query.replace === true));
+}
+
+async function enqueueProfileImageFromUrl({ req, reply, useCase, mediaQueue, userId, kind }) {
+  const { imageUrl } = req.body || {};
+  if (!imageUrl) return sendError(reply, 422, 'validation_failed', 'Validation failed');
+  if (!mediaQueue) return sendError(reply, 503, 'service_unavailable', 'Service unavailable');
+
+  const field = kind === 'banner' ? 'banner' : 'avatar';
+  const existingProfile = await useCase.getProfile(userId);
+  if (existingProfile && existingProfile[field] && !shouldReplace(req)) {
+    return sendError(reply, 409, `${field}_already_set`, `${field === 'banner' ? 'Banner' : 'Avatar'} already set`);
+  }
+
+  const job = await mediaQueue.add(kind, { userId, imageUrl, assetId: uuidv4() }, {
+    attempts: 2,
+    backoff: { type: 'exponential', delay: 2000 }
+  });
+  return reply.code(202).send({ success: true, data: { jobId: job.id } });
+}
+
 export function makeUserController({ useCase = null, followerRepository = null }) {
   if (!useCase) {
     userLogger.error('makeUserController requires a useCase');
@@ -214,7 +240,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
         const mediaQueue = req.server && req.server.mediaQueue ? req.server.mediaQueue : null;
 
         // If multipart/form-data (file upload)
-        if (req.isMultipart && typeof req.file === 'function') {
+        if (isMultipartRequest(req) && typeof req.file === 'function') {
           if (!mediaQueue) 
             return sendError(reply, 503, 'service_unavailable', 'Service unavailable');
           const mp = await req.file();
@@ -238,20 +264,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
           return reply.code(202).send({ success: true, data: { jobId: job.id } });
         }
 
-        // JSON image-url fallback intentionally left disabled for now.
-        // const { imageUrl } = req.body || {};
-        // if (!imageUrl) 
-        //   return sendError(reply, 422, 'validation_failed', 'Validation failed');
-        // if (!mediaQueue) 
-        //   return sendError(reply, 503, 'service_unavailable', 'Service unavailable');
-        // // Prevent re-upload if avatar already exists unless replace=true
-        // const replace = (req.query && (req.query.replace === 'true' || req.query.replace === true)) || false;
-        // const existingProfile = await useCase.getProfile(id);
-        // if (existingProfile && existingProfile.avatar && !replace) {
-        //   return sendError(reply, 409, 'avatar_already_set', 'Avatar already set');
-        // }
-        // const job = await mediaQueue.add('avatar', { userId: id, imageUrl, assetId: uuidv4() }, { attempts: 2, backoff: { type: 'exponential', delay: 2000 } });
-        // return reply.code(202).send({ success: true, data: { jobId: job.id } });
+        return enqueueProfileImageFromUrl({ req, reply, useCase, mediaQueue, userId: id, kind: 'avatar' });
       } catch (err) {
         userLogger.error('uploadAvatar error', { message: err.message, stack: err.stack });
         return sendError(reply, 500, 'internal_error', 'Internal server error');
@@ -264,7 +277,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
         const mediaQueue = req.server && req.server.mediaQueue ? req.server.mediaQueue : null;
 
         // If multipart/form-data (file upload)
-        if (req.isMultipart && typeof req.file === 'function') {
+        if (isMultipartRequest(req) && typeof req.file === 'function') {
           if (!mediaQueue) 
             return sendError(reply, 503, 'service_unavailable', 'Service unavailable');
           const mp = await req.file();
@@ -301,17 +314,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
           return reply.code(202).send({ success: true, data: { jobId: job.id } });
         }
         
-        // JSON image-url fallback intentionally left disabled for consistency.
-        // const { imageUrl } = req.body || {};
-        // if (!imageUrl) return sendError(reply, 422, 'validation_failed', 'Validation failed');
-        // if (!mediaQueue) return sendError(reply, 503, 'service_unavailable', 'Service unavailable');
-        // const replace = (req.query && (req.query.replace === 'true' || req.query.replace === true)) || false;
-        // const existingProfile = await useCase.getProfile(id);
-        // if (existingProfile && existingProfile.banner && !replace) {
-        //   return sendError(reply, 409, 'banner_already_set', 'Banner already set');
-        // }
-        // const job = await mediaQueue.add('banner', { userId: id, imageUrl, assetId: uuidv4() }, { attempts: 2, backoff: { type: 'exponential', delay: 2000 } });
-        // return reply.code(202).send({ success: true, data: { jobId: job.id } });
+        return enqueueProfileImageFromUrl({ req, reply, useCase, mediaQueue, userId: id, kind: 'banner' });
       } catch (err) {
         userLogger.error('uploadBanner error', { message: err.message, stack: err.stack });
         return sendError(reply, 500, 'internal_error', 'Internal server error');

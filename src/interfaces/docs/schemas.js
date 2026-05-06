@@ -555,7 +555,8 @@ export const Portfolio = {
     userId: { type: 'string' },
     title: { type: 'string' },
     description: { type: 'string' },
-    link: { type: 'string' }
+    link: { type: 'string' },
+    pictures: { type: 'array', items: { type: 'string' } }
   }
 };
 Portfolio.example = { 
@@ -563,7 +564,8 @@ Portfolio.example = {
   userId: 'user-uuid', 
   title: 'Personal Website', 
   description: 'Portfolio site', 
-  link: 'https://janedoe.dev' 
+  link: 'https://janedoe.dev',
+  pictures: ['https://cdn.example.com/portfolio/homepage.png']
 };
 
 export const Certification = {

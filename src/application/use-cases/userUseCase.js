@@ -165,8 +165,8 @@ export default class UserUseCase {
     return this.portfolioRepository.listByUserId(userId);
   }
 
-  async addPortfolio(userId, { title, description, link }) {
-    const entry = new UserPortfolio({ id: uuidv4(), user_id: userId, title, description, link });
+  async addPortfolio(userId, { title, description, link, pictures = [] }) {
+    const entry = new UserPortfolio({ id: uuidv4(), user_id: userId, title, description, link, pictures });
     return this.portfolioRepository.create(entry);
   }
 

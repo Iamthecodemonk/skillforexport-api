@@ -193,13 +193,13 @@ export function makeUserController({ useCase = null, followerRepository = null }
     addUserPortfolio: async (req, reply) => {
       try {
         const { id } = req.params;
-        const { title, description, link } = req.body ;
+        const { title, description, link, pictures } = req.body ;
         if (!title)
           return reply.code(422).send({
             success: false,
             error: { code: 'validation_failed' }
           });
-        const created = await useCase.addPortfolio(id, { title, description, link });
+        const created = await useCase.addPortfolio(id, { title, description, link, pictures });
         return reply.code(201).send({ success: true, message: 'Portfolio added', data: created.toPlainObject() });
       } catch (err) {
         userLogger.error('addUserPortfolio error', { message: err.message, stack: err.stack });

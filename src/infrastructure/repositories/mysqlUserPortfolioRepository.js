@@ -7,7 +7,7 @@ export default class MysqlUserPortfolioRepository {
 
   async create(record) {
     const now = new Date();
-    const payload = { ...record, created_at: now };
+    const payload = { ...record, pictures: JSON.stringify(record.pictures || []), created_at: now };
     await db('user_portfolios').insert(payload);
     return db('user_portfolios').where({ id: record.id }).first();
   }

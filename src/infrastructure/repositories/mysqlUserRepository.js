@@ -160,7 +160,7 @@ export default class MysqlUserRepository {
           'github', up.github
         ) as profile,
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', s.id, 'skill', s.skill, 'level', s.level)) FROM user_skills s WHERE s.user_id = u.id), JSON_ARRAY()) as skills,
-        IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', p.id, 'title', p.title, 'description', p.description, 'link', p.link)) FROM user_portfolios p WHERE p.user_id = u.id), JSON_ARRAY()) as portfolios,
+        IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', p.id, 'title', p.title, 'description', p.description, 'link', p.link, 'pictures', IFNULL(p.pictures, JSON_ARRAY()))) FROM user_portfolios p WHERE p.user_id = u.id), JSON_ARRAY()) as portfolios,
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', c.id, 'name', c.name, 'issuer', c.issuer, 'issue_date', c.issue_date)) FROM user_certifications c WHERE c.user_id = u.id), JSON_ARRAY()) as certifications,
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', e.id, 'school', e.school, 'degree', e.degree, 'field', e.field, 'start_date', e.start_date, 'end_date', e.end_date)) FROM user_education e WHERE e.user_id = u.id), JSON_ARRAY()) as education,
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', ex.id, 'company', ex.company, 'title', ex.title, 'employment_type', ex.employment_type, 'start_date', ex.start_date, 'end_date', ex.end_date, 'is_current', ex.is_current, 'description', ex.description)) FROM user_experiences ex WHERE ex.user_id = u.id), JSON_ARRAY()) as experiences,

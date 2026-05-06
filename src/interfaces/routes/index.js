@@ -718,8 +718,18 @@ export default async function registerRoutes(fastify, deps) {
       body: {
         type: 'object',
         required: ['title'],
-        properties: { title: { type: 'string' }, description: { type: 'string' }, link: { type: 'string' } },
-        example: { title: 'Personal Website', description: 'Portfolio site', link: 'https://janedoe.dev' }
+        properties: {
+          title: { type: 'string' },
+          description: { type: 'string' },
+          link: { type: 'string' },
+          pictures: { type: 'array', items: { type: 'string' } }
+        },
+        example: {
+          title: 'Personal Website',
+          description: 'Portfolio site',
+          link: 'https://janedoe.dev',
+          pictures: ['https://cdn.example.com/portfolio/homepage.png']
+        }
       },
       response: {
         201: {

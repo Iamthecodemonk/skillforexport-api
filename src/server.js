@@ -85,6 +85,9 @@ import QuestionUseCase from './application/use-cases/questionUseCase.js';
 import { makeQuestionController } from './interfaces/controllers/questionController.js';
 import { QuestionRepositoryImpl } from './domain/repositories/questionRepository.js';
 import { AnswerRepositoryImpl } from './domain/repositories/answerRepository.js';
+import MysqlJobsFreelancersRepository from './infrastructure/repositories/mysqlJobsFreelancersRepository.js';
+import JobsFreelancersUseCase from './application/use-cases/jobsFreelancersUseCase.js';
+import { makeJobsFreelancersController } from './interfaces/controllers/jobsFreelancersController.js';
 
 const serverLogger = logger.child('SERVER');
 const queueLogger = logger.child('EMAIL_QUEUE');
@@ -300,6 +303,13 @@ export default async function startServer() {
 
   // register app routes
   const controllers = { ...healthController };
+  try {
+    const jobsFreelancersRepository = new MysqlJobsFreelancersRepository();
+    const jobsFreelancersUseCase = new JobsFreelancersUseCase({ repository: jobsFreelancersRepository });
+    Object.assign(controllers, makeJobsFreelancersController({ useCase: jobsFreelancersUseCase }));
+  } catch (jobsErr) {
+    serverLogger.warn('Jobs/Freelancers wiring failed', { message: jobsErr && jobsErr.message });
+  }
   // create rate limiters if Redis client available
   let rateLimiters = null;
   try {

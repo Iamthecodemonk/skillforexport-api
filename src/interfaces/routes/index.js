@@ -15,6 +15,61 @@ export default async function registerRoutes(fastify, deps) {
 
   // Helper to get handler or fallback
   const handler = (name) => deps.controllers[name] || fallback;
+  const idParam = (name = 'id') => ({
+    type: 'object',
+    required: [name],
+    properties: { [name]: { type: 'string' } }
+  });
+  const twoIdParams = (first, second) => ({
+    type: 'object',
+    required: [first, second],
+    properties: { [first]: { type: 'string' }, [second]: { type: 'string' } }
+  });
+  const dataResponse = (dataSchema) => ({
+    type: 'object',
+    properties: {
+      success: { type: 'boolean', example: true },
+      message: { type: 'string' },
+      data: dataSchema
+    }
+  });
+  const listQueryBase = {
+    page: { type: 'integer', minimum: 1 },
+    per_page: { type: 'integer', minimum: 1, maximum: 100 },
+    q: { type: 'string' },
+    status: { type: 'string' },
+    sort: { type: 'string' }
+  };
+  const jobsQuery = {
+    type: 'object',
+    properties: {
+      ...listQueryBase,
+      location: { type: 'string' },
+      type: { type: 'string' },
+      skill: { type: 'string' },
+      experience: { type: 'string' },
+      workMode: { type: 'string' }
+    }
+  };
+  const freelancersQuery = {
+    type: 'object',
+    properties: {
+      ...listQueryBase,
+      skill: { type: 'string' },
+      location: { type: 'string' },
+      availability: { type: 'string' },
+      remoteOnly: { type: 'boolean' }
+    }
+  };
+  const freelanceJobsQuery = {
+    type: 'object',
+    properties: {
+      ...listQueryBase,
+      skill: { type: 'string' },
+      location: { type: 'string' },
+      type: { type: 'string' }
+    }
+  };
 
   // ========== Root ==========
   fastify.get('/', {
@@ -43,77 +98,77 @@ export default async function registerRoutes(fastify, deps) {
 
   // ========== Jobs, Alerts, Freelancers ==========
   fastify.get('/jobs', {
-    schema: { operationId: 'listJobs', tags: ['Jobs'], description: 'List jobs feed with filters and pagination.', response: { 200: { type: 'object' } } }
+    schema: { operationId: 'listJobs', tags: ['Jobs'], description: 'List jobs feed with filters and pagination.', querystring: jobsQuery, response: { 200: schemas.JobPaginatedResponse } }
   }, handler('listJobs'));
   fastify.post('/jobs', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'createJob', tags: ['Jobs'], description: 'Create a job posting.', body: { type: 'object', additionalProperties: true }, response: { 201: { type: 'object' }, 422: schemas.GenericErrorResponse } }
+    schema: { operationId: 'createJob', tags: ['Jobs'], description: 'Create a job posting.', body: schemas.JobCreateBody, response: { 201: dataResponse(schemas.JobResponse), 422: schemas.GenericErrorResponse } }
   }, handler('createJob'));
   fastify.get('/jobs/:idOrSlug', {
-    schema: { operationId: 'getJob', tags: ['Jobs'], description: 'Get job detail by id or slug.', response: { 200: { type: 'object' }, 404: schemas.GenericErrorResponse } }
+    schema: { operationId: 'getJob', tags: ['Jobs'], description: 'Get job detail by id or slug.', params: idParam('idOrSlug'), response: { 200: dataResponse(schemas.JobResponse), 404: schemas.GenericErrorResponse } }
   }, handler('getJob'));
   fastify.patch('/jobs/:id', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'updateJob', tags: ['Jobs'], description: 'Update a job posting. Creator/admin only.', body: { type: 'object', additionalProperties: true }, response: { 200: { type: 'object' } } }
+    schema: { operationId: 'updateJob', tags: ['Jobs'], description: 'Update a job posting. Creator/admin only.', params: idParam(), body: { ...schemas.JobCreateBody, required: [] }, response: { 200: dataResponse(schemas.JobResponse) } }
   }, handler('updateJob'));
   fastify.patch('/jobs/:id/status', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'updateJobStatus', tags: ['Jobs'], description: 'Update a job status.', body: { type: 'object', required: ['status'], properties: { status: { type: 'string' } } }, response: { 200: { type: 'object' } } }
+    schema: { operationId: 'updateJobStatus', tags: ['Jobs'], description: 'Update a job status.', params: idParam(), body: schemas.StatusUpdateBody, response: { 200: dataResponse(schemas.JobResponse) } }
   }, handler('updateJobStatus'));
   fastify.delete('/jobs/:id', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'deleteJob', tags: ['Jobs'], description: 'Delete a job posting. Creator/admin only.', response: { 200: { type: 'object' } } }
+    schema: { operationId: 'deleteJob', tags: ['Jobs'], description: 'Delete a job posting. Creator/admin only.', params: idParam(), response: { 200: schemas.IdSuccessResponse } }
   }, handler('deleteJob'));
   fastify.get('/me/jobs/posted', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'listMyPostedJobs', tags: ['Jobs'], description: 'List jobs posted by the authenticated user.', response: { 200: { type: 'object' } } }
+    schema: { operationId: 'listMyPostedJobs', tags: ['Jobs'], description: 'List jobs posted by the authenticated user.', querystring: jobsQuery, response: { 200: schemas.JobPaginatedResponse } }
   }, handler('listMyPostedJobs'));
   fastify.post('/jobs/:id/applications', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'applyToJob', tags: ['Jobs'], description: 'Apply to a job.', body: { type: 'object', additionalProperties: true }, response: { 201: { type: 'object' }, 409: schemas.GenericErrorResponse } }
+    schema: { operationId: 'applyToJob', tags: ['Jobs'], description: 'Apply to a job.', params: idParam(), body: schemas.JobApplicationBody, response: { 201: dataResponse(schemas.JobApplicationResponse), 409: schemas.GenericErrorResponse } }
   }, handler('applyToJob'));
   fastify.get('/me/jobs/applications', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'listMyJobApplications', tags: ['Jobs'], description: 'List jobs the authenticated user applied for.', response: { 200: { type: 'object' } } }
+    schema: { operationId: 'listMyJobApplications', tags: ['Jobs'], description: 'List jobs the authenticated user applied for.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: schemas.JobApplicationPaginatedResponse } }
   }, handler('listMyJobApplications'));
   fastify.get('/jobs/:id/applications', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'listJobApplications', tags: ['Jobs'], description: 'List applications for a posted job. Creator/admin only.', response: { 200: { type: 'object' } } }
+    schema: { operationId: 'listJobApplications', tags: ['Jobs'], description: 'List applications for a posted job. Creator/admin only.', params: idParam(), querystring: { type: 'object', properties: listQueryBase }, response: { 200: schemas.JobApplicationPaginatedResponse } }
   }, handler('listJobApplications'));
   fastify.patch('/jobs/:jobId/applications/:applicationId', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'updateJobApplication', tags: ['Jobs'], description: 'Update job application status. Creator/admin only.', body: { type: 'object', required: ['status'], properties: { status: { type: 'string' } } }, response: { 200: { type: 'object' } } }
+    schema: { operationId: 'updateJobApplication', tags: ['Jobs'], description: 'Update job application status. Creator/admin only.', params: twoIdParams('jobId', 'applicationId'), body: schemas.StatusUpdateBody, response: { 200: dataResponse(schemas.JobApplicationResponse) } }
   }, handler('updateJobApplication'));
   fastify.delete('/jobs/:jobId/applications/:applicationId', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'withdrawJobApplication', tags: ['Jobs'], description: 'Withdraw a job application.', response: { 200: { type: 'object' } } }
+    schema: { operationId: 'withdrawJobApplication', tags: ['Jobs'], description: 'Withdraw a job application.', params: twoIdParams('jobId', 'applicationId'), response: { 200: dataResponse(schemas.JobApplicationResponse) } }
   }, handler('withdrawJobApplication'));
   fastify.get('/me/alert-preferences', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'getAlertPreferences', tags: ['Jobs'], description: 'Get my alert preferences.', response: { 200: { type: 'object' } } }
+    schema: { operationId: 'getAlertPreferences', tags: ['Jobs'], description: 'Get my alert preferences.', response: { 200: dataResponse(schemas.AlertPreferencesResponse) } }
   }, handler('getAlertPreferences'));
   fastify.put('/me/alert-preferences', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'updateAlertPreferences', tags: ['Jobs'], description: 'Update my alert preferences.', body: { type: 'object', additionalProperties: true }, response: { 200: { type: 'object' } } }
+    schema: { operationId: 'updateAlertPreferences', tags: ['Jobs'], description: 'Update my alert preferences.', body: schemas.AlertPreferencesBody, response: { 200: dataResponse(schemas.AlertPreferencesResponse) } }
   }, handler('updateAlertPreferences'));
 
-  fastify.get('/freelancers', { schema: { operationId: 'listFreelancers', tags: ['Freelancers'], description: 'List freelancer profiles.', response: { 200: { type: 'object' } } } }, handler('listFreelancers'));
-  fastify.post('/freelancers', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'createFreelancer', tags: ['Freelancers'], description: 'Register as a freelancer.', body: { type: 'object', additionalProperties: true }, response: { 201: { type: 'object' } } } }, handler('createFreelancer'));
-  fastify.get('/freelancers/:idOrUserId', { schema: { operationId: 'getFreelancer', tags: ['Freelancers'], description: 'Get freelancer profile by profile id or user id.', response: { 200: { type: 'object' }, 404: schemas.GenericErrorResponse } } }, handler('getFreelancer'));
-  fastify.get('/me/freelancer-profile', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'getMyFreelancerProfile', tags: ['Freelancers'], description: 'Get my freelancer profile.', response: { 200: { type: 'object' } } } }, handler('getMyFreelancerProfile'));
-  fastify.patch('/me/freelancer-profile', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'updateMyFreelancerProfile', tags: ['Freelancers'], description: 'Update my freelancer profile.', body: { type: 'object', additionalProperties: true }, response: { 200: { type: 'object' } } } }, handler('updateMyFreelancerProfile'));
+  fastify.get('/freelancers', { schema: { operationId: 'listFreelancers', tags: ['Freelancers'], description: 'List freelancer profiles.', querystring: freelancersQuery, response: { 200: schemas.FreelancerPaginatedResponse } } }, handler('listFreelancers'));
+  fastify.post('/freelancers', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'createFreelancer', tags: ['Freelancers'], description: 'Register as a freelancer.', body: schemas.FreelancerCreateBody, response: { 201: dataResponse(schemas.FreelancerProfileResponse) } } }, handler('createFreelancer'));
+  fastify.get('/freelancers/:idOrUserId', { schema: { operationId: 'getFreelancer', tags: ['Freelancers'], description: 'Get freelancer profile by profile id or user id.', params: idParam('idOrUserId'), response: { 200: dataResponse(schemas.FreelancerProfileResponse), 404: schemas.GenericErrorResponse } } }, handler('getFreelancer'));
+  fastify.get('/me/freelancer-profile', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'getMyFreelancerProfile', tags: ['Freelancers'], description: 'Get my freelancer profile.', response: { 200: dataResponse(schemas.FreelancerProfileResponse) } } }, handler('getMyFreelancerProfile'));
+  fastify.patch('/me/freelancer-profile', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'updateMyFreelancerProfile', tags: ['Freelancers'], description: 'Update my freelancer profile.', body: { ...schemas.FreelancerCreateBody, required: [] }, response: { 200: dataResponse(schemas.FreelancerProfileResponse) } } }, handler('updateMyFreelancerProfile'));
 
-  fastify.get('/freelance-jobs', { schema: { operationId: 'listFreelanceJobs', tags: ['Freelance Jobs'], description: 'List freelance jobs.', response: { 200: { type: 'object' } } } }, handler('listFreelanceJobs'));
-  fastify.post('/freelance-jobs', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'createFreelanceJob', tags: ['Freelance Jobs'], description: 'Create freelance job.', body: { type: 'object', additionalProperties: true }, response: { 201: { type: 'object' } } } }, handler('createFreelanceJob'));
-  fastify.get('/freelance-jobs/:idOrSlug', { schema: { operationId: 'getFreelanceJob', tags: ['Freelance Jobs'], description: 'Get freelance job detail.', response: { 200: { type: 'object' } } } }, handler('getFreelanceJob'));
-  fastify.patch('/freelance-jobs/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'updateFreelanceJob', tags: ['Freelance Jobs'], description: 'Update freelance job.', body: { type: 'object', additionalProperties: true }, response: { 200: { type: 'object' } } } }, handler('updateFreelanceJob'));
-  fastify.patch('/freelance-jobs/:id/status', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'updateFreelanceJobStatus', tags: ['Freelance Jobs'], description: 'Update freelance job status.', body: { type: 'object', required: ['status'], properties: { status: { type: 'string' } } }, response: { 200: { type: 'object' } } } }, handler('updateFreelanceJobStatus'));
-  fastify.delete('/freelance-jobs/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'deleteFreelanceJob', tags: ['Freelance Jobs'], description: 'Delete freelance job.', response: { 200: { type: 'object' } } } }, handler('deleteFreelanceJob'));
-  fastify.post('/freelance-jobs/:id/applications', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'applyToFreelanceJob', tags: ['Freelance Jobs'], description: 'Apply to freelance job.', body: { type: 'object', additionalProperties: true }, response: { 201: { type: 'object' } } } }, handler('applyToFreelanceJob'));
-  fastify.get('/me/freelance-jobs/posted', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'listMyFreelanceJobs', tags: ['Freelance Jobs'], description: 'List my posted freelance jobs.', response: { 200: { type: 'object' } } } }, handler('listMyFreelanceJobs'));
-  fastify.get('/me/freelance-jobs/applications', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'listMyFreelanceApplications', tags: ['Freelance Jobs'], description: 'List my freelance job applications.', response: { 200: { type: 'object' } } } }, handler('listMyFreelanceApplications'));
-  fastify.get('/freelance-jobs/:id/applications', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'listFreelanceJobApplications', tags: ['Freelance Jobs'], description: 'List applications for freelance job.', response: { 200: { type: 'object' } } } }, handler('listFreelanceJobApplications'));
-  fastify.patch('/freelance-jobs/:jobId/applications/:applicationId', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'updateFreelanceApplication', tags: ['Freelance Jobs'], description: 'Update freelance application status.', body: { type: 'object', required: ['status'], properties: { status: { type: 'string' } } }, response: { 200: { type: 'object' } } } }, handler('updateFreelanceApplication'));
+  fastify.get('/freelance-jobs', { schema: { operationId: 'listFreelanceJobs', tags: ['Freelance Jobs'], description: 'List freelance jobs.', querystring: freelanceJobsQuery, response: { 200: schemas.FreelanceJobPaginatedResponse } } }, handler('listFreelanceJobs'));
+  fastify.post('/freelance-jobs', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'createFreelanceJob', tags: ['Freelance Jobs'], description: 'Create freelance job.', body: schemas.FreelanceJobCreateBody, response: { 201: dataResponse(schemas.FreelanceJobResponse) } } }, handler('createFreelanceJob'));
+  fastify.get('/freelance-jobs/:idOrSlug', { schema: { operationId: 'getFreelanceJob', tags: ['Freelance Jobs'], description: 'Get freelance job detail.', params: idParam('idOrSlug'), response: { 200: dataResponse(schemas.FreelanceJobResponse), 404: schemas.GenericErrorResponse } } }, handler('getFreelanceJob'));
+  fastify.patch('/freelance-jobs/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'updateFreelanceJob', tags: ['Freelance Jobs'], description: 'Update freelance job.', params: idParam(), body: { ...schemas.FreelanceJobCreateBody, required: [] }, response: { 200: dataResponse(schemas.FreelanceJobResponse) } } }, handler('updateFreelanceJob'));
+  fastify.patch('/freelance-jobs/:id/status', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'updateFreelanceJobStatus', tags: ['Freelance Jobs'], description: 'Update freelance job status.', params: idParam(), body: schemas.StatusUpdateBody, response: { 200: dataResponse(schemas.FreelanceJobResponse) } } }, handler('updateFreelanceJobStatus'));
+  fastify.delete('/freelance-jobs/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'deleteFreelanceJob', tags: ['Freelance Jobs'], description: 'Delete freelance job.', params: idParam(), response: { 200: schemas.IdSuccessResponse } } }, handler('deleteFreelanceJob'));
+  fastify.post('/freelance-jobs/:id/applications', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'applyToFreelanceJob', tags: ['Freelance Jobs'], description: 'Apply to freelance job.', params: idParam(), body: schemas.FreelanceApplicationBody, response: { 201: dataResponse(schemas.FreelanceApplicationResponse) } } }, handler('applyToFreelanceJob'));
+  fastify.get('/me/freelance-jobs/posted', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'listMyFreelanceJobs', tags: ['Freelance Jobs'], description: 'List my posted freelance jobs.', querystring: freelanceJobsQuery, response: { 200: schemas.FreelanceJobPaginatedResponse } } }, handler('listMyFreelanceJobs'));
+  fastify.get('/me/freelance-jobs/applications', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'listMyFreelanceApplications', tags: ['Freelance Jobs'], description: 'List my freelance job applications.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: schemas.FreelanceApplicationPaginatedResponse } } }, handler('listMyFreelanceApplications'));
+  fastify.get('/freelance-jobs/:id/applications', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'listFreelanceJobApplications', tags: ['Freelance Jobs'], description: 'List applications for freelance job.', params: idParam(), querystring: { type: 'object', properties: listQueryBase }, response: { 200: schemas.FreelanceApplicationPaginatedResponse } } }, handler('listFreelanceJobApplications'));
+  fastify.patch('/freelance-jobs/:jobId/applications/:applicationId', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'updateFreelanceApplication', tags: ['Freelance Jobs'], description: 'Update freelance application status.', params: twoIdParams('jobId', 'applicationId'), body: schemas.StatusUpdateBody, response: { 200: dataResponse(schemas.FreelanceApplicationResponse) } } }, handler('updateFreelanceApplication'));
 
   // Items feature removed
 

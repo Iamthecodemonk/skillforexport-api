@@ -95,6 +95,23 @@ const smtpLogger = logger.child('SMTP');
 const concurrency = parseInt('2', 10);
 const isProd = process.env.NODE_ENV === 'production';
 
+const defaultCorsOrigins = [
+  'https://www.skills4export.com'
+];
+
+function parseCorsOrigins() {
+  const configuredOrigins = [
+    process.env.FRONTEND_URL,
+    process.env.CORS_ORIGINS
+  ]
+    .filter(Boolean)
+    .flatMap((value) => String(value).split(','))
+    .map((value) => value.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+
+  return [...new Set([...configuredOrigins, ...defaultCorsOrigins])];
+}
+
 export default async function startServer() {
   const app = Fastify({
     logger: isProd ? false : true,
@@ -648,13 +665,25 @@ export default async function startServer() {
   // Populate `req.user` using centralized middleware
   // Register CORS to handle preflight OPTIONS and allow cross-origin requests
   try {
+    const corsOrigins = parseCorsOrigins();
     await app.register(fastifyCors, {
-      origin: process.env.FRONTEND_URL || true,
+      origin: (origin, callback) => {
+        if (!origin) {
+          return callback(null, true);
+        }
+
+        const normalizedOrigin = String(origin).replace(/\/$/, '');
+        if (corsOrigins.includes(normalizedOrigin)) {
+          return callback(null, true);
+        }
+
+        return callback(new Error('Not allowed by CORS'), false);
+      },
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
       credentials: true
     });
-    serverLogger.info('CORS plugin registered', { origin: process.env.FRONTEND_URL });
+    serverLogger.info('CORS plugin registered', { origins: corsOrigins });
   } catch (err) {
     serverLogger.warn('CORS registration failed', { message: err && err.message });
   }

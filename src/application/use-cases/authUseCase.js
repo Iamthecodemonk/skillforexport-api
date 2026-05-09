@@ -253,7 +253,7 @@ export default class AuthUseCase {
       if (this.emailQueue) {
         try {
           // const frontendUrl = process.env.APP_URL;
-          const frontendUrl = 'http://localhost:5173';
+          const frontendUrl = 'https://skills4export.com';
           const resetLink = `${frontendUrl.replace(/\/$/, '')}/auth/reset-password?token=${encodeURIComponent(rawToken)}&email=${encodeURIComponent(email)}`;
           const expiresInHours = Math.max(1, Math.ceil(ttlMinutes / 60));
           await this.emailQueue.add('password_reset', {

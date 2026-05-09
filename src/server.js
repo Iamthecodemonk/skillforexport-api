@@ -507,7 +507,7 @@ export default async function startServer() {
             const assetAdapter = new MysqlUserAssetRepository();
             const postMediaAdapter = new MysqlPostMediaRepository();
             if (mediaQueue && !mediaWorker && redisConnection) {
-              mediaWorker = createMediaWorker(redisConnection, { cloudinary, profileRepository: profileRepo, assetAdapter, postMediaAdapter, pageRepository: pageRepo, concurrency });
+              mediaWorker = createMediaWorker(redisConnection, { cloudinary, profileRepository: profileRepo, assetAdapter, postMediaAdapter, pageRepository: pageRepo, redisClient: redisClientForLimits, concurrency });
             }
             // Attach asset adapter to postUseCase so posts can validate asset readiness
             try {

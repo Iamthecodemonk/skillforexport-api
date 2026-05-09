@@ -1,12 +1,23 @@
 import db from '../knexConfig.js';
 
+function normalizeAssetKind(kind) {
+  const allowedKinds = new Set(['avatar', 'image', 'video', 'document', 'other']);
+  if (allowedKinds.has(kind)) {
+    return kind;
+  }
+  if (kind === 'banner' || kind === 'post_image') {
+    return 'image';
+  }
+  return 'other';
+}
+
 export default class MysqlUserAssetRepository {
   async create(asset) {
     const now = new Date();
     const payload = {
       id: asset.id,
       user_id: asset.userId,
-      kind: asset.kind || 'other',
+      kind: normalizeAssetKind(asset.kind || 'other'),
       provider: asset.provider || 'cloudinary',
       provider_public_id: asset.providerPublicId || null,
       url: asset.url || null,

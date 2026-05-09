@@ -244,6 +244,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
     uploadAvatar: async (req, reply) => {
       try {
         const { id } = req.params;
+        const userId = (req.user && req.user.id) || id;
         const mediaQueue = req.server && req.server.mediaQueue ? req.server.mediaQueue : null;
 
         // If multipart/form-data (file upload)
@@ -267,11 +268,11 @@ export function makeUserController({ useCase = null, followerRepository = null }
             writeStream.on('finish', resolve);
           });
 
-          const job = await mediaQueue.add('avatar-file', { userId: id, tmpFilePath: tmpPath, kind: 'avatar', assetId: uuidv4() }, { attempts: 3, backoff: { type: 'exponential', delay: 2000 } });
+          const job = await mediaQueue.add('avatar-file', { userId, tmpFilePath: tmpPath, kind: 'avatar', assetId: uuidv4() }, { attempts: 3, backoff: { type: 'exponential', delay: 2000 } });
           return reply.code(202).send({ success: true, data: { jobId: job.id } });
         }
 
-        return enqueueProfileImageFromUrl({ req, reply, useCase, mediaQueue, userId: id, kind: 'avatar' });
+        return enqueueProfileImageFromUrl({ req, reply, useCase, mediaQueue, userId, kind: 'avatar' });
       } catch (err) {
         userLogger.error('uploadAvatar error', { message: err.message, stack: err.stack });
         return sendError(reply, 500, 'internal_error', 'Internal server error');
@@ -281,6 +282,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
     uploadBanner: async (req, reply) => {
       try {
         const { id } = req.params;
+        const userId = (req.user && req.user.id) || id;
         const mediaQueue = req.server && req.server.mediaQueue ? req.server.mediaQueue : null;
 
         // If multipart/form-data (file upload)
@@ -306,7 +308,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
 
           const job = await mediaQueue.add('banner-file', 
             {
-              userId: id, 
+              userId, 
               tmpFilePath: tmpPath, 
               kind: 'banner', 
               assetId: uuidv4() 
@@ -321,7 +323,7 @@ export function makeUserController({ useCase = null, followerRepository = null }
           return reply.code(202).send({ success: true, data: { jobId: job.id } });
         }
         
-        return enqueueProfileImageFromUrl({ req, reply, useCase, mediaQueue, userId: id, kind: 'banner' });
+        return enqueueProfileImageFromUrl({ req, reply, useCase, mediaQueue, userId, kind: 'banner' });
       } catch (err) {
         userLogger.error('uploadBanner error', { message: err.message, stack: err.stack });
         return sendError(reply, 500, 'internal_error', 'Internal server error');

@@ -81,7 +81,7 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
           return reply.code(503).send({ success: false, error: { code: 'service_unavailable' } });
         }
 
-        const userId = req.params && req.params.id;
+        const userId = (req.user && req.user.id) || (req.params && req.params.id);
         // Allow clients to provide an optional kind query param (e.g. ?kind=post_image)
         const kind = (req.query && req.query.kind) || 'avatar';
         // Prevent re-upload if avatar already exists

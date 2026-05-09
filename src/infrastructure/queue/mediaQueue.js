@@ -20,7 +20,35 @@ export function createMediaQueue(redisConnection) {
   return new Queue('media', { connection: redisConnection });
 }
 
-export function createMediaWorker(redisConnection, { cloudinary, profileRepository = null, assetAdapter = null, postMediaAdapter = null, pageRepository = null, concurrency = 2 } = {}) {
+export function createMediaWorker(redisConnection, { cloudinary, profileRepository = null, assetAdapter = null, postMediaAdapter = null, pageRepository = null, redisClient = null, concurrency = 2 } = {}) {
+  const invalidateProfileCache = async (userId) => {
+    if (!redisClient || !userId) return;
+    try {
+      await redisClient.del(`user:profile:${userId}`);
+    } catch (err) {
+      queueLogger.warn('Failed to invalidate profile cache after media update', { userId, error: err.message });
+    }
+  };
+
+  const updateProfileImage = async ({ userId, field, url }) => {
+    if (!profileRepository || !userId || !url) return false;
+
+    let profile = await profileRepository.findByUserId(userId);
+    if (!profile) {
+      profile = await profileRepository.create({
+        id: uuidv4(),
+        user_id: userId,
+        [field]: url,
+        created_at: new Date()
+      });
+    } else {
+      await profileRepository.update(profile.id, { [field]: url });
+    }
+
+    await invalidateProfileCache(userId);
+    return true;
+  };
+
   const safeCreateAsset = async (asset) => {
     if (!assetAdapter) return null;
     try {
@@ -46,7 +74,12 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
           return existing;
         }
       }
-      throw err;
+      queueLogger.warn('Asset record creation failed; continuing media processing', {
+        assetId: asset && asset.id,
+        kind: asset && asset.kind,
+        error: err.message
+      });
+      return null;
     }
   };
   const worker = new Worker(
@@ -79,20 +112,18 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
             if (asset && asset.id) queueLogger.info('Asset record created', { assetId: asset.id });
           }
 
+          const uploadedUrl = result.secure_url || result.url;
           // Update user profile avatar if profileRepository provided
           if (profileRepository && userId) {
-            const profile = await profileRepository.findByUserId(userId);
-            if (profile) {
-              await profileRepository.update(profile.id, { avatar: result.secure_url || result.url });
-              queueLogger.info('Profile avatar updated', { userId });
-            }
+            await updateProfileImage({ userId, field: 'avatar', url: uploadedUrl });
+            queueLogger.info('Profile avatar updated', { userId });
           } else if (profileRepository && !data.pageId) {
             queueLogger.warn('Skipping profile avatar update: userId missing', { jobId: job.id });
           }
           // Update page avatar if a pageId was supplied and pageRepository available
           if (pageRepository && data.pageId) {
             try {
-              await pageRepository.update(data.pageId, { avatar: result.secure_url || result.url });
+              await pageRepository.update(data.pageId, { avatar: uploadedUrl });
               queueLogger.info('Page avatar updated', { pageId: data.pageId });
             } catch (e) {
               queueLogger.warn('Failed to update page avatar', { pageId: data.pageId, err: e && e.message });
@@ -122,12 +153,10 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
             });
             if (asset && asset.id) queueLogger.info('Asset record created (banner)', { assetId: asset.id });
           }
+          const uploadedUrl = result.secure_url || result.url;
           if (profileRepository && userId) {
-            const profile = await profileRepository.findByUserId(userId);
-            if (profile) {
-              await profileRepository.update(profile.id, { banner: result.secure_url || result.url });
-              queueLogger.info('Profile banner updated', { userId });
-            }
+            await updateProfileImage({ userId, field: 'banner', url: uploadedUrl });
+            queueLogger.info('Profile banner updated', { userId });
           } else if (profileRepository && !data.pageId) {
             queueLogger.warn('Skipping profile banner update: userId missing', { jobId: job.id });
           }
@@ -197,17 +226,11 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
             if (asset && asset.id) queueLogger.info('Asset record created from file upload', { assetId: asset.id });
           }
 
+          const uploadedUrl = result.secure_url || result.url;
           if (profileRepository && userId) {
-            const profile = await profileRepository.findByUserId(userId);
-            if (profile) {
-              if (kind === 'banner') {
-                await profileRepository.update(profile.id, { banner: result.secure_url || result.url });
-                queueLogger.info('Profile banner updated from file', { userId });
-              } else {
-                await profileRepository.update(profile.id, { avatar: result.secure_url || result.url });
-                queueLogger.info('Profile avatar updated from file', { userId });
-              }
-            }
+            const field = kind === 'banner' ? 'banner' : 'avatar';
+            await updateProfileImage({ userId, field, url: uploadedUrl });
+            queueLogger.info(`Profile ${field} updated from file`, { userId });
           } else if (profileRepository && !data.pageId) {
             queueLogger.warn('Skipping profile image update from file: userId missing', { jobId: job.id, kind });
           }
@@ -215,10 +238,10 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
           if (pageRepository && data.pageId) {
             try {
               if (kind === 'banner') {
-                await pageRepository.update(data.pageId, { cover_image: result.secure_url || result.url });
+                await pageRepository.update(data.pageId, { cover_image: uploadedUrl });
                 queueLogger.info('Page cover image updated from file', { pageId: data.pageId });
               } else {
-                await pageRepository.update(data.pageId, { avatar: result.secure_url || result.url });
+                await pageRepository.update(data.pageId, { avatar: uploadedUrl });
                 queueLogger.info('Page avatar updated from file', { pageId: data.pageId });
               }
             } catch (e) {
@@ -264,15 +287,10 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
             if (asset && asset.id) queueLogger.info('Asset record created for direct upload', { assetId: asset.id });
           }
           // Optionally update profile image for avatar/banner-kind
+          const uploadedUrl = info.secure_url || info.url;
           if ((kind === 'avatar' || kind === 'banner') && profileRepository && userId) {
-            const profile = await profileRepository.findByUserId(userId);
-            if (profile) {
-              if (kind === 'banner') {
-                await profileRepository.update(profile.id, { banner: info.secure_url || info.url });
-              } else {
-                await profileRepository.update(profile.id, { avatar: info.secure_url || info.url });
-              }
-            }
+            const field = kind === 'banner' ? 'banner' : 'avatar';
+            await updateProfileImage({ userId, field, url: uploadedUrl });
           } else if ((kind === 'avatar' || kind === 'banner') && profileRepository && !data.pageId) {
             queueLogger.warn('Skipping direct profile image update: userId missing', { jobId: job.id, kind });
           }
@@ -280,10 +298,10 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
           if ((kind === 'avatar' || kind === 'banner') && pageRepository && data.pageId) {
             try {
               if (kind === 'banner') {
-                await pageRepository.update(data.pageId, { cover_image: info.secure_url || info.url });
+                await pageRepository.update(data.pageId, { cover_image: uploadedUrl });
                 queueLogger.info('Page cover image updated for direct register', { pageId: data.pageId });
               } else {
-                await pageRepository.update(data.pageId, { avatar: info.secure_url || info.url });
+                await pageRepository.update(data.pageId, { avatar: uploadedUrl });
                 queueLogger.info('Page avatar updated for direct register', { pageId: data.pageId });
               }
             } catch (e) {

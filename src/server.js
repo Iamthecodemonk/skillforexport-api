@@ -96,7 +96,8 @@ const concurrency = parseInt('2', 10);
 const isProd = process.env.NODE_ENV === 'production';
 
 const defaultCorsOrigins = [
-  'https://www.skills4export.com'
+  'https://www.skills4export.com',
+  'http://localhost:5173'
 ];
 
 function parseCorsOrigins() {

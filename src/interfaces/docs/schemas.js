@@ -625,7 +625,23 @@ export const JobApplicationResponse = {
 JobApplicationResponse.example = { id: 'application-uuid', jobId: 'job-uuid', userId: 'user-uuid', job: null, coverLetter: 'Optional text', resumeMediaId: null, answers: [], status: 'submitted', createdAt: '2026-05-07T10:00:00Z', appliedAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
 
 export const JobApplicationBody = { type: 'object', properties: { coverLetter: { type: 'string' }, resumeMediaId: { type: 'string' }, answers: { type: 'array', items: {} } }, example: { coverLetter: 'Optional text', resumeMediaId: 'media-uuid', answers: [] } };
-export const StatusUpdateBody = { type: 'object', required: ['status'], properties: { status: { type: 'string' } }, example: { status: 'closed' } };
+export const StatusUpdateBody = {
+  type: 'object',
+  required: ['status'],
+  properties: {
+    status: {
+      type: 'string',
+      description: 'Status value for the target resource. Jobs/freelance jobs become public at `live`; freelancer profiles become public at `available` or `certified`.'
+    }
+  },
+  examples: [
+    { summary: 'Approve job', value: { status: 'live' } },
+    { summary: 'Approve freelancer', value: { status: 'available' } },
+    { summary: 'Move to review', value: { status: 'pending_review' } },
+    { summary: 'Close job', value: { status: 'closed' } }
+  ],
+  example: { status: 'live' }
+};
 
 export const AlertPreferencesResponse = {
   type: 'object',

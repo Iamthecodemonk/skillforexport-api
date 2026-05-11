@@ -161,6 +161,13 @@ export default class JobsFreelancersUseCase {
     return this.repository.updateFreelancer(actor.id, body);
   }
 
+  async updateFreelancerStatus(actor, idOrUserId, status) {
+    if (!FREELANCER_STATUSES.includes(status)) throw new Error('validation_error');
+    const existing = await this.getFreelancer(idOrUserId);
+    this.assertOwnerOrAdmin(existing.userId, actor);
+    return this.repository.updateFreelancerStatus(idOrUserId, status);
+  }
+
   async listFreelanceJobs(params) {
     return this.repository.listFreelanceJobs(params);
   }

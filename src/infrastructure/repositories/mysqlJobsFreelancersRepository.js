@@ -335,9 +335,10 @@ export default class MysqlJobsFreelancersRepository {
     };
   }
 
-  async listFreelancers({ limit = 20, offset = 0, q, skill, location, availability, status = 'available', remoteOnly, sort = 'latest' } = {}) {
+  async listFreelancers({ limit = 20, offset = 0, q, skill, location, availability, status = 'available', statuses = null, remoteOnly, sort = 'latest' } = {}) {
     const query = db('freelancer_profiles');
-    if (status) query.where({ status });
+    if (Array.isArray(statuses) && statuses.length > 0) query.whereIn('status', statuses);
+    else if (status) query.where({ status });
     if (availability) query.where({ availability });
     if (typeof remoteOnly !== 'undefined') query.where({ remote_only: toBool(remoteOnly) ? 1 : 0 });
     if (skill) query.where('skills', 'like', `%${skill}%`);
@@ -405,6 +406,13 @@ export default class MysqlJobsFreelancersRepository {
     payload.updated_at = this.now();
     await db('freelancer_profiles').where({ user_id: userId }).update(payload);
     return this.findFreelancer(userId);
+  }
+
+  async updateFreelancerStatus(idOrUserId, status) {
+    await db('freelancer_profiles')
+      .where(q => q.where({ id: idOrUserId }).orWhere({ user_id: idOrUserId }))
+      .update({ status, updated_at: this.now() });
+    return this.findFreelancer(idOrUserId);
   }
 
   freelanceJobSelect(userId = null) {

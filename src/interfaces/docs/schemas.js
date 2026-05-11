@@ -944,10 +944,10 @@ export const PageCategoryCreateBody = {
     description: { type: 'string' },
     icon: { type: 'string' },
     is_active: { type: 'number' },
-    rules: { type: ['object','null'] },
-    max_pages_per_user: { type: ['number','null'] },
-    requires_approval: { type: ['number','null'] },
-    validation_rules: { type: ['object','null'] }
+    rules: { type: 'object', nullable: true },
+    max_pages_per_user: { type: 'number', nullable: true },
+    requires_approval: { type: 'number', nullable: true },
+    validation_rules: { type: 'object', nullable: true }
   },
   example: { name: 'Community', slug: 'community', description: 'Community pages', icon: 'users', is_active: 1 }
 };
@@ -1030,15 +1030,15 @@ export const PageCategoryResponse = {
     name: { type: 'string' },
     slug: { type: 'string' },
     description: { type: 'string' },
-    icon: { type: ['string','null'] },
+    icon: { type: 'string', nullable: true },
     is_active: { type: 'number' },
-    rules: { type: ['object','null'] },
-    max_pages_per_user: { type: ['number','null'] },
-    requires_approval: { type: ['number','null'] },
-    validation_rules: { type: ['object','null'] },
+    rules: { type: 'object', nullable: true },
+    max_pages_per_user: { type: 'number', nullable: true },
+    requires_approval: { type: 'number', nullable: true },
+    validation_rules: { type: 'object', nullable: true },
     created_at: { type: 'string' },
     updated_at: { type: 'string' },
-    total_pages: { type: ['number','null'], description: 'Total pages in this category' }
+    total_pages: { type: 'number', nullable: true, description: 'Total pages in this category' }
   }
 };
 PageCategoryResponse.example = { id: 'page-category-uuid', name: 'Community', slug: 'community', description: 'Community pages', icon: 'users', is_active: 1, rules: { allowPosting: true }, max_pages_per_user: 5, requires_approval: 1, validation_rules: { slugPattern: '^[a-z0-9-]+$' }, created_at: '2026-04-01T12:00:00Z', updated_at: '2026-04-10T12:00:00Z', total_pages: 12 };

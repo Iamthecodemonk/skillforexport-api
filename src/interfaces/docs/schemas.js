@@ -36,6 +36,70 @@ export const UserPublic = {
   example: { id: 'user-uuid', email: 'user@example.com', username: 'janedoe', api_token: 'eyJhbGciOiJI...' }
 };
 
+export const UserActivityResponse = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    email: { type: 'string' },
+    role: { type: 'string', nullable: true },
+    created_at: { type: 'string' },
+    updated_at: { type: 'string', nullable: true },
+    profile: {
+      type: 'object',
+      properties: {
+        username: { type: 'string', nullable: true },
+        avatar: { type: 'string', nullable: true },
+        bio: { type: 'string', nullable: true },
+        location: { type: 'string', nullable: true }
+      }
+    },
+    stats: {
+      type: 'object',
+      properties: {
+        posts: { type: 'number' },
+        questions: { type: 'number' },
+        answers: { type: 'number' },
+        comments: { type: 'number' },
+        jobs: { type: 'number' },
+        jobApplications: { type: 'number' },
+        freelanceJobs: { type: 'number' },
+        freelanceApplications: { type: 'number' },
+        pages: { type: 'number' },
+        communities: { type: 'number' },
+        ownedCommunities: { type: 'number' },
+        followers: { type: 'number' },
+        following: { type: 'number' }
+      }
+    },
+    latest: {
+      type: 'object',
+      properties: {
+        post: { type: 'object', nullable: true, additionalProperties: true },
+        question: { type: 'object', nullable: true, additionalProperties: true },
+        job: { type: 'object', nullable: true, additionalProperties: true },
+        freelanceJob: { type: 'object', nullable: true, additionalProperties: true },
+        page: { type: 'object', nullable: true, additionalProperties: true }
+      }
+    }
+  }
+};
+UserActivityResponse.example = {
+  id: 'user-uuid',
+  email: 'user@example.com',
+  role: 'user',
+  created_at: '2026-05-01T10:00:00Z',
+  updated_at: '2026-05-02T10:00:00Z',
+  profile: { username: 'janedoe', avatar: null, bio: 'Exporter and product designer', location: 'Lagos' },
+  stats: { posts: 12, questions: 3, answers: 4, comments: 8, jobs: 2, jobApplications: 5, freelanceJobs: 1, freelanceApplications: 2, pages: 1, communities: 3, ownedCommunities: 1, followers: 18, following: 9 },
+  latest: {
+    post: { id: 'post-uuid', title: 'Latest update', created_at: '2026-05-10T09:00:00Z' },
+    question: { id: 'question-uuid', title: 'How do I export cocoa?', created_at: '2026-05-09T09:00:00Z' },
+    job: { id: 'job-uuid', title: 'Export Operations Manager', status: 'live', createdAt: '2026-05-08T09:00:00Z' },
+    freelanceJob: null,
+    page: { id: 'page-uuid', name: 'Jane Exports', slug: 'jane-exports', createdAt: '2026-05-07T09:00:00Z' }
+  }
+};
+
 // For simpler routes that previously returned token-like payloads, prefer returning the user object with `api_token`.
 // Keep backward-compatible shapes by using `UserPublic` for login/token responses.
 export const LoginResponse = { ...UserPublic };
@@ -1110,6 +1174,7 @@ CommunityMemberResponse.example = { id: 'membership-uuid', userId: 'user-uuid', 
 export const CommentListResponse = { type: 'array', items: CommentResponse };
 
 export const PostPaginatedResponse = makePaginatedRootSchema(PostResponse, PostResponse.example);
+export const UserActivityPaginatedResponse = makePaginatedRootSchema(UserActivityResponse, UserActivityResponse.example);
 export const QuestionPaginatedResponse = makePaginatedRootSchema(QuestionResponse, QuestionResponse.example);
 export const AnswerPaginatedResponse = makePaginatedRootSchema(AnswerResponse, AnswerResponse.example);
 export const PagePaginatedResponse = makePaginatedRootSchema(PageResponse, PageResponse.example);
@@ -1171,6 +1236,8 @@ export default {
   EmptyArraySuccessResponse,
   EmailObjectSuccessResponse,
   IdSuccessResponse,
+  UserActivityResponse,
+  UserActivityPaginatedResponse,
   PostCreateBody,
   PostResponse,
   PostListResponse,

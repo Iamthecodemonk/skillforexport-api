@@ -26,6 +26,16 @@ export default class UserUseCase {
     return this.userRepository.findById(id);
   }
 
+  async listUsersWithActivity({ limit = 20, offset = 0 } = {}) {
+    const safeLimit = Math.min(Math.max(parseInt(limit || 20, 10), 1), 100);
+    const safeOffset = Math.max(parseInt(offset || 0, 10), 0);
+    const [users, total] = await Promise.all([
+      this.userRepository.listWithActivity({ limit: safeLimit, offset: safeOffset }),
+      this.userRepository.countAll()
+    ]);
+    return { users, total, limit: safeLimit, offset: safeOffset };
+  }
+
   async createUser({ email, password, role = 'user' }) {
     if (!email || !User.isValidEmail(email)) 
       throw new Error('invalid_email_format');

@@ -1,6 +1,21 @@
 import db from '../knexConfig.js';
 import User from '../../domain/entities/User.js';
 
+const parseJsonObject = (value) => {
+  if (value === null || typeof value === 'undefined') return null;
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    return null;
+  }
+};
+
+const numberFromRow = (row) => {
+  const value = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+  return parseInt(value || 0, 10);
+};
+
 export default class MysqlUserRepository {
   async findByEmail(email) {
     const user = await db('users').where({ email }).first();
@@ -177,27 +192,141 @@ export default class MysqlUserRepository {
     return rows && rows.length ? rows[0] : null;
   }
 
+  mapUserActivityRow(row) {
+    if (!row) return null;
+    const stats = {
+      posts: parseInt(row.total_posts || 0, 10),
+      questions: parseInt(row.total_questions || 0, 10),
+      answers: parseInt(row.total_answers || 0, 10),
+      comments: parseInt(row.total_comments || 0, 10),
+      jobs: parseInt(row.total_jobs || 0, 10),
+      jobApplications: parseInt(row.total_job_applications || 0, 10),
+      freelanceJobs: parseInt(row.total_freelance_jobs || 0, 10),
+      freelanceApplications: parseInt(row.total_freelance_applications || 0, 10),
+      pages: parseInt(row.total_pages || 0, 10),
+      communities: parseInt(row.total_communities || 0, 10),
+      ownedCommunities: parseInt(row.total_owned_communities || 0, 10),
+      followers: parseInt(row.total_followers || 0, 10),
+      following: parseInt(row.total_following || 0, 10)
+    };
+
+    return {
+      id: row.id,
+      email: row.email,
+      role: row.role,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      profile: {
+        username: row.username || null,
+        avatar: row.avatar || null,
+        bio: row.bio || null,
+        location: row.location || null
+      },
+      stats,
+      latest: {
+        post: parseJsonObject(row.latest_post),
+        question: parseJsonObject(row.latest_question),
+        job: parseJsonObject(row.latest_job),
+        freelanceJob: parseJsonObject(row.latest_freelance_job),
+        page: parseJsonObject(row.latest_page)
+      }
+    };
+  }
+
+  async listWithActivity({ limit = 20, offset = 0 } = {}) {
+    const safeLimit = Math.min(Math.max(parseInt(limit || 20, 10), 1), 100);
+    const safeOffset = Math.max(parseInt(offset || 0, 10), 0);
+
+    const rows = await db('users as u')
+      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+      .select(
+        'u.id',
+        'u.email',
+        'u.role',
+        'u.created_at',
+        'u.updated_at',
+        'up.username',
+        'up.avatar',
+        'up.bio',
+        'up.location',
+        db.raw('(SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id) as total_posts'),
+        db.raw('(SELECT COUNT(*) FROM questions q WHERE q.user_id = u.id) as total_questions'),
+        db.raw('(SELECT COUNT(*) FROM answers a WHERE a.user_id = u.id) as total_answers'),
+        db.raw('(SELECT COUNT(*) FROM comments c WHERE c.user_id = u.id) as total_comments'),
+        db.raw('(SELECT COUNT(*) FROM jobs j WHERE j.created_by_user_id = u.id) as total_jobs'),
+        db.raw('(SELECT COUNT(*) FROM job_applications ja WHERE ja.user_id = u.id) as total_job_applications'),
+        db.raw('(SELECT COUNT(*) FROM freelance_jobs fj WHERE fj.posted_by_user_id = u.id) as total_freelance_jobs'),
+        db.raw('(SELECT COUNT(*) FROM freelance_job_applications fja WHERE fja.user_id = u.id) as total_freelance_applications'),
+        db.raw('(SELECT COUNT(*) FROM pages pg WHERE pg.owner_id = u.id) as total_pages'),
+        db.raw('(SELECT COUNT(*) FROM community_members cm WHERE cm.user_id = u.id) as total_communities'),
+        db.raw('(SELECT COUNT(*) FROM communities co WHERE co.owner_id = u.id) as total_owned_communities'),
+        db.raw('(SELECT COUNT(*) FROM followers f WHERE f.following_id = u.id) as total_followers'),
+        db.raw('(SELECT COUNT(*) FROM followers f WHERE f.follower_id = u.id) as total_following'),
+        db.raw(`(
+          SELECT JSON_OBJECT('id', p.id, 'title', p.title, 'content', p.content, 'visibility', p.visibility, 'community_id', p.community_id, 'page_id', p.page_id, 'created_at', p.created_at, 'updated_at', p.updated_at)
+          FROM posts p
+          WHERE p.user_id = u.id
+          ORDER BY p.created_at DESC, p.id DESC
+          LIMIT 1
+        ) as latest_post`),
+        db.raw(`(
+          SELECT JSON_OBJECT('id', q.id, 'title', q.title, 'body', q.body, 'visibility', q.visibility, 'community_id', q.community_id, 'is_closed', q.is_closed, 'created_at', q.created_at, 'updated_at', q.updated_at)
+          FROM questions q
+          WHERE q.user_id = u.id
+          ORDER BY q.created_at DESC, q.id DESC
+          LIMIT 1
+        ) as latest_question`),
+        db.raw(`(
+          SELECT JSON_OBJECT('id', j.id, 'slug', j.slug, 'title', j.title, 'companyName', j.company_name, 'location', j.location, 'type', j.type, 'status', j.status, 'createdAt', j.created_at, 'updatedAt', j.updated_at)
+          FROM jobs j
+          WHERE j.created_by_user_id = u.id
+          ORDER BY j.created_at DESC, j.id DESC
+          LIMIT 1
+        ) as latest_job`),
+        db.raw(`(
+          SELECT JSON_OBJECT('id', fj.id, 'slug', fj.slug, 'title', fj.title, 'companyName', fj.company_name, 'location', fj.location, 'type', fj.type, 'status', fj.status, 'createdAt', fj.created_at, 'updatedAt', fj.updated_at)
+          FROM freelance_jobs fj
+          WHERE fj.posted_by_user_id = u.id
+          ORDER BY fj.created_at DESC, fj.id DESC
+          LIMIT 1
+        ) as latest_freelance_job`),
+        db.raw(`(
+          SELECT JSON_OBJECT('id', pg.id, 'name', pg.name, 'slug', pg.slug, 'description', pg.description, 'isActive', pg.is_active, 'createdAt', pg.created_at, 'updatedAt', pg.updated_at)
+          FROM pages pg
+          WHERE pg.owner_id = u.id
+          ORDER BY pg.created_at DESC, pg.id DESC
+          LIMIT 1
+        ) as latest_page`)
+      )
+      .orderBy('u.created_at', 'desc')
+      .limit(safeLimit)
+      .offset(safeOffset);
+
+    return rows.map(row => this.mapUserActivityRow(row));
+  }
+
+  async countAll() {
+    const row = await db('users').count({ cnt: 'id' }).first();
+    return numberFromRow(row);
+  }
+
   async countPages(userId) {
     const row = await db('pages').where({ owner_id: userId }).count({ cnt: 'id' }).first();
-    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
-    return parseInt(cnt || 0, 10);
+    return numberFromRow(row);
   }
 
   async countCommunities(userId) {
     const row = await db('community_members').where({ user_id: userId }).count({ cnt: 'id' }).first();
-    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
-    return parseInt(cnt || 0, 10);
+    return numberFromRow(row);
   }
 
   async countPosts(userId) {
     const row = await db('posts').where({ user_id: userId }).count({ cnt: 'id' }).first();
-    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
-    return parseInt(cnt || 0, 10);
+    return numberFromRow(row);
   }
 
   async countComments(userId) {
     const row = await db('comments').where({ user_id: userId }).count({ cnt: 'id' }).first();
-    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
-    return parseInt(cnt || 0, 10);
+    return numberFromRow(row);
   }
 }

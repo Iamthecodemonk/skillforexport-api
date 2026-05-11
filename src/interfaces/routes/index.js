@@ -478,6 +478,27 @@ export default async function registerRoutes(fastify, deps) {
   );
 
   // ========== Users ==========
+  fastify.get('/users', {
+    schema: {
+      operationId: 'listUsers',
+      tags: ['Users'],
+      description: 'List users with aggregate activity counts and latest related records.',
+      querystring: {
+        type: 'object',
+        properties: {
+          page: { type: 'integer', minimum: 1 },
+          per_page: { type: 'integer', minimum: 1, maximum: 100 },
+          perPage: { type: 'integer', minimum: 1, maximum: 100 },
+          limit: { type: 'integer', minimum: 1, maximum: 100 },
+          offset: { type: 'integer', minimum: 0 }
+        }
+      },
+      response: {
+        200: schemas.UserActivityPaginatedResponse
+      }
+    }
+  }, handler('listUsers'));
+
   fastify.get('/users/:id', {
     schema: {
       operationId: 'getUser',

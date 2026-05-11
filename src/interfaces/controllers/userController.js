@@ -2,6 +2,7 @@ import logger from '../../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
 import { readProfileFromCache, writeProfileToCache } from '../../utils/redisProfileCache.js';
 import { sendError } from '../errorResponse.js';
+import { parsePagination, buildPaginatedResponse } from '../paginationResponse.js';
 import os from 'os';
 import fs from 'fs';
 import path from 'path';
@@ -48,6 +49,23 @@ export function makeUserController({ useCase = null, followerRepository = null }
   }
 
   return {
+    listUsers: async (req, reply) => {
+      try {
+        const { page, perPage, limit, offset } = parsePagination(req.query, 20);
+        const result = await useCase.listUsersWithActivity({ limit, offset });
+        const payload = buildPaginatedResponse(req, {
+          data: result.users,
+          page,
+          perPage,
+          total: result.total
+        });
+        return reply.send(payload);
+      } catch (err) {
+        userLogger.error('listUsers error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
     getUser: async (req, reply) => {
       try {
         const { id } = req.params;

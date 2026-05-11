@@ -45,6 +45,12 @@ export class UserRepository {
   async findFullProfileById(id) {
     throw new Error('findFullProfileById() not implemented');
   }
+  async listWithActivity(params = {}) {
+    throw new Error('listWithActivity() not implemented');
+  }
+  async countAll() {
+    throw new Error('countAll() not implemented');
+  }
 }
 
 // Concrete implementation that delegates to a persistence adapter
@@ -114,6 +120,14 @@ export class UserRepositoryImpl extends UserRepository {
 
   async findFullProfileById(id) {
     return this.adapter.findFullProfileById ? await this.adapter.findFullProfileById(id) : null;
+  }
+
+  async listWithActivity(params = {}) {
+    return this.adapter.listWithActivity ? await this.adapter.listWithActivity(params) : [];
+  }
+
+  async countAll() {
+    return this.adapter.countAll ? await this.adapter.countAll() : 0;
   }
 
   async countPages(userId) {

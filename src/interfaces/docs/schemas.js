@@ -67,10 +67,21 @@ export const UserActivityResponse = {
         pages: { type: 'number' },
         communities: { type: 'number' },
         ownedCommunities: { type: 'number' },
+        skills: { type: 'number' },
+        portfolios: { type: 'number' },
+        certifications: { type: 'number' },
+        education: { type: 'number' },
+        experiences: { type: 'number' },
         followers: { type: 'number' },
+        totalFollowers: { type: 'number' },
         following: { type: 'number' }
       }
     },
+    skills: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    portfolios: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    certifications: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    education: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    experiences: { type: 'array', items: { type: 'object', additionalProperties: true } },
     latest: {
       type: 'object',
       properties: {
@@ -90,7 +101,12 @@ UserActivityResponse.example = {
   created_at: '2026-05-01T10:00:00Z',
   updated_at: '2026-05-02T10:00:00Z',
   profile: { username: 'janedoe', avatar: null, bio: 'Exporter and product designer', location: 'Lagos' },
-  stats: { posts: 12, questions: 3, answers: 4, comments: 8, jobs: 2, jobApplications: 5, freelanceJobs: 1, freelanceApplications: 2, pages: 1, communities: 3, ownedCommunities: 1, followers: 18, following: 9 },
+  skills: [{ id: 'skill-uuid', skill: 'Export operations', level: 'expert' }],
+  portfolios: [{ id: 'portfolio-uuid', title: 'Cocoa export case study', link: 'https://example.com' }],
+  certifications: [{ id: 'cert-uuid', name: 'Export Compliance', issuer: 'Trade Institute' }],
+  education: [{ id: 'education-uuid', school: 'University of Lagos', degree: 'BSc' }],
+  experiences: [{ id: 'experience-uuid', company: 'TradeBridge', title: 'Export Manager' }],
+  stats: { posts: 12, questions: 3, answers: 4, comments: 8, jobs: 2, jobApplications: 5, freelanceJobs: 1, freelanceApplications: 2, pages: 1, communities: 3, ownedCommunities: 1, skills: 1, portfolios: 1, certifications: 1, education: 1, experiences: 1, followers: 18, totalFollowers: 18, following: 9 },
   latest: {
     post: { id: 'post-uuid', title: 'Latest update', created_at: '2026-05-10T09:00:00Z' },
     question: { id: 'question-uuid', title: 'How do I export cocoa?', created_at: '2026-05-09T09:00:00Z' },

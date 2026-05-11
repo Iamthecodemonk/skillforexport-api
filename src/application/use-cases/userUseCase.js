@@ -26,6 +26,13 @@ export default class UserUseCase {
     return this.userRepository.findById(id);
   }
 
+  async getUserWithActivity(id) {
+    if (this.userRepository && typeof this.userRepository.findWithActivity === 'function') {
+      return this.userRepository.findWithActivity(id);
+    }
+    return null;
+  }
+
   async listUsersWithActivity({ limit = 20, offset = 0 } = {}) {
     const safeLimit = Math.min(Math.max(parseInt(limit || 20, 10), 1), 100);
     const safeOffset = Math.max(parseInt(offset || 0, 10), 0);

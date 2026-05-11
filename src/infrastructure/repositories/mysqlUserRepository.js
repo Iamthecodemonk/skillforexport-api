@@ -11,6 +11,11 @@ const parseJsonObject = (value) => {
   }
 };
 
+const parseJsonArray = (value) => {
+  const parsed = parseJsonObject(value);
+  return Array.isArray(parsed) ? parsed : [];
+};
+
 const numberFromRow = (row) => {
   const value = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
   return parseInt(value || 0, 10);
@@ -206,7 +211,13 @@ export default class MysqlUserRepository {
       pages: parseInt(row.total_pages || 0, 10),
       communities: parseInt(row.total_communities || 0, 10),
       ownedCommunities: parseInt(row.total_owned_communities || 0, 10),
+      skills: parseInt(row.total_skills || 0, 10),
+      portfolios: parseInt(row.total_portfolios || 0, 10),
+      certifications: parseInt(row.total_certifications || 0, 10),
+      education: parseInt(row.total_education || 0, 10),
+      experiences: parseInt(row.total_experiences || 0, 10),
       followers: parseInt(row.total_followers || 0, 10),
+      totalFollowers: parseInt(row.total_followers || 0, 10),
       following: parseInt(row.total_following || 0, 10)
     };
 
@@ -222,6 +233,11 @@ export default class MysqlUserRepository {
         bio: row.bio || null,
         location: row.location || null
       },
+      skills: parseJsonArray(row.skills),
+      portfolios: parseJsonArray(row.portfolios),
+      certifications: parseJsonArray(row.certifications),
+      education: parseJsonArray(row.education),
+      experiences: parseJsonArray(row.experiences),
       stats,
       latest: {
         post: parseJsonObject(row.latest_post),
@@ -233,11 +249,11 @@ export default class MysqlUserRepository {
     };
   }
 
-  async listWithActivity({ limit = 20, offset = 0 } = {}) {
+  async listWithActivity({ limit = 20, offset = 0, userId = null } = {}) {
     const safeLimit = Math.min(Math.max(parseInt(limit || 20, 10), 1), 100);
     const safeOffset = Math.max(parseInt(offset || 0, 10), 0);
 
-    const rows = await db('users as u')
+    const query = db('users as u')
       .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
       .select(
         'u.id',
@@ -260,8 +276,38 @@ export default class MysqlUserRepository {
         db.raw('(SELECT COUNT(*) FROM pages pg WHERE pg.owner_id = u.id) as total_pages'),
         db.raw('(SELECT COUNT(*) FROM community_members cm WHERE cm.user_id = u.id) as total_communities'),
         db.raw('(SELECT COUNT(*) FROM communities co WHERE co.owner_id = u.id) as total_owned_communities'),
+        db.raw('(SELECT COUNT(*) FROM user_skills s WHERE s.user_id = u.id) as total_skills'),
+        db.raw('(SELECT COUNT(*) FROM user_portfolios pfo WHERE pfo.user_id = u.id) as total_portfolios'),
+        db.raw('(SELECT COUNT(*) FROM user_certifications cert WHERE cert.user_id = u.id) as total_certifications'),
+        db.raw('(SELECT COUNT(*) FROM user_education edu WHERE edu.user_id = u.id) as total_education'),
+        db.raw('(SELECT COUNT(*) FROM user_experiences exp WHERE exp.user_id = u.id) as total_experiences'),
         db.raw('(SELECT COUNT(*) FROM followers f WHERE f.following_id = u.id) as total_followers'),
         db.raw('(SELECT COUNT(*) FROM followers f WHERE f.follower_id = u.id) as total_following'),
+        db.raw(`IFNULL((
+          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', s.id, 'skill', s.skill, 'level', s.level, 'created_at', s.created_at))
+          FROM user_skills s
+          WHERE s.user_id = u.id
+        ), JSON_ARRAY()) as skills`),
+        db.raw(`IFNULL((
+          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', pfo.id, 'title', pfo.title, 'description', pfo.description, 'link', pfo.link, 'pictures', IFNULL(pfo.pictures, JSON_ARRAY()), 'created_at', pfo.created_at, 'updated_at', pfo.updated_at))
+          FROM user_portfolios pfo
+          WHERE pfo.user_id = u.id
+        ), JSON_ARRAY()) as portfolios`),
+        db.raw(`IFNULL((
+          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', cert.id, 'name', cert.name, 'issuer', cert.issuer, 'issue_date', cert.issue_date, 'created_at', cert.created_at, 'updated_at', cert.updated_at))
+          FROM user_certifications cert
+          WHERE cert.user_id = u.id
+        ), JSON_ARRAY()) as certifications`),
+        db.raw(`IFNULL((
+          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', edu.id, 'school', edu.school, 'degree', edu.degree, 'field', edu.field, 'start_date', edu.start_date, 'end_date', edu.end_date, 'created_at', edu.created_at, 'updated_at', edu.updated_at))
+          FROM user_education edu
+          WHERE edu.user_id = u.id
+        ), JSON_ARRAY()) as education`),
+        db.raw(`IFNULL((
+          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', exp.id, 'company', exp.company, 'title', exp.title, 'employment_type', exp.employment_type, 'start_date', exp.start_date, 'end_date', exp.end_date, 'is_current', exp.is_current, 'description', exp.description, 'created_at', exp.created_at, 'updated_at', exp.updated_at))
+          FROM user_experiences exp
+          WHERE exp.user_id = u.id
+        ), JSON_ARRAY()) as experiences`),
         db.raw(`(
           SELECT JSON_OBJECT('id', p.id, 'title', p.title, 'content', p.content, 'visibility', p.visibility, 'community_id', p.community_id, 'page_id', p.page_id, 'created_at', p.created_at, 'updated_at', p.updated_at)
           FROM posts p
@@ -298,11 +344,18 @@ export default class MysqlUserRepository {
           LIMIT 1
         ) as latest_page`)
       )
-      .orderBy('u.created_at', 'desc')
-      .limit(safeLimit)
-      .offset(safeOffset);
+      .orderBy('u.created_at', 'desc');
+
+    if (userId) query.where('u.id', userId);
+
+    const rows = await query.limit(safeLimit).offset(safeOffset);
 
     return rows.map(row => this.mapUserActivityRow(row));
+  }
+
+  async findWithActivity(id) {
+    const rows = await this.listWithActivity({ limit: 1, offset: 0, userId: id });
+    return rows[0] || null;
   }
 
   async countAll() {

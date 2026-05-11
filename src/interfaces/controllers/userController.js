@@ -69,13 +69,13 @@ export function makeUserController({ useCase = null, followerRepository = null }
     getUser: async (req, reply) => {
       try {
         const { id } = req.params;
-        const user = await useCase.getUser(id);
+        const user = await useCase.getUserWithActivity(id);
         if (!user)
           return reply.code(404).send({
             success: false,
             error: { code: 'user_not_found' }
           });
-        return reply.send({ success: true, message: 'Success', data: user.toPlainObject() });
+        return reply.send({ success: true, message: 'Success', data: user });
       } catch (err) {
         userLogger.error('getUser error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });

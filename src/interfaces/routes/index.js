@@ -503,23 +503,16 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'getUser',
       tags: ['Users'],
-      description: 'Get a user record by id.',
+      description: 'Get a user by id with aggregate activity counts, profile collections, and latest related records.',
       response: {
         200: {
           type: 'object',
           properties: {
             success: { type: 'boolean' },
-            data: {
-              type: 'object',
-              properties: {
-                id: { type: 'string' },
-                email: { type: 'string' },
-                username: { type: ['string', 'null'] },
-                role: { type: ['string', 'null'] }
-              }
-            }
+            message: { type: 'string' },
+            data: schemas.UserActivityResponse
           },
-          example: { success: true, data: { id: 'user-uuid', email: 'user@example.com', username: 'janedoe', role: 'user' } }
+          example: { success: true, message: 'Success', data: schemas.UserActivityResponse.example }
         },
         404: schemas.GenericErrorResponse
       }

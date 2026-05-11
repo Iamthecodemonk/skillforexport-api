@@ -48,6 +48,9 @@ export class UserRepository {
   async listWithActivity(params = {}) {
     throw new Error('listWithActivity() not implemented');
   }
+  async findWithActivity(id) {
+    throw new Error('findWithActivity() not implemented');
+  }
   async countAll() {
     throw new Error('countAll() not implemented');
   }
@@ -124,6 +127,10 @@ export class UserRepositoryImpl extends UserRepository {
 
   async listWithActivity(params = {}) {
     return this.adapter.listWithActivity ? await this.adapter.listWithActivity(params) : [];
+  }
+
+  async findWithActivity(id) {
+    return this.adapter.findWithActivity ? await this.adapter.findWithActivity(id) : null;
   }
 
   async countAll() {

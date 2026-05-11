@@ -97,7 +97,8 @@ const isProd = process.env.NODE_ENV === 'production';
 
 const defaultCorsOrigins = [
   'https://www.skills4export.com',
-  'http://localhost:5173'
+  'http://localhost:5173',
+  'http://admin.skills4export.com'
 ];
 
 function parseCorsOrigins() {

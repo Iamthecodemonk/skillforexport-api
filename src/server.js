@@ -453,6 +453,7 @@ export default async function startServer() {
         // post media use-case and controller (no direct repo injection into controllers)
         try {
           const postMediaAdapter = new MysqlPostMediaRepository();
+          postUseCase.postMediaRepository = postMediaAdapter;
           const postMediaUseCase = new PostMediaUseCase({ postMediaRepository: postMediaAdapter, mediaQueue });
           const postMediaController = makePostMediaController({ useCase: postMediaUseCase });
           Object.assign(controllers, postMediaController);
@@ -514,6 +515,7 @@ export default async function startServer() {
             try {
               if (typeof postUseCase !== 'undefined' && postUseCase && assetAdapter) {
                 postUseCase.assetRepository = assetAdapter;
+                postUseCase.postMediaRepository = postMediaAdapter;
               }
             } catch (attachErr) {
               serverLogger.warn('Could not attach assetAdapter to postUseCase', attachErr && attachErr.message);

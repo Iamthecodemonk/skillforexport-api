@@ -51,7 +51,8 @@ export function makePostController({ useCase = null }) {
     getPost: async (req, reply) => {
       try {
         const { id } = req.params;
-        const post = await useCase.GetPost(id);
+        const actorId = req.user && req.user.id;
+        const post = await useCase.GetPost(id, { userId: actorId || null });
         return reply.send({ success: true, message: 'Success', data: post });
       } catch (err) {
         postLogger.error('getPost error', { message: err.message, stack: err.stack });
@@ -65,7 +66,8 @@ export function makePostController({ useCase = null }) {
         const { page, perPage, limit, offset } = parsePagination(req.query, 20);
         const lastCreatedAt = req.query && req.query.lastCreatedAt ? req.query.lastCreatedAt : null;
         const lastId = req.query && req.query.lastId ? req.query.lastId : null;
-        const rows = await useCase.ListPosts({ limit, offset, lastCreatedAt, lastId });
+        const actorId = req.user && req.user.id;
+        const rows = await useCase.ListPosts({ limit, offset, lastCreatedAt, lastId, userId: actorId || null });
         const total = useCase.postRepository && typeof useCase.postRepository.countAll === 'function'
           ? await useCase.postRepository.countAll()
           : rows.length;

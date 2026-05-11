@@ -31,6 +31,7 @@ export default class PostUseCase {
       }
     }
     // Validate provided media assets (if any) to ensure uploads completed
+    let mediaAssets = [];
     if (Array.isArray(arguments[0].mediaAssetIds) && arguments[0].mediaAssetIds.length > 0) {
       const assetIds = arguments[0].mediaAssetIds;
       if (!this.assetRepository || typeof this.assetRepository.findById !== 'function') {
@@ -42,6 +43,7 @@ export default class PostUseCase {
           // asset missing or not yet processed/uploaded
           throw new Error('media_not_ready');
         }
+        mediaAssets.push(asset);
       }
     }
 
@@ -54,7 +56,22 @@ export default class PostUseCase {
       title: String(title),
       content: String(content)
     };
-    const created = await this.postRepository.create(post);
+    let created = await this.postRepository.create(post);
+    if (mediaAssets.length > 0 && this.postMediaRepository && typeof this.postMediaRepository.create === 'function') {
+      let displayOrder = 0;
+      for (const asset of mediaAssets) {
+        const mimeType = asset.mime_type || asset.mimeType || '';
+        const mediaType = String(mimeType).startsWith('video/') || asset.kind === 'video' ? 'video' : 'image';
+        await this.postMediaRepository.create({
+          post_id: created.id,
+          media_type: mediaType,
+          url: asset.url,
+          thumbnail_url: asset.url,
+          display_order: displayOrder++
+        });
+      }
+      created = await this.postRepository.findById(created.id, { userId });
+    }
     try {
       if (pageId && this.pageRepository && typeof this.pageRepository.incrementPostCount === 'function') {
         await this.pageRepository.incrementPostCount(pageId, 1);
@@ -65,15 +82,15 @@ export default class PostUseCase {
     return created;
   }
 
-  async GetPost(id) {
+  async GetPost(id, { userId = null } = {}) {
     if (!id) throw new Error('id_required');
-    const row = await this.postRepository.findById(id);
+    const row = await this.postRepository.findById(id, { userId });
     if (!row) throw new Error('post_not_found');
     return row;
   }
 
-  async ListPosts({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null } = {}) {
-    return this.postRepository.list({ limit, offset, lastCreatedAt, lastId });
+  async ListPosts({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null } = {}) {
+    return this.postRepository.list({ limit, offset, lastCreatedAt, lastId, userId });
   }
 
   async UpdatePost({ id, userId, title, content }) {

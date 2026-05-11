@@ -474,10 +474,43 @@ export const PostResponse = {
   properties: {
     id: { type: 'string' },
     user_id: { type: 'string' },
-    community_id: { type: ['string','null'] },
-    page_id: { type: ['string','null'] },
+    community_id: { type: 'string', nullable: true },
+    page_id: { type: 'string', nullable: true },
+    parent_post_id: { type: 'string', nullable: true },
+    visibility: { type: 'string' },
     title: { type: 'string' },
     content: { type: 'string' },
+    file_path: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    media_path: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    images_count: { type: 'number' },
+    comment_count: { type: 'number' },
+    score: { type: 'number' },
+    is_follow: { type: 'boolean' },
+    is_liked: { type: 'boolean' },
+    is_saved: { type: 'boolean' },
+    is_report: { type: 'boolean' },
+    type: { type: 'string' },
+    user: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        name: { type: 'string', nullable: true },
+        email: { type: 'string', nullable: true },
+        avatar: { type: 'string', nullable: true }
+      }
+    },
+    community: {
+      type: 'object',
+      nullable: true,
+      properties: {
+        id: { type: 'string' },
+        name: { type: 'string', nullable: true },
+        description: { type: 'string', nullable: true },
+        is_active: { type: 'number' },
+        default_post_visibility: { type: 'string', nullable: true }
+      }
+    },
+    page: { type: 'object', nullable: true, additionalProperties: true },
     created_at: { type: 'string' },
     updated_at: { type: 'string' }
   }
@@ -485,10 +518,26 @@ export const PostResponse = {
 PostResponse.example = { 
   id: 'post-uuid', 
   user_id: 'user-uuid', 
-  community_id: null, 
+  community_id: null,
+  page_id: null,
+  parent_post_id: null,
+  visibility: 'public',
   title: 'Hello world', 
   content: 'Hello world — this is a test post.', 
-  created_at: '2026-04-09T12:00:00Z', 
+  file_path: [],
+  media_path: [],
+  images_count: 0,
+  comment_count: 2,
+  score: 5,
+  is_follow: false,
+  is_liked: false,
+  is_saved: false,
+  is_report: false,
+  type: 'POST',
+  user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null },
+  community: null,
+  page: null,
+  created_at: '2026-04-09T12:00:00Z',
   updated_at: '2026-04-09T12:00:00Z' 
 };
 

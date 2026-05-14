@@ -96,11 +96,31 @@ const concurrency = parseInt('2', 10);
 const isProd = process.env.NODE_ENV === 'production';
 
 const defaultCorsOrigins = [
+  'https://skills4export.com',
   'https://www.skills4export.com',
+  'https://admin.skills4export.com',
+  'https://api.skills4export.com',
   'http://localhost:5173',
   'http://admin.skills4export.com',
   'https://trial.skills4export.com'
 ];
+
+function isAllowedCorsOrigin(origin, allowedOrigins) {
+  if (!origin) return true;
+
+  const normalizedOrigin = String(origin).trim().replace(/\/$/, '');
+  if (allowedOrigins.includes(normalizedOrigin)) {
+    return true;
+  }
+
+  try {
+    const { protocol, hostname } = new URL(normalizedOrigin);
+    const isSkills4ExportHost = hostname === 'skills4export.com' || hostname.endsWith('.skills4export.com');
+    return protocol === 'https:' && isSkills4ExportHost;
+  } catch (e) {
+    return false;
+  }
+}
 
 function parseCorsOrigins() {
   const configuredOrigins = [
@@ -673,20 +693,16 @@ export default async function startServer() {
     const corsOrigins = parseCorsOrigins();
     await app.register(fastifyCors, {
       origin: (origin, callback) => {
-        if (!origin) {
+        if (isAllowedCorsOrigin(origin, corsOrigins)) {
           return callback(null, true);
         }
 
-        const normalizedOrigin = String(origin).replace(/\/$/, '');
-        if (corsOrigins.includes(normalizedOrigin)) {
-          return callback(null, true);
-        }
-
-        return callback(new Error('Not allowed by CORS'), false);
+        return callback(null, false);
       },
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
-      credentials: true
+      credentials: true,
+      maxAge: 86400
     });
     serverLogger.info('CORS plugin registered', { origins: corsOrigins });
   } catch (err) {

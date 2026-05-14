@@ -9,7 +9,9 @@ export default class MysqlCommunityCategoryRepository {
   }
 
   async findByName(name) {
-    return db('community_categories').where({ name }).first();
+    return db('community_categories')
+      .whereRaw('LOWER(name) = LOWER(?)', [name])
+      .first();
   }
 
   async create(record) {

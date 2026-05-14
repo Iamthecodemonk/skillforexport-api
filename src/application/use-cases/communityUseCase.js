@@ -35,6 +35,21 @@ export default class CommunityUseCase {
     return this.communityCategoryRepository.delete(id);
   }
 
+  async getDefaultCategoryId() {
+    if (!this.communityCategoryRepository) return null;
+
+    let category = null;
+    if (typeof this.communityCategoryRepository.findByName === 'function') {
+      category = await this.communityCategoryRepository.findByName('default');
+    }
+
+    if (!category && typeof this.communityCategoryRepository.create === 'function') {
+      category = await this.communityCategoryRepository.create({ id: uuidv4(), name: 'default' });
+    }
+
+    return category ? category.id : null;
+  }
+
   async createCommunity({ id = null, categoryId = null, name, description = null, ownerId = null, defaultPostVisibility = 'public' }) {
     if (!name || !ownerId) 
         throw new Error('validation_failed');
@@ -42,7 +57,8 @@ export default class CommunityUseCase {
     if (defaultPostVisibility && !allowedVisibility.includes(defaultPostVisibility)) {
       throw new Error('validation_failed');
     }
-    const payload = { id: id || uuidv4(), category_id: categoryId, name, description, created_at: new Date(), owner_id: ownerId, default_post_visibility: defaultPostVisibility };
+    const communityCategoryId = categoryId || await this.getDefaultCategoryId();
+    const payload = { id: id || uuidv4(), category_id: communityCategoryId, name, description, created_at: new Date(), owner_id: ownerId, default_post_visibility: defaultPostVisibility };
     const created = await this.communityRepository.create(payload);
     // add owner as admin member
     if (this.communityMemberRepository) {

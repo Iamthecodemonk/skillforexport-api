@@ -53,8 +53,8 @@ export function makeCommunityController({ useCase = null }) {
       try {
         const actorId = req.user && req.user.id;
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
-        const { name, description, categoryId, defaultPostVisibility } = req.body || {};
-        const created = await useCase.createCommunity({ name, description, categoryId, ownerId: actorId, defaultPostVisibility });
+        const { name, icon, description, categoryId, defaultPostVisibility } = req.body || {};
+        const created = await useCase.createCommunity({ name, icon, description, categoryId, ownerId: actorId, defaultPostVisibility });
         return reply.code(201).send({ success: true, data: created });
       } catch (err) {
         log.error('createCommunity error', { message: err.message });

@@ -1209,14 +1209,14 @@ CommunityCategoryResponse.example = { id: 'community-category-uuid', name: 'Spor
 export const CommunityCreateBody = {
   type: 'object',
   required: ['name'],
-  properties: { name: { type: 'string' }, description: { type: 'string' }, categoryId: { type: 'string' }, defaultPostVisibility: { type: 'string', enum: ['public','connections','community'] } },
-  example: { name: 'Local Chess Club', description: 'We meet weekly to play chess', categoryId: null, defaultPostVisibility: 'public' }
+  properties: { name: { type: 'string' }, icon: { type: 'string', description: 'Line Awesome icon class/name, for example `las la-users` or `la-users`.' }, description: { type: 'string' }, categoryId: { type: 'string' }, defaultPostVisibility: { type: 'string', enum: ['public','connections','community'] } },
+  example: { name: 'Local Chess Club', icon: 'las la-chess', description: 'We meet weekly to play chess', categoryId: null, defaultPostVisibility: 'public' }
 };
 
 export const CommunityUpdateBody = {
   type: 'object',
-  properties: { name: { type: 'string' }, description: { type: 'string' }, defaultPostVisibility: { type: 'string', enum: ['public','connections','community'] }, is_active: { type: 'number' } },
-  example: { name: 'Chess Club', description: 'Updated desc', defaultPostVisibility: 'community', is_active: 1 }
+  properties: { name: { type: 'string' }, icon: { type: 'string', description: 'Line Awesome icon class/name, for example `las la-users` or `la-users`.' }, description: { type: 'string' }, defaultPostVisibility: { type: 'string', enum: ['public','connections','community'] }, is_active: { type: 'number' } },
+  example: { name: 'Chess Club', icon: 'las la-chess', description: 'Updated desc', defaultPostVisibility: 'community', is_active: 1 }
 };
 
 export const CommunityResponse = {
@@ -1234,6 +1234,7 @@ export const CommunityResponse = {
       }
     },
     name: { type: 'string' },
+    icon: { type: ['string','null'], description: 'Line Awesome icon class/name stored for frontend rendering.' },
     description: { type: 'string' },
     is_active: { type: 'number' },
     default_post_visibility: { type: ['string','null'], description: 'Default visibility for new posts in this community' },
@@ -1244,7 +1245,7 @@ export const CommunityResponse = {
     created_at: { type: 'string' }
   }
 };
-CommunityResponse.example = { id: 'community-uuid', categoryId: 'community-category-uuid', category_id: 'community-category-uuid', category: { id: 'community-category-uuid', name: 'Sports' }, name: 'Local Chess Club', description: 'We meet weekly to play chess', is_active: 1, default_post_visibility: 'community', posts_count: 24, post_likes_count: 41, post_reactions_count: 58, comments_count: 103, created_at: '2026-04-12T10:00:00Z' };
+CommunityResponse.example = { id: 'community-uuid', categoryId: 'community-category-uuid', category_id: 'community-category-uuid', category: { id: 'community-category-uuid', name: 'Sports' }, name: 'Local Chess Club', icon: 'las la-chess', description: 'We meet weekly to play chess', is_active: 1, default_post_visibility: 'community', posts_count: 24, post_likes_count: 41, post_reactions_count: 58, comments_count: 103, created_at: '2026-04-12T10:00:00Z' };
 
 export const CommunityMemberResponse = {
   type: 'object',

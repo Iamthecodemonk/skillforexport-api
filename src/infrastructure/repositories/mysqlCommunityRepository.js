@@ -14,6 +14,9 @@ export default class MysqlCommunityRepository {
     if (Object.prototype.hasOwnProperty.call(record, 'name')) {
       payload.name = record.name || null;
     }
+    if (Object.prototype.hasOwnProperty.call(record, 'icon')) {
+      payload.icon = record.icon || null;
+    }
     if (Object.prototype.hasOwnProperty.call(record, 'description')) {
       payload.description = record.description || null;
     }

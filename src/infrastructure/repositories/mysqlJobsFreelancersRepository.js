@@ -102,7 +102,8 @@ export default class MysqlJobsFreelancersRepository {
   }
 
   applyJobFilters(q, filters = {}) {
-    if (filters.status) q.where('j.status', filters.status);
+    if (Array.isArray(filters.statuses) && filters.statuses.length > 0) q.whereIn('j.status', filters.statuses);
+    else if (filters.status) q.where('j.status', filters.status);
     if (filters.q) {
       const like = `%${filters.q}%`;
       q.andWhere((b) => b.where('j.title', 'like', like).orWhere('j.company_name', 'like', like).orWhere('j.description', 'like', like));
@@ -122,17 +123,17 @@ export default class MysqlJobsFreelancersRepository {
     else q.orderBy('j.created_at', 'desc');
   }
 
-  async listJobs({ limit = 20, offset = 0, userId = null, status = 'live', sort = 'latest', ...filters } = {}) {
+  async listJobs({ limit = 20, offset = 0, userId = null, status = 'live', statuses = null, sort = 'latest', ...filters } = {}) {
     const q = this.jobSelect(userId);
-    this.applyJobFilters(q, { ...filters, status });
+    this.applyJobFilters(q, { ...filters, status, statuses });
     this.sortJobs(q, sort);
     const rows = await q.limit(limit).offset(offset);
     return rows.map(row => this.mapJob(row));
   }
 
-  async countJobs({ status = 'live', ...filters } = {}) {
+  async countJobs({ status = 'live', statuses = null, ...filters } = {}) {
     const q = db('jobs as j').count({ cnt: 'j.id' });
-    this.applyJobFilters(q, { ...filters, status });
+    this.applyJobFilters(q, { ...filters, status, statuses });
     const row = await q.first();
     return parseInt((row && (row.cnt || Object.values(row)[0])) || 0, 10);
   }
@@ -171,7 +172,7 @@ export default class MysqlJobsFreelancersRepository {
       application_email: input.applicationEmail || input.senderEmail || input.sender_email || null,
       application_url: input.applicationUrl || null,
       application_end_date: input.applicationEndDate || input.closing_date || null,
-      status: input.status || 'live',
+      status: input.status || 'pending_review',
       created_by_user_id: input.createdByUserId,
       created_at: now,
       updated_at: now
@@ -456,9 +457,10 @@ export default class MysqlJobsFreelancersRepository {
     };
   }
 
-  async listFreelanceJobs({ limit = 20, offset = 0, userId = null, status = 'live', q, skill, location, type, sort = 'latest', postedByUserId = null } = {}) {
+  async listFreelanceJobs({ limit = 20, offset = 0, userId = null, status = 'live', statuses = null, q, skill, location, type, sort = 'latest', postedByUserId = null } = {}) {
     const query = this.freelanceJobSelect(userId);
-    if (status) query.where('f.status', status);
+    if (Array.isArray(statuses) && statuses.length > 0) query.whereIn('f.status', statuses);
+    else if (status) query.where('f.status', status);
     if (q) {
       const like = `%${q}%`;
       query.andWhere(b => b.where('f.title', 'like', like).orWhere('f.company_name', 'like', like).orWhere('f.description', 'like', like));
@@ -503,7 +505,7 @@ export default class MysqlJobsFreelancersRepository {
       currency: input.currency || 'NGN',
       fee_label: input.feeLabel || null,
       application_end_date: input.applicationEndDate,
-      status: input.status || 'live',
+      status: input.status || 'pending_review',
       verified: input.verified ? 1 : 0,
       created_at: now,
       updated_at: now

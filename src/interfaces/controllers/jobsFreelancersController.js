@@ -8,6 +8,7 @@ const actor = (req) => req.user || null;
 const userId = (req) => req.user && req.user.id;
 const success = (reply, data, message = 'success') => reply.send({ success: true, message, data });
 const created = (reply, data, message = 'success') => reply.code(201).send({ success: true, message, data });
+const publicJobStatuses = ['live', 'approved', 'active'];
 const isOwnerOrAdmin = (currentActor, ownerId) => {
   if (!currentActor) return false;
   return currentActor.role === 'admin' || currentActor.id === ownerId || currentActor.userId === ownerId;
@@ -34,15 +35,15 @@ export function makeJobsFreelancersController({ useCase }) {
     listJobs: async (req, reply) => {
       try {
         const params = queryParams(req);
-        const data = await useCase.listJobs({ ...params, userId: userId(req), status: 'live' });
-        const total = await useCase.countJobs({ ...params, status: 'live' });
+        const data = await useCase.listJobs({ ...params, userId: userId(req), status: null, statuses: publicJobStatuses });
+        const total = await useCase.countJobs({ ...params, status: null, statuses: publicJobStatuses });
         return reply.send(buildPaginatedResponse(req, { data, page: params.page, perPage: params.perPage, total }));
       } catch (err) { return handleError(reply, err); }
     },
     getJob: async (req, reply) => {
       try {
         const job = await useCase.getJob(req.params.idOrSlug, userId(req));
-        if (job.status !== 'live' && !isOwnerOrAdmin(actor(req), job.createdByUserId)) throw new Error('job_not_found');
+        if (!publicJobStatuses.includes(job.status) && !isOwnerOrAdmin(actor(req), job.createdByUserId)) throw new Error('job_not_found');
         return success(reply, job);
       }
       catch (err) { return handleError(reply, err, 'job_not_found'); }
@@ -142,15 +143,15 @@ export function makeJobsFreelancersController({ useCase }) {
     listFreelanceJobs: async (req, reply) => {
       try {
         const params = queryParams(req);
-        const data = await useCase.listFreelanceJobs({ ...params, userId: userId(req), status: 'live' });
-        const total = await useCase.countFreelanceJobs({ ...params, status: 'live' });
+        const data = await useCase.listFreelanceJobs({ ...params, userId: userId(req), status: null, statuses: publicJobStatuses });
+        const total = await useCase.countFreelanceJobs({ ...params, status: null, statuses: publicJobStatuses });
         return reply.send(buildPaginatedResponse(req, { data, page: params.page, perPage: params.perPage, total }));
       } catch (err) { return handleError(reply, err); }
     },
     getFreelanceJob: async (req, reply) => {
       try {
         const job = await useCase.getFreelanceJob(req.params.idOrSlug, userId(req));
-        if (job.status !== 'live' && !isOwnerOrAdmin(actor(req), job.postedByUserId)) throw new Error('freelance_job_not_found');
+        if (!publicJobStatuses.includes(job.status) && !isOwnerOrAdmin(actor(req), job.postedByUserId)) throw new Error('freelance_job_not_found');
         return success(reply, job);
       }
       catch (err) { return handleError(reply, err, 'freelance_job_not_found'); }

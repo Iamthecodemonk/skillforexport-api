@@ -88,6 +88,9 @@ import { AnswerRepositoryImpl } from './domain/repositories/answerRepository.js'
 import MysqlJobsFreelancersRepository from './infrastructure/repositories/mysqlJobsFreelancersRepository.js';
 import JobsFreelancersUseCase from './application/use-cases/jobsFreelancersUseCase.js';
 import { makeJobsFreelancersController } from './interfaces/controllers/jobsFreelancersController.js';
+import MysqlAdvertRepository from './infrastructure/repositories/mysqlAdvertRepository.js';
+import AdvertUseCase from './application/use-cases/advertUseCase.js';
+import { makeAdvertController } from './interfaces/controllers/advertController.js';
 
 const serverLogger = logger.child('SERVER');
 const queueLogger = logger.child('EMAIL_QUEUE');
@@ -349,6 +352,13 @@ export default async function startServer() {
     Object.assign(controllers, makeJobsFreelancersController({ useCase: jobsFreelancersUseCase }));
   } catch (jobsErr) {
     serverLogger.warn('Jobs/Freelancers wiring failed', { message: jobsErr && jobsErr.message });
+  }
+  try {
+    const advertRepository = new MysqlAdvertRepository();
+    const advertUseCase = new AdvertUseCase({ repository: advertRepository });
+    Object.assign(controllers, makeAdvertController({ useCase: advertUseCase }));
+  } catch (advertErr) {
+    serverLogger.warn('Advert wiring failed', { message: advertErr && advertErr.message });
   }
   // create rate limiters if Redis client available
   let rateLimiters = null;

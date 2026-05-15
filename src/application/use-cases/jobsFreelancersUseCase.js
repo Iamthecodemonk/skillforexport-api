@@ -1,8 +1,9 @@
-const JOB_STATUSES = ['draft', 'pending_review', 'live', 'closed', 'archived'];
+const JOB_STATUSES = ['draft', 'pending_review', 'live', 'approved', 'active', 'closed', 'archived', 'deleted', 'suspended'];
 const APPLICATION_STATUSES = ['submitted', 'reviewing', 'shortlisted', 'interview', 'rejected', 'accepted', 'withdrawn'];
 const FREELANCER_STATUSES = ['draft', 'pending_review', 'available', 'certified', 'suspended'];
 const FREELANCER_AVAILABILITY = ['available_now', 'open', 'busy', 'unavailable'];
-const FREELANCE_JOB_STATUSES = ['pending_review', 'live', 'closed', 'archived'];
+const FREELANCE_JOB_STATUSES = ['pending_review', 'live', 'approved', 'active', 'closed', 'archived', 'deleted', 'suspended'];
+const PUBLIC_JOB_STATUSES = ['live', 'approved', 'active'];
 
 export default class JobsFreelancersUseCase {
   constructor({ repository }) {
@@ -32,7 +33,7 @@ export default class JobsFreelancersUseCase {
   async createJob(actor, body = {}) {
     if (!actor || !actor.id) throw new Error('unauthorized');
     if (!body.title || !(body.companyName || body.company) || !body.description) throw new Error('validation_error');
-    return this.repository.createJob({ ...body, createdByUserId: actor.id, status: body.status || 'live' });
+    return this.repository.createJob({ ...body, createdByUserId: actor.id, status: body.status || 'pending_review' });
   }
 
   async updateJob(actor, id, body = {}) {
@@ -56,6 +57,7 @@ export default class JobsFreelancersUseCase {
   async applyToJob(actor, id, body = {}) {
     if (!actor || !actor.id) throw new Error('unauthorized');
     const job = await this.getJob(id, actor.id);
+    if (!PUBLIC_JOB_STATUSES.includes(job.status)) throw new Error('job_not_found');
     return this.repository.createJobApplication({ jobId: job.id, userId: actor.id, coverLetter: body.coverLetter || null, resumeMediaId: body.resumeMediaId || null, answers: body.answers || [] });
   }
 
@@ -185,7 +187,7 @@ export default class JobsFreelancersUseCase {
   async createFreelanceJob(actor, body = {}) {
     if (!actor || !actor.id) throw new Error('unauthorized');
     if (!body.agreedToTerms || !body.title || !body.description || !(body.companyName || body.company)) throw new Error('validation_error');
-    return this.repository.createFreelanceJob({ ...body, postedByUserId: actor.id, status: body.status || 'live' });
+    return this.repository.createFreelanceJob({ ...body, postedByUserId: actor.id, status: body.status || 'pending_review' });
   }
 
   async updateFreelanceJob(actor, id, body = {}) {
@@ -209,6 +211,7 @@ export default class JobsFreelancersUseCase {
   async applyToFreelanceJob(actor, id, body = {}) {
     if (!actor || !actor.id) throw new Error('unauthorized');
     const job = await this.getFreelanceJob(id, actor.id);
+    if (!PUBLIC_JOB_STATUSES.includes(job.status)) throw new Error('freelance_job_not_found');
     return this.repository.createFreelanceJobApplication({ freelanceJobId: job.id, userId: actor.id, proposal: body.proposal || null, bidAmount: body.bidAmount || null, currency: body.currency || 'NGN', attachmentMediaIds: body.attachmentMediaIds || [] });
   }
 

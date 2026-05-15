@@ -176,7 +176,7 @@ CREATE TABLE `communities` (
 
 LOCK TABLES `communities` WRITE;
 /*!40000 ALTER TABLE `communities` DISABLE KEYS */;
-INSERT INTO `communities` VALUES ('208c3b8e-ee49-45d6-805c-88de0e97c13b','2deb48ba-a207-4636-966e-e2ad11cd7c38','09874b5f-da13-4f3d-b074-b2094cafcac6','Local Chess Club','We meet weekly to play chess',1,'2026-04-30 20:25:26','public');
+INSERT INTO `communities` VALUES ('208c3b8e-ee49-45d6-805c-88de0e97c13b','2deb48ba-a207-4636-966e-e2ad11cd7c38','09874b5f-da13-4f3d-b074-b2094cafcac6','Local Chess Club',NULL,'We meet weekly to play chess',1,'2026-04-30 20:25:26','public');
 /*!40000 ALTER TABLE `communities` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -376,6 +376,98 @@ LOCK TABLES `items` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `advert_locations`
+--
+
+DROP TABLE IF EXISTS `advert_locations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `advert_locations` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `status` enum('active','suspended','deleted') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'active',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_advert_locations_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+LOCK TABLES `advert_locations` WRITE;
+/*!40000 ALTER TABLE `advert_locations` DISABLE KEYS */;
+/*!40000 ALTER TABLE `advert_locations` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `advert_sites`
+--
+
+DROP TABLE IF EXISTS `advert_sites`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `advert_sites` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `status` enum('active','suspended','deleted') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'active',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_advert_sites_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+LOCK TABLES `advert_sites` WRITE;
+/*!40000 ALTER TABLE `advert_sites` DISABLE KEYS */;
+/*!40000 ALTER TABLE `advert_sites` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `adverts`
+--
+
+DROP TABLE IF EXISTS `adverts`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `adverts` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `location_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `site_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `duration` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `duration_days` int DEFAULT NULL,
+  `image_url` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `image_media_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `link_url` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `owner_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `owner_phone` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `owner_email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `approved_by` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `text_above` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `text_below` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `status` enum('pending_review','approved','active','expired','suspended','deleted') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pending_review',
+  `starts_at` timestamp NULL DEFAULT NULL,
+  `expires_at` timestamp NULL DEFAULT NULL,
+  `created_by_user_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_adverts_location` (`location_id`),
+  KEY `idx_adverts_site` (`site_id`),
+  KEY `idx_adverts_status_expires` (`status`,`expires_at`),
+  KEY `idx_adverts_created_by` (`created_by_user_id`),
+  CONSTRAINT `adverts_ibfk_1` FOREIGN KEY (`location_id`) REFERENCES `advert_locations` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `adverts_ibfk_2` FOREIGN KEY (`site_id`) REFERENCES `advert_sites` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `adverts_ibfk_3` FOREIGN KEY (`created_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+LOCK TABLES `adverts` WRITE;
+/*!40000 ALTER TABLE `adverts` DISABLE KEYS */;
+/*!40000 ALTER TABLE `adverts` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `job_applications`
 --
 
@@ -464,7 +556,7 @@ CREATE TABLE `jobs` (
   `application_email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `application_url` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `application_end_date` date DEFAULT NULL,
-  `status` enum('draft','pending_review','live','closed','archived') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'live',
+  `status` enum('draft','pending_review','live','approved','active','closed','archived','deleted','suspended') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pending_review',
   `created_by_user_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -579,7 +671,7 @@ CREATE TABLE `freelance_jobs` (
   `currency` varchar(12) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'NGN',
   `fee_label` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `application_end_date` date DEFAULT NULL,
-  `status` enum('pending_review','live','closed','archived') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'live',
+  `status` enum('pending_review','live','approved','active','closed','archived','deleted','suspended') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pending_review',
   `verified` tinyint(1) DEFAULT '0',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

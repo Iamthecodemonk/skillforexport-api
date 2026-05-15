@@ -572,7 +572,7 @@ export const JobResponse = {
     applicationEmail: { type: ['string','null'] },
     applicationUrl: { type: ['string','null'] },
     applicationEndDate: { type: ['string','null'] },
-    status: { type: 'string', enum: ['draft','pending_review','live','closed','archived'] },
+    status: { type: 'string', enum: ['draft','pending_review','live','approved','active','closed','archived','deleted','suspended'] },
     applicantCount: { type: 'number' },
     hasApplied: { type: ['boolean','null'] },
     createdByUserId: { type: 'string' },
@@ -580,7 +580,7 @@ export const JobResponse = {
     updatedAt: { type: 'string' }
   }
 };
-JobResponse.example = { id: 'job-uuid', slug: 'senior-software-engineer', title: 'Senior Software Engineer', companyName: 'Skills4Export', companyId: null, location: 'Remote', workMode: 'remote', type: 'full-time', salaryMin: 250000, salaryMax: null, salaryCurrency: 'NGN', salaryLabel: null, experience: '2-3', skills: ['JavaScript','Vue'], description: 'Describe the role...', summary: null, responsibilities: [], requirements: ['Qualifications and tasks...'], perks: [], applicationEmail: 'owner@example.com', applicationUrl: null, applicationEndDate: '2026-06-30', status: 'live', applicantCount: 0, hasApplied: false, createdByUserId: 'user-uuid', createdAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
+JobResponse.example = { id: 'job-uuid', slug: 'senior-software-engineer', title: 'Senior Software Engineer', companyName: 'Skills4Export', companyId: null, location: 'Remote', workMode: 'remote', type: 'full-time', salaryMin: 250000, salaryMax: null, salaryCurrency: 'NGN', salaryLabel: null, experience: '2-3', skills: ['JavaScript','Vue'], description: 'Describe the role...', summary: null, responsibilities: [], requirements: ['Qualifications and tasks...'], perks: [], applicationEmail: 'owner@example.com', applicationUrl: null, applicationEndDate: '2026-06-30', status: 'approved', applicantCount: 0, hasApplied: false, createdByUserId: 'user-uuid', createdAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
 
 export const JobCreateBody = {
   type: 'object',
@@ -631,16 +631,17 @@ export const StatusUpdateBody = {
   properties: {
     status: {
       type: 'string',
-      description: 'Status value for the target resource. Jobs/freelance jobs become public at `live`; freelancer profiles become public at `available` or `certified`.'
+      description: 'Status value for the target resource. Jobs/freelance jobs become public at `approved`, `active`, or legacy `live`; freelancer profiles become public at `available` or `certified`.'
     }
   },
   examples: [
-    { summary: 'Approve job', value: { status: 'live' } },
+    { summary: 'Approve job', value: { status: 'approved' } },
+    { summary: 'Activate advert', value: { status: 'active' } },
     { summary: 'Approve freelancer', value: { status: 'available' } },
     { summary: 'Move to review', value: { status: 'pending_review' } },
-    { summary: 'Close job', value: { status: 'closed' } }
+    { summary: 'Suspend', value: { status: 'suspended' } }
   ],
-  example: { status: 'live' }
+  example: { status: 'approved' }
 };
 
 export const AlertPreferencesResponse = {
@@ -688,14 +689,107 @@ export const FreelancerCreateBody = { type: 'object', required: ['name','title',
 export const FreelanceJobResponse = {
   type: 'object',
   properties: {
-    id: { type: 'string' }, slug: { type: 'string' }, title: { type: 'string' }, companyName: { type: 'string' }, postedByUserId: { type: 'string' }, location: { type: ['string','null'] }, type: { type: 'string', enum: ['contract','part-time','project-based','remote','hybrid'] }, skills: { type: 'array', items: { type: 'string' } }, description: { type: ['string','null'] }, qualifications: { type: ['string','null'] }, minFee: { type: ['number','null'] }, maxFee: { type: ['number','null'] }, currency: { type: ['string','null'] }, feeLabel: { type: ['string','null'] }, applicationEndDate: { type: ['string','null'] }, status: { type: 'string', enum: ['pending_review','live','closed','archived'] }, applicantCount: { type: 'number' }, verified: { type: 'boolean' }, hasApplied: { type: ['boolean','null'] }, createdAt: { type: 'string' }, updatedAt: { type: 'string' }
+    id: { type: 'string' }, slug: { type: 'string' }, title: { type: 'string' }, companyName: { type: 'string' }, postedByUserId: { type: 'string' }, location: { type: ['string','null'] }, type: { type: 'string', enum: ['contract','part-time','project-based','remote','hybrid'] }, skills: { type: 'array', items: { type: 'string' } }, description: { type: ['string','null'] }, qualifications: { type: ['string','null'] }, minFee: { type: ['number','null'] }, maxFee: { type: ['number','null'] }, currency: { type: ['string','null'] }, feeLabel: { type: ['string','null'] }, applicationEndDate: { type: ['string','null'] }, status: { type: 'string', enum: ['pending_review','live','approved','active','closed','archived','deleted','suspended'] }, applicantCount: { type: 'number' }, verified: { type: 'boolean' }, hasApplied: { type: ['boolean','null'] }, createdAt: { type: 'string' }, updatedAt: { type: 'string' }
   }
 };
-FreelanceJobResponse.example = { id: 'freelance-job-uuid', slug: 'web-app-development', title: 'Web App Development', companyName: 'TradeBridge Labs', postedByUserId: 'user-uuid', location: 'Remote', type: 'project-based', skills: ['JavaScript','React'], description: 'I need a full-featured e-commerce web application.', qualifications: 'Frontend and backend experience required.', minFee: 300000, maxFee: 320000, currency: 'NGN', feeLabel: null, applicationEndDate: '2026-06-30', status: 'live', applicantCount: 0, verified: false, hasApplied: false, createdAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
+FreelanceJobResponse.example = { id: 'freelance-job-uuid', slug: 'web-app-development', title: 'Web App Development', companyName: 'TradeBridge Labs', postedByUserId: 'user-uuid', location: 'Remote', type: 'project-based', skills: ['JavaScript','React'], description: 'I need a full-featured e-commerce web application.', qualifications: 'Frontend and backend experience required.', minFee: 300000, maxFee: 320000, currency: 'NGN', feeLabel: null, applicationEndDate: '2026-06-30', status: 'approved', applicantCount: 0, verified: false, hasApplied: false, createdAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
 export const FreelanceJobCreateBody = { type: 'object', required: ['title','skills','location','type','description','qualifications','companyName','applicationEndDate','agreedToTerms'], properties: { title: { type: 'string' }, skills: { type: 'array', items: { type: 'string' } }, location: { type: 'string' }, type: { type: 'string', enum: ['contract','part-time','project-based','remote','hybrid'] }, description: { type: 'string' }, qualifications: { type: 'string' }, minFee: { type: 'number' }, maxFee: { type: 'number' }, currency: { type: 'string' }, companyName: { type: 'string' }, applicationEndDate: { type: 'string' }, agreedToTerms: { type: 'boolean' } }, example: { title: 'Web App Development', skills: ['JavaScript','React'], location: 'Remote', type: 'project-based', description: 'I need a full-featured e-commerce web application.', qualifications: 'Frontend and backend experience required.', minFee: 300000, maxFee: 320000, currency: 'NGN', companyName: 'TradeBridge Labs', applicationEndDate: '2026-06-30', agreedToTerms: true } };
 export const FreelanceApplicationBody = { type: 'object', properties: { proposal: { type: 'string' }, bidAmount: { type: 'number' }, currency: { type: 'string' }, attachmentMediaIds: { type: 'array', items: { type: 'string' } } }, example: { proposal: 'I can deliver this in 3 weeks.', bidAmount: 300000, currency: 'NGN', attachmentMediaIds: [] } };
 export const FreelanceApplicationResponse = { type: 'object', properties: { id: { type: 'string' }, freelanceJobId: { type: 'string' }, userId: { type: 'string' }, freelanceJob: { type: ['object','null'], additionalProperties: true }, proposal: { type: ['string','null'] }, bidAmount: { type: ['number','null'] }, currency: { type: ['string','null'] }, attachmentMediaIds: { type: 'array', items: { type: 'string' } }, status: { type: 'string' }, createdAt: { type: 'string' }, appliedAt: { type: 'string' }, updatedAt: { type: 'string' } } };
 FreelanceApplicationResponse.example = { id: 'application-uuid', freelanceJobId: 'freelance-job-uuid', userId: 'user-uuid', freelanceJob: null, proposal: 'I can deliver this in 3 weeks.', bidAmount: 300000, currency: 'NGN', attachmentMediaIds: [], status: 'submitted', createdAt: '2026-05-07T10:00:00Z', appliedAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
+
+export const AdvertLocationResponse = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    description: { type: ['string','null'] },
+    status: { type: 'string', enum: ['active','suspended','deleted'] },
+    createdAt: { type: 'string' },
+    updatedAt: { type: 'string' }
+  }
+};
+AdvertLocationResponse.example = { id: 'ad-location-uuid', name: 'Feed right sidebar', description: 'Homepage and feed sidebar placement', status: 'active', createdAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
+
+export const AdvertSiteResponse = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    description: { type: ['string','null'] },
+    status: { type: 'string', enum: ['active','suspended','deleted'] },
+    createdAt: { type: 'string' },
+    updatedAt: { type: 'string' }
+  }
+};
+AdvertSiteResponse.example = { id: 'ad-site-uuid', name: 'Skills4Export web', description: 'Main web application', status: 'active', createdAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
+
+export const AdvertOptionCreateBody = {
+  type: 'object',
+  required: ['name'],
+  properties: {
+    name: { type: 'string' },
+    description: { type: 'string' },
+    status: { type: 'string', enum: ['active','suspended','deleted'] }
+  },
+  example: { name: 'Feed right sidebar', description: 'Homepage and feed sidebar placement', status: 'active' }
+};
+
+export const AdvertResponse = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    locationId: { type: 'string' },
+    location: { type: ['object','null'], additionalProperties: true },
+    siteId: { type: 'string' },
+    site: { type: ['object','null'], additionalProperties: true },
+    duration: { type: ['string','number','null'] },
+    durationDays: { type: ['number','null'] },
+    imageUrl: { type: ['string','null'] },
+    imageMediaId: { type: ['string','null'] },
+    linkUrl: { type: ['string','null'] },
+    ownerName: { type: ['string','null'] },
+    ownerPhone: { type: ['string','null'] },
+    ownerEmail: { type: ['string','null'] },
+    approvedBy: { type: ['string','null'] },
+    textAbove: { type: ['string','null'] },
+    textBelow: { type: ['string','null'] },
+    status: { type: 'string', enum: ['pending_review','approved','active','expired','suspended','deleted'] },
+    startsAt: { type: ['string','null'] },
+    expiresAt: { type: ['string','null'] },
+    isExpired: { type: 'boolean' },
+    createdByUserId: { type: ['string','null'] },
+    createdAt: { type: 'string' },
+    updatedAt: { type: 'string' }
+  }
+};
+AdvertResponse.example = { id: 'advert-uuid', locationId: 'ad-location-uuid', location: { id: 'ad-location-uuid', name: 'Feed right sidebar', status: 'active' }, siteId: 'ad-site-uuid', site: { id: 'ad-site-uuid', name: 'Skills4Export web', status: 'active' }, duration: '30 days', durationDays: 30, imageUrl: 'https://res.cloudinary.com/demo/image/upload/ad.png', imageMediaId: null, linkUrl: 'https://example.com', ownerName: 'Acme Exporters', ownerPhone: '+2348012345678', ownerEmail: 'ads@example.com', approvedBy: 'Admin User', textAbove: 'Sponsored', textBelow: 'Export smarter today', status: 'approved', startsAt: '2026-05-07T10:00:00Z', expiresAt: '2026-06-06T10:00:00Z', isExpired: false, createdByUserId: 'admin-user-uuid', createdAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
+
+export const AdvertCreateBody = {
+  type: 'object',
+  required: ['locationId','siteId','duration'],
+  properties: {
+    locationId: { type: 'string' },
+    siteId: { type: 'string' },
+    duration: { type: ['string','number'] },
+    durationDays: { type: 'number' },
+    imageUrl: { type: 'string' },
+    imageMediaId: { type: 'string' },
+    mediaPath: { type: 'string' },
+    linkUrl: { type: 'string' },
+    ownerName: { type: 'string' },
+    ownerPhone: { type: 'string' },
+    ownerContact: { type: 'string' },
+    ownerEmail: { type: 'string' },
+    approvedBy: { type: 'string' },
+    textAbove: { type: 'string' },
+    textBelow: { type: 'string' },
+    status: { type: 'string', enum: ['pending_review','approved','active','expired','suspended','deleted'] },
+    startsAt: { type: 'string' },
+    expiresAt: { type: 'string' }
+  },
+  example: { locationId: 'ad-location-uuid', siteId: 'ad-site-uuid', duration: '30 days', imageUrl: 'https://res.cloudinary.com/demo/image/upload/ad.png', linkUrl: 'https://example.com', ownerName: 'Acme Exporters', ownerPhone: '+2348012345678', approvedBy: 'Admin User', textAbove: 'Sponsored', textBelow: 'Export smarter today', status: 'pending_review' }
+};
 
 function makePaginatedRootSchema(itemSchema, exampleItem) {
   return {
@@ -1269,6 +1363,9 @@ export const JobApplicationPaginatedResponse = makePaginatedRootSchema(JobApplic
 export const FreelancerPaginatedResponse = makePaginatedRootSchema(FreelancerProfileResponse, FreelancerProfileResponse.example);
 export const FreelanceJobPaginatedResponse = makePaginatedRootSchema(FreelanceJobResponse, FreelanceJobResponse.example);
 export const FreelanceApplicationPaginatedResponse = makePaginatedRootSchema(FreelanceApplicationResponse, FreelanceApplicationResponse.example);
+export const AdvertPaginatedResponse = makePaginatedRootSchema(AdvertResponse, AdvertResponse.example);
+export const AdvertLocationPaginatedResponse = makePaginatedRootSchema(AdvertLocationResponse, AdvertLocationResponse.example);
+export const AdvertSitePaginatedResponse = makePaginatedRootSchema(AdvertSiteResponse, AdvertSiteResponse.example);
 
 export const ReactionBody = {
   type: 'object',
@@ -1359,6 +1456,14 @@ export default {
   FreelanceApplicationBody,
   FreelanceApplicationResponse,
   FreelanceApplicationPaginatedResponse,
+  AdvertResponse,
+  AdvertCreateBody,
+  AdvertPaginatedResponse,
+  AdvertLocationResponse,
+  AdvertSiteResponse,
+  AdvertOptionCreateBody,
+  AdvertLocationPaginatedResponse,
+  AdvertSitePaginatedResponse,
   ReactionBody,
   ReactionToggleResponse,
   PostSaveBody,

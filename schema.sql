@@ -454,6 +454,7 @@ CREATE TABLE `adverts` (
   PRIMARY KEY (`id`),
   KEY `idx_adverts_location` (`location_id`),
   KEY `idx_adverts_site` (`site_id`),
+  KEY `idx_adverts_image_media` (`image_media_id`),
   KEY `idx_adverts_status_expires` (`status`,`expires_at`),
   KEY `idx_adverts_created_by` (`created_by_user_id`),
   CONSTRAINT `adverts_ibfk_1` FOREIGN KEY (`location_id`) REFERENCES `advert_locations` (`id`) ON DELETE RESTRICT,

@@ -188,6 +188,7 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
               folder: process.env.CLOUDINARY_FOLDER_BANNERS || 'banners'
             },
             post_image: { allowedMime: ['image/jpeg', 'image/png', 'image/webp'], maxBytes: parseInt(process.env.MAX_POST_IMAGE_BYTES), folder: process.env.CLOUDINARY_FOLDER_POSTS || 'posts' },
+            advert_image: { allowedMime: ['image/jpeg', 'image/png', 'image/webp'], maxBytes: parseInt(process.env.MAX_ADVERT_IMAGE_BYTES || process.env.MAX_POST_IMAGE_BYTES || '5242880', 10), folder: process.env.CLOUDINARY_FOLDER_ADVERTS || 'adverts' },
             document: { allowedMime: ['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document'], maxBytes: parseInt(process.env.MAX_DOCUMENT_BYTES || '52428800', 10), folder: process.env.CLOUDINARY_FOLDER_DOCS || 'documents' }
           };
           const cfg = kindConfig[kind] || kindConfig.avatar;

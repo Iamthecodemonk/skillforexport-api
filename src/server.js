@@ -355,7 +355,8 @@ export default async function startServer() {
   }
   try {
     const advertRepository = new MysqlAdvertRepository();
-    const advertUseCase = new AdvertUseCase({ repository: advertRepository });
+    const advertAssetRepository = new MysqlUserAssetRepository();
+    const advertUseCase = new AdvertUseCase({ repository: advertRepository, assetRepository: advertAssetRepository });
     Object.assign(controllers, makeAdvertController({ useCase: advertUseCase }));
   } catch (advertErr) {
     serverLogger.warn('Advert wiring failed', { message: advertErr && advertErr.message });

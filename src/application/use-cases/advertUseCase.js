@@ -4,8 +4,9 @@ const OPTION_STATUSES = ['active', 'suspended', 'deleted'];
 const ACTIVE_ADVERT_STATUSES = ['approved', 'active'];
 
 export default class AdvertUseCase {
-  constructor({ repository }) {
+  constructor({ repository, assetRepository = null }) {
     this.repository = repository;
+    this.assetRepository = assetRepository;
   }
 
   assertAdmin(actor) {
@@ -41,13 +42,15 @@ export default class AdvertUseCase {
   async createAdvert(actor, body = {}) {
     this.assertAdmin(actor);
     if (!body.locationId || !body.siteId || !body.duration) throw new Error('validation_error');
-    return this.repository.createAdvert({ ...body, createdByUserId: actor.id, status: body.status || 'pending_review' });
+    const mediaPatch = await this.resolveImageAsset(body);
+    return this.repository.createAdvert({ ...body, ...mediaPatch, createdByUserId: actor.id, status: body.status || 'pending_review' });
   }
 
   async updateAdvert(actor, id, body = {}) {
     this.assertAdmin(actor);
     const advert = await this.getAdvert(id);
-    return this.repository.updateAdvert(advert.id, body);
+    const mediaPatch = await this.resolveImageAsset(body);
+    return this.repository.updateAdvert(advert.id, { ...body, ...mediaPatch });
   }
 
   async updateAdvertStatus(actor, id, status) {
@@ -55,6 +58,27 @@ export default class AdvertUseCase {
     if (!ADVERT_STATUSES.includes(status)) throw new Error('validation_error');
     const advert = await this.getAdvert(id);
     return this.repository.updateAdvert(advert.id, { status });
+  }
+
+  async resolveImageAsset(body = {}) {
+    const imageMediaId = body.imageMediaId || body.mediaAssetId || body.imageAssetId;
+    if (!imageMediaId) return {};
+    if (!this.assetRepository || typeof this.assetRepository.findById !== 'function') {
+      throw new Error('media_validation_unavailable');
+    }
+
+    const asset = await this.assetRepository.findById(imageMediaId).catch(() => null);
+    if (!asset || !asset.url) throw new Error('media_not_ready');
+
+    const mimeType = asset.mime_type || asset.mimeType || '';
+    const isImageKind = ['image', 'post_image', 'avatar', 'banner'].includes(asset.kind);
+    if (mimeType && !String(mimeType).startsWith('image/')) throw new Error('invalid_media_type');
+    if (!mimeType && !isImageKind) throw new Error('invalid_media_type');
+
+    return {
+      imageMediaId,
+      imageUrl: asset.url
+    };
   }
 
   async listLocations(params = {}) {

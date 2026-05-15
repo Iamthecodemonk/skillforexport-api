@@ -773,9 +773,11 @@ export const AdvertCreateBody = {
     siteId: { type: 'string' },
     duration: { type: ['string','number'] },
     durationDays: { type: 'number' },
-    imageUrl: { type: 'string' },
-    imageMediaId: { type: 'string' },
-    mediaPath: { type: 'string' },
+    imageUrl: { type: 'string', description: 'Resolved from imageMediaId after media upload; kept for legacy records.' },
+    imageMediaId: { type: 'string', description: 'Completed user_assets id from the platform media upload flow.' },
+    mediaAssetId: { type: 'string', description: 'Alias for imageMediaId.' },
+    imageAssetId: { type: 'string', description: 'Alias for imageMediaId.' },
+    mediaPath: { type: 'string', description: 'Legacy alias for imageUrl.' },
     linkUrl: { type: 'string' },
     ownerName: { type: 'string' },
     ownerPhone: { type: 'string' },
@@ -788,7 +790,7 @@ export const AdvertCreateBody = {
     startsAt: { type: 'string' },
     expiresAt: { type: 'string' }
   },
-  example: { locationId: 'ad-location-uuid', siteId: 'ad-site-uuid', duration: '30 days', imageUrl: 'https://res.cloudinary.com/demo/image/upload/ad.png', linkUrl: 'https://example.com', ownerName: 'Acme Exporters', ownerPhone: '+2348012345678', approvedBy: 'Admin User', textAbove: 'Sponsored', textBelow: 'Export smarter today', status: 'pending_review' }
+  example: { locationId: 'ad-location-uuid', siteId: 'ad-site-uuid', duration: '30 days', imageMediaId: 'asset-uuid', linkUrl: 'https://example.com', ownerName: 'Acme Exporters', ownerPhone: '+2348012345678', approvedBy: 'Admin User', textAbove: 'Sponsored', textBelow: 'Export smarter today', status: 'pending_review' }
 };
 
 function makePaginatedRootSchema(itemSchema, exampleItem) {
@@ -1095,8 +1097,8 @@ export const AvatarUploadBody = {
 export const MediaRegisterBody = {
   type: 'object',
   required: ['publicId'],
-  properties: { publicId: { type: 'string' }, kind: { type: 'string' }, replace: { type: 'boolean' }, pageId: { type: ['string','null'] } },
-  example: { publicId: 'banners/abcd1234', kind: 'banner', pageId: null }
+  properties: { publicId: { type: 'string' }, kind: { type: 'string', description: 'Use advert_image for advert uploads.' }, replace: { type: 'boolean' }, pageId: { type: ['string','null'] } },
+  example: { publicId: 'adverts/abcd1234', kind: 'advert_image', pageId: null }
 };
 
 export const JobAcceptedResponse = {

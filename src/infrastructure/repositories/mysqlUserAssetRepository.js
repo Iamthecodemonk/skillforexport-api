@@ -5,7 +5,7 @@ function normalizeAssetKind(kind) {
   if (allowedKinds.has(kind)) {
     return kind;
   }
-  if (kind === 'banner' || kind === 'post_image') {
+  if (kind === 'banner' || kind === 'post_image' || kind === 'advert_image') {
     return 'image';
   }
   return 'other';

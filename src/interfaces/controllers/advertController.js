@@ -16,6 +16,9 @@ function handleError(reply, err, notFoundCode = 'not_found') {
   if (err.message === 'unauthorized') return sendError(reply, 401, 'unauthorized', 'Unauthorized');
   if (err.message === 'forbidden') return sendError(reply, 403, 'forbidden', 'Forbidden');
   if (err.message === 'validation_error') return sendError(reply, 422, 'validation_error', 'Validation error');
+  if (err.message === 'media_validation_unavailable') return sendError(reply, 503, 'media_validation_unavailable', 'Media validation is unavailable');
+  if (err.message === 'media_not_ready') return sendError(reply, 422, 'media_not_ready', 'Uploaded advert image is not ready yet');
+  if (err.message === 'invalid_media_type') return sendError(reply, 422, 'invalid_media_type', 'Advert image must be an image asset');
   if (err.message && err.message.includes('not_found')) return sendError(reply, 404, err.message || notFoundCode, 'Not found');
   log.error('request failed', { message: err.message, stack: err.stack });
   return sendError(reply, 500, 'internal_error', 'Internal server error');

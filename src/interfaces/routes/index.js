@@ -757,7 +757,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'registerMedia',
       tags: ['Media'],
-      description: 'Register a direct client upload (Cloudinary public id) so the server can validate, create an asset record and enqueue processing. Recommended flow: upload media first (or perform direct client upload), then call this endpoint with the provider public id. Server-side validation performed: allowed MIME types (image/jpeg,image/png,image/webp), max file size (enforced by the media worker, see MAX_POST_IMAGE_BYTES env), and optional checks per `kind` (e.g., avatar/banner uniqueness). The endpoint returns a job id — poll `GET /media/jobs/:id` for processing status and detailed per-asset errors (e.g., file_too_large, unsupported_media_type). If you intend to attach media to a post, wait until job status is `completed` and asset record has a `url` before creating the post.',
+      description: 'Register a direct client upload (Cloudinary public id) so the server can validate, create an asset record and enqueue processing. Recommended flow: upload media first (or perform direct client upload), then call this endpoint with the provider public id. Server-side validation performed: allowed MIME types (image/jpeg,image/png,image/webp), max file size (enforced by the media worker, see MAX_POST_IMAGE_BYTES env), and optional checks per `kind` (e.g., avatar/banner uniqueness). Use `kind=advert_image` for advert images. The endpoint returns a job id — poll `GET /media/jobs/:id` for processing status and detailed per-asset errors (e.g., file_too_large, unsupported_media_type). If you intend to attach media to a post or advert, wait until job status is `completed` and asset record has a `url` before creating the record.',
       body: schemas.MediaRegisterBody,
       response: {
         202: schemas.JobAcceptedResponse,
@@ -801,7 +801,7 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Media', 'Users'],
       description: 'Upload avatar file (multipart) - server accepts file and enqueues background validation and Cloudinary upload. Use kind=banner to upload a banner. If image already exists, pass ?replace=true or clear it first using PUT /users/:id/profile with { avatar: null } or { banner: null }.',
       parameters: [
-        { name: 'kind', in: 'query', schema: { type: 'string' }, description: 'Optional kind (avatar, banner, post_image, document) to control validation and folder' },
+        { name: 'kind', in: 'query', schema: { type: 'string' }, description: 'Optional kind (avatar, banner, post_image, advert_image, document) to control validation and folder' },
         { name: 'replace', in: 'query', schema: { type: 'boolean' }, description: 'When true, replace existing avatar' }
       ],
       requestBody: {

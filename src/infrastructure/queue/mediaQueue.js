@@ -1,4 +1,4 @@
-import { Queue, Worker } from 'bullmq';
+import { Queue, UnrecoverableError, Worker } from 'bullmq';
 import { fileTypeFromFile } from 'file-type';
 import { v4 as uuidv4 } from 'uuid';
 import logger from '../../utils/logger.js';
@@ -23,9 +23,7 @@ async function uploadImageUrl(cloudinary, url, options = {}) {
     const message = String(err && err.message ? err.message : '');
     const lower = message.toLowerCase();
     if (lower.includes('html response') || lower.includes('resource not found') || lower.includes('invalid image file')) {
-      const normalized = new Error('invalid_image_url');
-      normalized.cause = err;
-      throw normalized;
+      throw new UnrecoverableError('invalid_image_url');
     }
     throw err;
   }

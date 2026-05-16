@@ -37,9 +37,36 @@ export function makePostController({ useCase = null }) {
 
         return reply.code(201).send({ success: true, message: 'Post created successfully', data: created });
       } catch (err) {
-        postLogger.error('createPost error', { message: err.message, stack: err.stack });
+        const expectedErrors = new Set([
+          'user_required',
+          'title_required',
+          'content_required',
+          'community_not_found',
+          'community_inactive',
+          'not_a_member',
+          'media_validation_unavailable',
+          'media_not_ready'
+        ]);
+        if (!expectedErrors.has(err.message)) {
+          postLogger.error('createPost error', { message: err.message, stack: err.stack });
+        }
         if (err.message === 'user_required' || err.message === 'content_required') {
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        }
+        if (err.message === 'title_required') {
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        }
+        if (err.message === 'community_not_found') {
+          return reply.code(404).send({ success: false, error: { code: 'community_not_found', message: 'Community not found' } });
+        }
+        if (err.message === 'community_inactive') {
+          return reply.code(403).send({ success: false, error: { code: 'community_inactive', message: 'Community is inactive' } });
+        }
+        if (err.message === 'not_a_member') {
+          return reply.code(403).send({ success: false, error: { code: 'not_a_member', message: 'Join the community before posting' } });
+        }
+        if (err.message === 'media_validation_unavailable') {
+          return reply.code(503).send({ success: false, error: { code: 'media_validation_unavailable', message: 'Media validation is unavailable' } });
         }
         if (err.message === 'media_not_ready') {
           return reply.code(422).send({ success: false, error: { code: 'media_not_ready', message: 'One or more media assets are not yet processed' } });

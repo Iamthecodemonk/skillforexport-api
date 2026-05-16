@@ -2,6 +2,14 @@ import db from '../knexConfig.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export default class MysqlCommunityRepository {
+  mapCommunity(row) {
+    if (!row) return null;
+    return {
+      ...row,
+      membersOnlyPosting: !(row.members_only_posting === 0 || row.members_only_posting === false || row.members_only_posting === '0')
+    };
+  }
+
   toPersistence(record = {}, { includeOwner = false } = {}) {
     const payload = {};
 
@@ -25,6 +33,12 @@ export default class MysqlCommunityRepository {
         ? record.default_post_visibility
         : record.defaultPostVisibility;
     }
+    if (Object.prototype.hasOwnProperty.call(record, 'members_only_posting') || Object.prototype.hasOwnProperty.call(record, 'membersOnlyPosting')) {
+      const value = typeof record.members_only_posting !== 'undefined'
+        ? record.members_only_posting
+        : record.membersOnlyPosting;
+      payload.members_only_posting = value === false || value === 0 || value === '0' ? 0 : 1;
+    }
     if (Object.prototype.hasOwnProperty.call(record, 'is_active') || Object.prototype.hasOwnProperty.call(record, 'isActive')) {
       payload.is_active = typeof record.is_active !== 'undefined' ? record.is_active : record.isActive;
     }
@@ -33,7 +47,7 @@ export default class MysqlCommunityRepository {
   }
 
   async findById(id) {
-    return db('communities').where({ id }).first();
+    return this.mapCommunity(await db('communities').where({ id }).first());
   }
 
   async create(record) {
@@ -44,10 +58,13 @@ export default class MysqlCommunityRepository {
       is_active: typeof record.is_active !== 'undefined'
         ? record.is_active
         : (typeof record.isActive !== 'undefined' ? record.isActive : 1),
+      members_only_posting: typeof record.members_only_posting !== 'undefined'
+        ? record.members_only_posting
+        : (typeof record.membersOnlyPosting !== 'undefined' ? (record.membersOnlyPosting ? 1 : 0) : 0),
       created_at: new Date()
     };
     await db('communities').insert(payload);
-    return db('communities').where({ id }).first();
+    return this.findById(id);
   }
 
   async update(id, updates) {
@@ -55,7 +72,7 @@ export default class MysqlCommunityRepository {
     if (Object.keys(payload).length > 0) {
       await db('communities').where({ id }).update(payload);
     }
-    return db('communities').where({ id }).first();
+    return this.findById(id);
   }
 
   async delete(id) {
@@ -64,11 +81,13 @@ export default class MysqlCommunityRepository {
   }
 
   async listByCategory(categoryId) {
-    return db('communities').where({ category_id: categoryId }).orderBy('name', 'asc');
+    const rows = await db('communities').where({ category_id: categoryId }).orderBy('name', 'asc');
+    return rows.map(row => this.mapCommunity(row));
   }
 
   async listAll() {
-    return db('communities').orderBy('name', 'asc');
+    const rows = await db('communities').orderBy('name', 'asc');
+    return rows.map(row => this.mapCommunity(row));
   }
 
   async list({ offset = 0, limit = 20, q = null, categoryId = null } = {}) {
@@ -126,6 +145,7 @@ export default class MysqlCommunityRepository {
       ...community
     }) => ({
       ...community,
+      membersOnlyPosting: !(community.members_only_posting === 0 || community.members_only_posting === false || community.members_only_posting === '0'),
       category: categoryId ? { id: categoryId, name: categoryName } : null,
       posts_count: parseInt(posts_count || 0, 10),
       post_likes_count: parseInt(post_likes_count || 0, 10),

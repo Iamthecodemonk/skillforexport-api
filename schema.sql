@@ -160,6 +160,7 @@ CREATE TABLE `communities` (
   `icon` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `is_active` tinyint(1) DEFAULT '1',
+  `members_only_posting` tinyint(1) DEFAULT '0',
   `created_at` timestamp NULL DEFAULT NULL,
   `default_post_visibility` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -176,7 +177,7 @@ CREATE TABLE `communities` (
 
 LOCK TABLES `communities` WRITE;
 /*!40000 ALTER TABLE `communities` DISABLE KEYS */;
-INSERT INTO `communities` VALUES ('208c3b8e-ee49-45d6-805c-88de0e97c13b','2deb48ba-a207-4636-966e-e2ad11cd7c38','09874b5f-da13-4f3d-b074-b2094cafcac6','Local Chess Club',NULL,'We meet weekly to play chess',1,'2026-04-30 20:25:26','public');
+INSERT INTO `communities` VALUES ('208c3b8e-ee49-45d6-805c-88de0e97c13b','2deb48ba-a207-4636-966e-e2ad11cd7c38','09874b5f-da13-4f3d-b074-b2094cafcac6','Local Chess Club',NULL,'We meet weekly to play chess',1,0,'2026-04-30 20:25:26','public');
 /*!40000 ALTER TABLE `communities` ENABLE KEYS */;
 UNLOCK TABLES;
 

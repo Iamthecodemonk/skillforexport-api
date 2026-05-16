@@ -22,7 +22,10 @@ export default class PostUseCase {
           throw new Error('community_inactive');
         }
       }
-      if (this.communityMemberRepository && typeof this.communityMemberRepository.findByUserAndCommunity === 'function') {
+      const membersOnlyPosting = typeof community.members_only_posting === 'undefined'
+        ? true
+        : !(community.members_only_posting === 0 || community.members_only_posting === false || community.members_only_posting === '0');
+      if (membersOnlyPosting && this.communityMemberRepository && typeof this.communityMemberRepository.findByUserAndCommunity === 'function') {
         const member = await this.communityMemberRepository.findByUserAndCommunity(userId, communityId);
         if (!member) throw new Error('not_a_member');
       }

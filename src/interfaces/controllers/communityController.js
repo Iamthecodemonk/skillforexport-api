@@ -54,7 +54,11 @@ export function makeCommunityController({ useCase = null }) {
         const actorId = req.user && req.user.id;
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const { name, icon, description, categoryId, defaultPostVisibility } = req.body || {};
-        const created = await useCase.createCommunity({ name, icon, description, categoryId, ownerId: actorId, defaultPostVisibility });
+        const body = req.body || {};
+        const membersOnlyPosting = typeof body.membersOnlyPosting !== 'undefined'
+          ? body.membersOnlyPosting
+          : (typeof body.members_only_posting !== 'undefined' ? body.members_only_posting : false);
+        const created = await useCase.createCommunity({ name, icon, description, categoryId, ownerId: actorId, defaultPostVisibility, membersOnlyPosting });
         return reply.code(201).send({ success: true, data: created });
       } catch (err) {
         log.error('createCommunity error', { message: err.message });

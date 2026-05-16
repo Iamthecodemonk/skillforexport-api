@@ -50,7 +50,7 @@ export default class CommunityUseCase {
     return category ? category.id : null;
   }
 
-  async createCommunity({ id = null, categoryId = null, name, icon = null, description = null, ownerId = null, defaultPostVisibility = 'public' }) {
+  async createCommunity({ id = null, categoryId = null, name, icon = null, description = null, ownerId = null, defaultPostVisibility = 'public', membersOnlyPosting = false }) {
     if (!name || !ownerId) 
         throw new Error('validation_failed');
     const allowedVisibility = ['public', 'connections', 'community'];
@@ -58,7 +58,7 @@ export default class CommunityUseCase {
       throw new Error('validation_failed');
     }
     const communityCategoryId = categoryId || await this.getDefaultCategoryId();
-    const payload = { id: id || uuidv4(), category_id: communityCategoryId, name, icon, description, created_at: new Date(), owner_id: ownerId, default_post_visibility: defaultPostVisibility };
+    const payload = { id: id || uuidv4(), category_id: communityCategoryId, name, icon, description, created_at: new Date(), owner_id: ownerId, default_post_visibility: defaultPostVisibility, members_only_posting: membersOnlyPosting ? 1 : 0 };
     const created = await this.communityRepository.create(payload);
     // add owner as admin member
     if (this.communityMemberRepository) {

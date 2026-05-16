@@ -171,6 +171,7 @@ export default class MysqlUserRepository {
         JSON_OBJECT(
           'id', up.id,
           'username', up.username,
+          'displayName', up.display_name,
           'bio', up.bio,
           'location', up.location,
           'avatar', up.avatar,
@@ -229,6 +230,7 @@ export default class MysqlUserRepository {
       updated_at: row.updated_at,
       profile: {
         username: row.username || null,
+        displayName: row.display_name || null,
         avatar: row.avatar || null,
         bio: row.bio || null,
         location: row.location || null
@@ -262,6 +264,7 @@ export default class MysqlUserRepository {
         'u.created_at',
         'u.updated_at',
         'up.username',
+        'up.display_name',
         'up.avatar',
         'up.bio',
         'up.location',
@@ -356,6 +359,52 @@ export default class MysqlUserRepository {
   async findWithActivity(id) {
     const rows = await this.listWithActivity({ limit: 1, offset: 0, userId: id });
     return rows[0] || null;
+  }
+
+  async findPublicProfileById(id) {
+    const sql = `
+      SELECT
+        u.id,
+        up.display_name as displayName,
+        up.username,
+        up.avatar,
+        up.bio,
+        up.location,
+        IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', s.id, 'skill', s.skill, 'level', s.level)) FROM user_skills s WHERE s.user_id = u.id), JSON_ARRAY()) as skills,
+        IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', edu.id, 'school', edu.school, 'degree', edu.degree, 'field', edu.field, 'start_date', edu.start_date, 'end_date', edu.end_date)) FROM user_education edu WHERE edu.user_id = u.id), JSON_ARRAY()) as education,
+        IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', exp.id, 'company', exp.company, 'title', exp.title, 'employment_type', exp.employment_type, 'start_date', exp.start_date, 'end_date', exp.end_date, 'is_current', exp.is_current, 'description', exp.description)) FROM user_experiences exp WHERE exp.user_id = u.id), JSON_ARRAY()) as experiences,
+        IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', pfo.id, 'title', pfo.title, 'description', pfo.description, 'link', pfo.link, 'pictures', IFNULL(pfo.pictures, JSON_ARRAY()))) FROM user_portfolios pfo WHERE pfo.user_id = u.id), JSON_ARRAY()) as portfolios,
+        IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', p.id, 'title', p.title, 'content', p.content, 'visibility', p.visibility, 'community_id', p.community_id, 'page_id', p.page_id, 'created_at', p.created_at, 'updated_at', p.updated_at)) FROM posts p WHERE p.user_id = u.id AND p.visibility = 'public'), JSON_ARRAY()) as posts,
+        (SELECT COUNT(*) FROM followers f WHERE f.following_id = u.id) as followerCount,
+        (SELECT COUNT(*) FROM post_reactions pr JOIN posts p ON p.id = pr.post_id WHERE p.user_id = u.id) as postScore,
+        (SELECT COUNT(*) FROM comment_reactions cr JOIN comments cm ON cm.id = cr.comment_id WHERE cm.user_id = u.id) as commentScore
+      FROM users u
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      WHERE u.id = ?
+      LIMIT 1
+    `;
+    const res = await db.raw(sql, [id]);
+    const rows = Array.isArray(res) && Array.isArray(res[0]) ? res[0] : (res.rows || res[0] || res);
+    const row = rows && rows.length ? rows[0] : null;
+    if (!row) return null;
+    const postScore = parseInt(row.postScore || 0, 10);
+    const commentScore = parseInt(row.commentScore || 0, 10);
+    return {
+      id: row.id,
+      name: row.displayName || row.username || null,
+      displayName: row.displayName || null,
+      username: row.username || null,
+      avatar: row.avatar || null,
+      bio: row.bio || null,
+      location: row.location || null,
+      skills: parseJsonArray(row.skills),
+      education: parseJsonArray(row.education),
+      experiences: parseJsonArray(row.experiences),
+      portfolios: parseJsonArray(row.portfolios),
+      posts: parseJsonArray(row.posts),
+      scoreTotals: { posts: postScore, comments: commentScore, total: postScore + commentScore },
+      followerCount: parseInt(row.followerCount || 0, 10)
+    };
   }
 
   async countAll() {

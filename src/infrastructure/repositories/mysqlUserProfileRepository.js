@@ -3,6 +3,16 @@ import logger from '../../utils/logger.js';
 
 const repoLog = logger.child('MYSQL_USER_PROFILE_REPO');
 
+const normalizePatch = (patch = {}) => {
+  const payload = { ...patch };
+  if (typeof payload.displayName !== 'undefined') {
+    payload.display_name = payload.displayName;
+    delete payload.displayName;
+  }
+  delete payload.userId;
+  return payload;
+};
+
 export default class MysqlUserProfileRepository {
   async findByUserId(userId) {
     if (!userId) return null;
@@ -16,7 +26,7 @@ export default class MysqlUserProfileRepository {
 
   async create(record) {
     const now = new Date();
-    const payload = { ...record, created_at: now };
+    const payload = { ...normalizePatch(record), created_at: now };
     try {
       repoLog.debug('Inserting user_profile', { payload });
       await db('user_profiles').insert(payload);
@@ -34,7 +44,7 @@ export default class MysqlUserProfileRepository {
 
   async update(id, patch) {
     const now = new Date();
-    await db('user_profiles').where({ id }).update({ ...patch, updated_at: now });
+    await db('user_profiles').where({ id }).update({ ...normalizePatch(patch), updated_at: now });
     return db('user_profiles').where({ id }).first();
   }
 }

@@ -8,7 +8,7 @@ export default class PostUseCase {
     this.postRepository = postRepository;
   }
 
-  async CreatePost({ userId, communityId = null, pageId = null, title, content, visibility = null }) {
+  async CreatePost({ userId, communityId = null, pageId = null, title, content, visibility = null, parentPostId = null, originalPostId = null, mediaAssetIds = [] }) {
     if (!userId) throw new Error('user_required');
     if (!title || String(title).trim() === '') throw new Error('title_required');
     if (!content || String(content).trim() === '') throw new Error('content_required');
@@ -36,8 +36,8 @@ export default class PostUseCase {
     }
     // Validate provided media assets (if any) to ensure uploads completed
     let mediaAssets = [];
-    if (Array.isArray(arguments[0].mediaAssetIds) && arguments[0].mediaAssetIds.length > 0) {
-      const assetIds = arguments[0].mediaAssetIds;
+    if (Array.isArray(mediaAssetIds) && mediaAssetIds.length > 0) {
+      const assetIds = mediaAssetIds;
       if (!this.assetRepository || typeof this.assetRepository.findById !== 'function') {
         throw new Error('media_validation_unavailable');
       }
@@ -56,6 +56,7 @@ export default class PostUseCase {
       user_id: userId,
       community_id: communityId,
       page_id: pageId,
+      parent_post_id: parentPostId || originalPostId || null,
       visibility: visibility || 'public',
       title: String(title),
       content: String(content)
@@ -93,8 +94,43 @@ export default class PostUseCase {
     return row;
   }
 
-  async ListPosts({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null } = {}) {
-    return this.postRepository.list({ limit, offset, lastCreatedAt, lastId, userId });
+  async ListPosts({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, communityId = null } = {}) {
+    return this.postRepository.list({ limit, offset, lastCreatedAt, lastId, userId, communityId });
+  }
+
+  async SharePost({ postId, userId, communityId, comment = null }) {
+    if (!postId) throw new Error('post_required');
+    if (!userId) throw new Error('user_required');
+    if (!communityId) throw new Error('community_required');
+
+    const original = await this.postRepository.findById(postId, { userId });
+    if (!original) throw new Error('post_not_found');
+
+    const trimmedComment = typeof comment === 'string' ? comment.trim() : '';
+    const shared = await this.CreatePost({
+      userId,
+      communityId,
+      title: original.title ? `Shared: ${original.title}` : 'Shared post',
+      content: trimmedComment || original.content || 'Shared a post',
+      visibility: 'community',
+      parentPostId: original.id
+    });
+
+    return {
+      ...shared,
+      originalPostId: original.id,
+      comment: trimmedComment,
+      communityId: shared.community_id || communityId,
+      createdAt: shared.created_at
+    };
+  }
+
+  async RecordShareEvent({ postId, userId, type = 'copy_link' }) {
+    if (!postId) throw new Error('post_required');
+    if (!userId) throw new Error('user_required');
+    const post = await this.postRepository.findById(postId, { userId });
+    if (!post) throw new Error('post_not_found');
+    return { postId, userId, type: type || 'copy_link', recorded: true, createdAt: new Date().toISOString() };
   }
 
   async UpdatePost({ id, userId, title, content }) {

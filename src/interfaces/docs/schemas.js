@@ -48,6 +48,7 @@ export const UserActivityResponse = {
       type: 'object',
       properties: {
         username: { type: 'string', nullable: true },
+        displayName: { type: 'string', nullable: true },
         avatar: { type: 'string', nullable: true },
         bio: { type: 'string', nullable: true },
         location: { type: 'string', nullable: true }
@@ -100,7 +101,7 @@ UserActivityResponse.example = {
   role: 'user',
   created_at: '2026-05-01T10:00:00Z',
   updated_at: '2026-05-02T10:00:00Z',
-  profile: { username: 'janedoe', avatar: null, bio: 'Exporter and product designer', location: 'Lagos' },
+  profile: { username: 'janedoe', displayName: 'Jane Doe', avatar: null, bio: 'Exporter and product designer', location: 'Lagos' },
   skills: [{ id: 'skill-uuid', skill: 'Export operations', level: 'expert' }],
   portfolios: [{ id: 'portfolio-uuid', title: 'Cocoa export case study', link: 'https://example.com' }],
   certifications: [{ id: 'cert-uuid', name: 'Export Compliance', issuer: 'Trade Institute' }],
@@ -477,6 +478,7 @@ export const PostResponse = {
     community_id: { type: 'string', nullable: true },
     page_id: { type: 'string', nullable: true },
     parent_post_id: { type: 'string', nullable: true },
+    originalPostId: { type: 'string', nullable: true },
     visibility: { type: 'string' },
     title: { type: 'string' },
     content: { type: 'string' },
@@ -521,6 +523,7 @@ PostResponse.example = {
   community_id: null,
   page_id: null,
   parent_post_id: null,
+  originalPostId: null,
   visibility: 'public',
   title: 'Hello world', 
   content: 'Hello world — this is a test post.', 
@@ -887,6 +890,7 @@ export const UserProfileBody = {
   description: 'Profile fields to create or update. Do NOT provide `id` or `userId` — those are generated/derived by the server.',
   properties: {
     username: { type: 'string' },
+    displayName: { type: 'string' },
     bio: { type: 'string' },
     location: { type: 'string' },
     avatar: { type: ['string','null'] },
@@ -897,6 +901,7 @@ export const UserProfileBody = {
   },
   example: {
     username: 'codemonk',
+    displayName: 'Code Monk',
     bio: 'Developer,engineer',
     location: 'Remote',
     website: 'https://example.com',
@@ -911,6 +916,7 @@ export const UserProfileResponse = {
     id: { type: 'string', description: 'Profile record id (server-generated)', readOnly: true },
     userId: { type: 'string', description: 'User id (derived from authenticated token)', readOnly: true },
     username: { type: 'string' },
+    displayName: { type: 'string' },
     bio: { type: 'string' },
     location: { type: 'string' },
     avatar: { type: ['string','null'] },
@@ -925,6 +931,7 @@ UserProfileResponse.example = {
   id: 'profile-uuid',
   userId: 'user-uuid',
   username: 'tech',
+  displayName: 'Tech User',
   bio: 'Developer',
   location: 'Remote',
   avatar: null,
@@ -1092,6 +1099,53 @@ export const AvatarUploadBody = {
   properties: { imageUrl: { type: 'string' }, publicId: { type: 'string' } },
   anyOf: [{ required: ['imageUrl'] }, { required: ['publicId'] }],
   example: { imageUrl: 'https://example.com/photo.jpg' }
+};
+
+export const UserUpdateBody = {
+  type: 'object',
+  properties: {
+    name: { type: 'string' },
+    displayName: { type: 'string' }
+  },
+  example: { name: 'Arden Smith' }
+};
+
+export const UserUpdateResponse = {
+  type: 'object',
+  properties: {
+    user: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        name: { type: 'string' },
+        email: { type: 'string' }
+      }
+    },
+    profile: UserProfileResponse
+  }
+};
+
+export const PublicProfileResponse = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string', nullable: true },
+    displayName: { type: 'string', nullable: true },
+    username: { type: 'string', nullable: true },
+    avatar: { type: 'string', nullable: true },
+    bio: { type: 'string', nullable: true },
+    location: { type: 'string', nullable: true },
+    skills: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    education: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    experiences: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    portfolios: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    posts: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    scoreTotals: {
+      type: 'object',
+      properties: { posts: { type: 'number' }, comments: { type: 'number' }, total: { type: 'number' } }
+    },
+    followerCount: { type: 'number' }
+  }
 };
 
 export const MediaRegisterBody = {
@@ -1397,6 +1451,49 @@ export const PostReportResponse = {
   properties: { id: { type: 'string' }, post_id: { type: 'string' }, user_id: { type: 'string' }, reason: { type: 'string' }, details: { type: 'string' }, created_at: { type: 'string' } }
 };
 
+export const CommentReportResponse = {
+  type: 'object',
+  properties: { id: { type: 'string' }, comment_id: { type: 'string' }, user_id: { type: 'string' }, reason: { type: 'string' }, details: { type: 'string' }, created_at: { type: 'string' } }
+};
+
+export const PostShareBody = {
+  type: 'object',
+  required: ['communityId'],
+  properties: {
+    communityId: { type: 'string' },
+    comment: { type: 'string' }
+  },
+  example: { communityId: 'community-uuid', comment: 'My thoughts on this post' }
+};
+
+export const PostShareResponse = {
+  type: 'object',
+  properties: {
+    ...PostResponse.properties,
+    originalPostId: { type: 'string' },
+    communityId: { type: 'string' },
+    comment: { type: 'string' },
+    createdAt: { type: 'string' }
+  }
+};
+
+export const PostShareEventBody = {
+  type: 'object',
+  properties: { type: { type: 'string', example: 'copy_link' } },
+  example: { type: 'copy_link' }
+};
+
+export const PostShareEventResponse = {
+  type: 'object',
+  properties: {
+    postId: { type: 'string' },
+    userId: { type: 'string' },
+    type: { type: 'string' },
+    recorded: { type: 'boolean' },
+    createdAt: { type: 'string' }
+  }
+};
+
 export default {
   ItemCreateBody,
   ItemResponse,
@@ -1473,8 +1570,16 @@ export default {
   PostSaveBody,
   PostReportBody,
   PostReportResponse,
+  CommentReportResponse,
+  PostShareBody,
+  PostShareResponse,
+  PostShareEventBody,
+  PostShareEventResponse,
   UserProfileBody,
   UserProfileResponse,
+  UserUpdateBody,
+  UserUpdateResponse,
+  PublicProfileResponse,
   AvatarUploadBody,
   ApiStringResponse,
   MediaRegisterBody,

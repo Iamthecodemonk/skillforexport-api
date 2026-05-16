@@ -154,7 +154,7 @@ export default class UserUseCase {
       if (byName) throw new Error('username_taken');
     }
 
-    const profile = new UserProfile({ id: uuidv4(), user_id: userId, username: data.username, bio: data.bio, location: data.location, avatar: data.avatar, banner: data.banner, website: data.website, linkedin: data.linkedin, github: data.github, created_at: new Date() });
+    const profile = new UserProfile({ id: uuidv4(), user_id: userId, username: data.username, displayName: data.displayName || data.name, bio: data.bio, location: data.location, avatar: data.avatar, banner: data.banner, website: data.website, linkedin: data.linkedin, github: data.github, created_at: new Date() });
     return this.profileRepository.create(profile);
   }
 
@@ -162,6 +162,60 @@ export default class UserUseCase {
     const existing = await this.profileRepository.findByUserId(userId);
     if (!existing) throw new Error('profile_not_found');
     return this.profileRepository.update(existing.id, patch);
+  }
+
+  async updateUserDisplayName(userId, actor, { name = null, displayName = null } = {}) {
+    if (!userId) throw new Error('user_required');
+    const actorId = actor && actor.id;
+    const actorRole = actor && actor.role;
+    if (!actorId) throw new Error('unauthorized');
+    if (actorId !== userId && actorRole !== 'admin') throw new Error('forbidden');
+
+    const user = await this.userRepository.findById(userId);
+    if (!user) throw new Error('user_not_found');
+    const nextName = String(displayName || name || '').trim();
+    if (!nextName) throw new Error('name_required');
+
+    let profile = await this.profileRepository.findByUserId(userId);
+    if (!profile) {
+      profile = await this.profileRepository.create(new UserProfile({ id: uuidv4(), user_id: userId, displayName: nextName, created_at: new Date() }));
+    } else {
+      profile = await this.profileRepository.update(profile.id, { displayName: nextName });
+    }
+
+    const plainProfile = profile && typeof profile.toPlainObject === 'function' ? profile.toPlainObject() : profile;
+    return {
+      user: {
+        id: user.id,
+        name: nextName,
+        email: user.email
+      },
+      profile: plainProfile
+    };
+  }
+
+  async getPublicProfile(userId) {
+    if (!userId) throw new Error('user_required');
+    if (this.userRepository && typeof this.userRepository.findPublicProfileById === 'function') {
+      return this.userRepository.findPublicProfileById(userId);
+    }
+    const user = await this.getUserWithActivity(userId);
+    if (!user) return null;
+    return {
+      id: user.id,
+      name: user.profile && user.profile.displayName ? user.profile.displayName : null,
+      username: user.profile && user.profile.username ? user.profile.username : null,
+      avatar: user.profile && user.profile.avatar ? user.profile.avatar : null,
+      bio: user.profile && user.profile.bio ? user.profile.bio : null,
+      location: user.profile && user.profile.location ? user.profile.location : null,
+      skills: user.skills || [],
+      education: user.education || [],
+      experiences: user.experiences || [],
+      portfolios: user.portfolios || [],
+      posts: user.latest && user.latest.post ? [user.latest.post] : [],
+      scoreTotals: { posts: 0, comments: 0, total: 0 },
+      followerCount: user.stats ? user.stats.totalFollowers || user.stats.followers || 0 : 0
+    };
   }
 
   async listSkills(userId) {

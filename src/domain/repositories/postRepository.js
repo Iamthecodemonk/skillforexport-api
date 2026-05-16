@@ -30,13 +30,17 @@ export class PostRepositoryImpl extends PostRepository {
     return created || null;
   }
 
-  async findById(id) {
-    const row = await this.adapter.findById(id);
+  async findById(id, options = {}) {
+    const row = await this.adapter.findById(id, options);
     return row || null;
   }
 
-  async list({ limit = 20, offset = 0 } = {}) {
-    return this.adapter.list({ limit, offset });
+  async list(options = {}) {
+    return this.adapter.list(options);
+  }
+
+  async countAll(options = {}) {
+    return typeof this.adapter.countAll === 'function' ? this.adapter.countAll(options) : 0;
   }
 
   async update(id, updates) {

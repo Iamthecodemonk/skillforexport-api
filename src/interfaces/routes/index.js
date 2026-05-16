@@ -557,6 +557,28 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('getUser'));
 
+  fastify.patch('/users/:id', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'updateUser',
+      tags: ['Users'],
+      description: 'Update basic user-facing fields. Currently supports display/full name via `name` or `displayName` and returns both user and profile.',
+      params: idParam(),
+      body: schemas.UserUpdateBody,
+      response: { 200: dataResponse(schemas.UserUpdateResponse), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse }
+    }
+  }, handler('updateUser'));
+
+  fastify.get('/users/:id/public-profile', {
+    schema: {
+      operationId: 'getPublicProfile',
+      tags: ['Users'],
+      description: 'Get public-safe profile data for a public profile page. Private fields such as email and phone are not returned.',
+      params: idParam(),
+      response: { 200: dataResponse(schemas.PublicProfileResponse), 404: schemas.GenericErrorResponse }
+    }
+  }, handler('getPublicProfile'));
+
   fastify.post('/users', {
     schema: {
       operationId: 'createUser',
@@ -1426,7 +1448,7 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'listPosts',
       tags: ['Posts'],
       description: 'List posts (feed). Returns a paginator payload at the root.',
-      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }, { name: 'lastCreatedAt', in: 'query', schema: { type: 'string', description: 'Use for keyset pagination: ISO timestamp of last item from previous page' } }, { name: 'lastId', in: 'query', schema: { type: 'string', description: 'Use with `lastCreatedAt` for keyset pagination: last item id from previous page' } }],
+      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }, { name: 'communityId', in: 'query', schema: { type: 'string' } }, { name: 'lastCreatedAt', in: 'query', schema: { type: 'string', description: 'Use for keyset pagination: ISO timestamp of last item from previous page' } }, { name: 'lastId', in: 'query', schema: { type: 'string', description: 'Use with `lastCreatedAt` for keyset pagination: last item id from previous page' } }],
       response: { 200: schemas.PostPaginatedResponse }
     }
   }, handler('listPosts'));
@@ -1439,6 +1461,30 @@ export default async function registerRoutes(fastify, deps) {
       response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PostResponse } }, 404: { type: 'object' } }
     }
   }, handler('getPost'));
+
+  fastify.post('/posts/:id/shares', {
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.createPost, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
+    schema: {
+      operationId: 'sharePostToCommunity',
+      tags: ['Posts', 'Sharing'],
+      description: 'Share an existing post into a community. The created post keeps parent_post_id/originalPostId as the original post reference.',
+      params: idParam(),
+      body: schemas.PostShareBody,
+      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PostShareResponse } }, 422: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse }
+    }
+  }, handler('sharePost'));
+
+  fastify.post('/posts/:id/share-events', {
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.interactions, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
+    schema: {
+      operationId: 'recordPostShareEvent',
+      tags: ['Posts', 'Sharing'],
+      description: 'Record/acknowledge a share event such as copy_link. This currently returns an acknowledgement for frontend analytics wiring.',
+      params: idParam(),
+      body: schemas.PostShareEventBody,
+      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PostShareEventResponse } }, 422: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse }
+    }
+  }, handler('recordShareEvent'));
 
   fastify.put('/posts/:id', {
     preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.interactions, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
@@ -1573,6 +1619,18 @@ export default async function registerRoutes(fastify, deps) {
       response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.ReactionToggleResponse } }, 422: { type: 'object' } }
     }
   }, handler('toggleCommentReaction'));
+
+  fastify.post('/comments/:id/report', {
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.interactions, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
+    schema: {
+      operationId: 'reportComment',
+      tags: ['Comments', 'Moderation'],
+      description: 'Report a comment for moderation. Authenticated user is used; body userId is optional/ignored.',
+      params: idParam(),
+      body: schemas.PostReportBody,
+      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.CommentReportResponse } }, 422: { type: 'object' } }
+    }
+  }, handler('reportComment'));
 
   fastify.get('/posts/:id/media', {
     schema: {

@@ -1,8 +1,9 @@
 export default class UserProfile {
-  constructor({ id = null, user_id = null, username = null, bio = null, location = null, avatar = null, banner = null, website = null, linkedin = null, github = null, created_at = null } = {}) {
+  constructor({ id = null, user_id = null, username = null, display_name = null, displayName = null, bio = null, location = null, avatar = null, banner = null, website = null, linkedin = null, github = null, created_at = null } = {}) {
     this.id = id;
     this.userId = user_id || null;
     this.username = username || null;
+    this.displayName = displayName || display_name || null;
     this.bio = bio || null;
     this.location = location || null;
     this.avatar = avatar || null;
@@ -18,6 +19,7 @@ export default class UserProfile {
       id: this.id,
       user_id: this.userId,
       username: this.username,
+      display_name: this.displayName,
       bio: this.bio,
       location: this.location,
       avatar: this.avatar,
@@ -34,6 +36,7 @@ export default class UserProfile {
       id: this.id,
       userId: this.userId,
       username: this.username,
+      displayName: this.displayName,
       bio: this.bio,
       location: this.location,
       avatar: this.avatar,

@@ -94,13 +94,54 @@ export function makePostController({ useCase = null }) {
         const lastCreatedAt = req.query && req.query.lastCreatedAt ? req.query.lastCreatedAt : null;
         const lastId = req.query && req.query.lastId ? req.query.lastId : null;
         const actorId = req.user && req.user.id;
-        const rows = await useCase.ListPosts({ limit, offset, lastCreatedAt, lastId, userId: actorId || null });
+        const communityId = req.query && (req.query.communityId || req.query.community_id) ? (req.query.communityId || req.query.community_id) : null;
+        const rows = await useCase.ListPosts({ limit, offset, lastCreatedAt, lastId, userId: actorId || null, communityId });
         const total = useCase.postRepository && typeof useCase.postRepository.countAll === 'function'
-          ? await useCase.postRepository.countAll()
+          ? await useCase.postRepository.countAll({ communityId })
           : rows.length;
         return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
       } catch (err) {
         postLogger.error('listPosts error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    sharePost: async (req, reply) => {
+      try {
+        const { id: postId } = req.params;
+        const actorId = req.user && req.user.id;
+        const { communityId, comment } = req.body || {};
+        if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        const shared = await useCase.SharePost({ postId, userId: actorId, communityId, comment });
+        return reply.code(201).send({ success: true, data: shared });
+      } catch (err) {
+        const expectedErrors = new Set(['post_required', 'user_required', 'community_required', 'post_not_found', 'community_not_found', 'community_inactive', 'not_a_member']);
+        if (!expectedErrors.has(err.message)) {
+          postLogger.error('sharePost error', { message: err.message, stack: err.stack });
+        }
+        if (err.message === 'post_not_found') return reply.code(404).send({ success: false, error: { code: 'post_not_found' } });
+        if (err.message === 'community_not_found') return reply.code(404).send({ success: false, error: { code: 'community_not_found' } });
+        if (err.message === 'community_inactive') return reply.code(403).send({ success: false, error: { code: 'community_inactive' } });
+        if (err.message === 'not_a_member') return reply.code(403).send({ success: false, error: { code: 'not_a_member' } });
+        if (err.message === 'post_required' || err.message === 'user_required' || err.message === 'community_required') {
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        }
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    recordShareEvent: async (req, reply) => {
+      try {
+        const { id: postId } = req.params;
+        const actorId = req.user && req.user.id;
+        const { type = 'copy_link' } = req.body || {};
+        if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        const event = await useCase.RecordShareEvent({ postId, userId: actorId, type });
+        return reply.code(201).send({ success: true, data: event });
+      } catch (err) {
+        if (err.message === 'post_not_found') return reply.code(404).send({ success: false, error: { code: 'post_not_found' } });
+        if (err.message === 'post_required' || err.message === 'user_required') return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        postLogger.error('recordShareEvent error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
     },

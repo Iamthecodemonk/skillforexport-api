@@ -82,6 +82,43 @@ export function makeUserController({ useCase = null, followerRepository = null }
       }
     },
 
+    getPublicProfile: async (req, reply) => {
+      try {
+        const { id } = req.params;
+        const profile = await useCase.getPublicProfile(id);
+        if (!profile) {
+          return reply.code(404).send({ success: false, error: { code: 'user_not_found' } });
+        }
+        return reply.send({ success: true, message: 'Success', data: profile });
+      } catch (err) {
+        userLogger.error('getPublicProfile error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    updateUser: async (req, reply) => {
+      try {
+        const { id } = req.params;
+        const body = req.body || {};
+        const actor = req.user || null;
+        const updated = await useCase.updateUserDisplayName(id, actor, body);
+        try {
+          const redis = req.server && req.server.redisClient;
+          if (redis) await redis.del(`user:profile:${id}`);
+        } catch (e) {
+          userLogger.warn('Failed to invalidate profile cache', { err: e.message });
+        }
+        return reply.send({ success: true, data: updated });
+      } catch (err) {
+        if (err.message === 'unauthorized') return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        if (err.message === 'forbidden') return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+        if (err.message === 'user_not_found') return reply.code(404).send({ success: false, error: { code: 'user_not_found' } });
+        if (err.message === 'name_required' || err.message === 'user_required') return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        userLogger.error('updateUser error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
     createUser: async (req, reply) => {
       try {
         const { email, password, role } = req.body;

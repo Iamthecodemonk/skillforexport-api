@@ -133,6 +133,10 @@ export class UserRepositoryImpl extends UserRepository {
     return this.adapter.findWithActivity ? await this.adapter.findWithActivity(id) : null;
   }
 
+  async findPublicProfileById(id) {
+    return this.adapter.findPublicProfileById ? await this.adapter.findPublicProfileById(id) : null;
+  }
+
   async countAll() {
     return this.adapter.countAll ? await this.adapter.countAll() : 0;
   }

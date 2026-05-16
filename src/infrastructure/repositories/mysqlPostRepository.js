@@ -23,6 +23,7 @@ export default class MysqlPostRepository {
       user_id: post.user_id || post.userId,
       community_id: post.community_id || post.communityId || null,
       page_id: post.page_id || post.pageId || null,
+      parent_post_id: post.parent_post_id || post.parentPostId || post.originalPostId || null,
       visibility: post.visibility || post.visibility || 'public',
       title: post.title || post.title || null,
       content: post.content,
@@ -59,6 +60,7 @@ export default class MysqlPostRepository {
       community_id: row.community_id,
       page_id: row.page_id,
       parent_post_id: row.parent_post_id,
+      originalPostId: row.parent_post_id || null,
       visibility: row.visibility,
       title: row.title,
       content: row.content,
@@ -130,8 +132,11 @@ export default class MysqlPostRepository {
     return this.mapPost(row);
   }
 
-  async list({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null } = {}) {
+  async list({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, communityId = null } = {}) {
     const q = this.basePostQuery(userId).orderBy('p.created_at', 'desc').orderBy('p.id', 'desc').limit(limit);
+    if (communityId) {
+      q.where('p.community_id', communityId);
+    }
     if (lastCreatedAt) {
       // keyset pagination: created_at < lastCreatedAt OR (created_at = lastCreatedAt AND id < lastId)
       q.where(function () {
@@ -159,8 +164,10 @@ export default class MysqlPostRepository {
     return (rows || []).map(row => this.mapPost(row));
   }
 
-  async countAll() {
-    const row = await db('posts').count({ cnt: 'id' }).first();
+  async countAll({ communityId = null } = {}) {
+    const q = db('posts').count({ cnt: 'id' });
+    if (communityId) q.where({ community_id: communityId });
+    const row = await q.first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);
   }

@@ -77,6 +77,7 @@ import MysqlPostReactionRepository from './infrastructure/repositories/mysqlPost
 import MysqlCommentReactionRepository from './infrastructure/repositories/mysqlCommentReactionRepository.js';
 import MysqlPostSaveRepository from './infrastructure/repositories/mysqlPostSaveRepository.js';
 import MysqlPostReportRepository from './infrastructure/repositories/mysqlPostReportRepository.js';
+import MysqlCommentReportRepository from './infrastructure/repositories/mysqlCommentReportRepository.js';
 import PostInteractionUseCase from './application/use-cases/postInteractionUseCase.js';
 import { makePostInteractionController } from './interfaces/controllers/postInteractionController.js';
 import MysqlQuestionRepository from './infrastructure/repositories/mysqlQuestionRepository.js';
@@ -458,7 +459,8 @@ export default async function startServer() {
         try {
           const postSaveAdapter = new MysqlPostSaveRepository();
           const postReportAdapter = new MysqlPostReportRepository();
-          const postInteractionUseCase = new PostInteractionUseCase({ postSaveRepository: postSaveAdapter, postReportRepository: postReportAdapter });
+          const commentReportAdapter = new MysqlCommentReportRepository();
+          const postInteractionUseCase = new PostInteractionUseCase({ postSaveRepository: postSaveAdapter, postReportRepository: postReportAdapter, commentReportRepository: commentReportAdapter });
           const postInteractionController = makePostInteractionController({ useCase: postInteractionUseCase });
           Object.assign(controllers, postInteractionController);
         } catch (piErr) {

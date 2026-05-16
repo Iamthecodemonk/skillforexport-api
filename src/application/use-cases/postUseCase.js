@@ -13,9 +13,10 @@ export default class PostUseCase {
     if (!title || String(title).trim() === '') throw new Error('title_required');
     if (!content || String(content).trim() === '') throw new Error('content_required');
     // If posting to a community, ensure community exists and user is allowed
+    let community = null;
     if (communityId) {
       if (this.communityRepository && typeof this.communityRepository.findById === 'function') {
-        const community = await this.communityRepository.findById(communityId);
+        community = await this.communityRepository.findById(communityId);
         if (!community) throw new Error('community_not_found');
         if (typeof community.is_active !== 'undefined' && parseInt(community.is_active, 10) === 0) {
           throw new Error('community_inactive');

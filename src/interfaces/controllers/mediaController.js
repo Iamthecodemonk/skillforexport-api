@@ -212,6 +212,7 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
         // Map common failure reasons to friendly messages for clients
         const failureMessages = {
           invalid_file_type: 'Only JPG, PNG or WEBP images are allowed.',
+          invalid_image_url: 'The provided URL did not return a valid image. Upload the image file or provide a direct image URL.',
           tmp_file_not_found: 'Uploaded file not found on server; please retry.',
           cloudinary_resource_not_found: 'Uploaded resource not found on Cloudinary.',
           cloudinary_not_configured: 'Image service is not configured. Contact support.',

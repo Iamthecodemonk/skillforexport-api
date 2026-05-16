@@ -16,6 +16,21 @@ function getUserId(data = {}) {
   return data.userId || data.user_id || null;
 }
 
+async function uploadImageUrl(cloudinary, url, options = {}) {
+  try {
+    return await cloudinary.uploadFromUrl(url, options);
+  } catch (err) {
+    const message = String(err && err.message ? err.message : '');
+    const lower = message.toLowerCase();
+    if (lower.includes('html response') || lower.includes('resource not found') || lower.includes('invalid image file')) {
+      const normalized = new Error('invalid_image_url');
+      normalized.cause = err;
+      throw normalized;
+    }
+    throw err;
+  }
+}
+
 export function createMediaQueue(redisConnection) {
   return new Queue('media', { connection: redisConnection });
 }
@@ -93,7 +108,7 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
           const userId = getUserId(data);
           const { imageUrl } = data;
           // Upload from URL to Cloudinary
-          const result = await cloudinary.uploadFromUrl(imageUrl, { folder: 'avatars' });
+          const result = await uploadImageUrl(cloudinary, imageUrl, { folder: 'avatars' });
           // Create asset record if adapter available
           if (assetAdapter) {
             const assetId = data.assetId || job.id;
@@ -136,7 +151,7 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
           const userId = getUserId(data);
           const { imageUrl } = data;
           const folder = process.env.CLOUDINARY_FOLDER_BANNERS || 'banners';
-          const result = await cloudinary.uploadFromUrl(imageUrl, { folder });
+          const result = await uploadImageUrl(cloudinary, imageUrl, { folder });
           if (assetAdapter) {
             const assetId = data.assetId || job.id;
             const asset = await safeCreateAsset({
@@ -317,7 +332,7 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
           if (!url) throw new Error('url_required');
           // upload to cloudinary
           const folder = process.env.CLOUDINARY_FOLDER_POSTS || 'posts';
-          const result = await cloudinary.uploadFromUrl(url, { folder });
+          const result = await uploadImageUrl(cloudinary, url, { folder });
           // persist post media record
           if (postMediaAdapter) {
             const mediaId = data.mediaId || uuidv4();

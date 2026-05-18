@@ -42,6 +42,11 @@ export class PageRepositoryImpl extends PageRepository {
     return this.adapter.list({ limit, offset });
   }
 
+  async listByOwner(ownerId, { limit = 20, offset = 0 } = {}) {
+    if (typeof this.adapter.listByOwner !== 'function') throw new Error('list_by_owner_not_implemented');
+    return this.adapter.listByOwner(ownerId, { limit, offset });
+  }
+
   async update(id, updates) {
     return this.adapter.update(id, updates);
   }
@@ -53,6 +58,15 @@ export class PageRepositoryImpl extends PageRepository {
   async countByOwnerAndCategory(ownerId, categoryId) {
     if (typeof this.adapter.countByOwnerAndCategory !== 'function') throw new Error('count_not_implemented');
     return this.adapter.countByOwnerAndCategory(ownerId, categoryId);
+  }
+
+  async countByOwner(ownerId) {
+    if (typeof this.adapter.countByOwner !== 'function') throw new Error('count_by_owner_not_implemented');
+    return this.adapter.countByOwner(ownerId);
+  }
+
+  async countAll() {
+    return typeof this.adapter.countAll === 'function' ? this.adapter.countAll() : 0;
   }
 
   async incrementPostCount(pageId, delta = 1) {

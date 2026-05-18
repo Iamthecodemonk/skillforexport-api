@@ -74,6 +74,11 @@ export class UserRepositoryImpl extends UserRepository {
     return row ? new User(row) : null;
   }
 
+  async findByReferralCode(referralCode) {
+    const row = this.adapter.findByReferralCode ? await this.adapter.findByReferralCode(referralCode) : null;
+    return row ? new User(row) : null;
+  }
+
   async create(user) {
     const record = user && user.toRecord ? user.toRecord() : user;
     const created = await this.adapter.create(record);

@@ -2,6 +2,26 @@ import db from '../knexConfig.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export default class MysqlPageRepository {
+  mapPage(row) {
+    if (!row) return null;
+    const page = { ...row };
+    if (page.metadata && typeof page.metadata === 'string') {
+      try { page.metadata = JSON.parse(page.metadata); } catch (e) { /* leave as-is */ }
+    }
+    page.ownerId = page.ownerId || page.owner_id || null;
+    page.categoryId = page.categoryId || page.category_id || null;
+    page.coverImage = page.coverImage || page.cover_image || null;
+    page.isVerified = typeof page.isVerified !== 'undefined' ? page.isVerified : page.is_verified;
+    page.isActive = typeof page.isActive !== 'undefined' ? page.isActive : page.is_active;
+    page.isApproved = typeof page.isApproved !== 'undefined' ? page.isApproved : page.is_approved;
+    page.approvalNotes = page.approvalNotes || page.approval_notes || null;
+    page.approvedAt = page.approvedAt || page.approved_at || null;
+    page.approvedBy = page.approvedBy || page.approved_by || null;
+    page.createdAt = page.createdAt || page.created_at || null;
+    page.updatedAt = page.updatedAt || page.updated_at || null;
+    return page;
+  }
+
   async create(page) {
     const id = page.id || uuidv4();
     const now = new Date();
@@ -24,16 +44,12 @@ export default class MysqlPageRepository {
       created_at: now,
       updated_at: now
     });
-    return { id, owner_id: page.owner_id || page.ownerId, category_id: page.category_id || page.categoryId || null, name: page.name, slug: page.slug, description: page.description || null, avatar: page.avatar || null, cover_image: page.cover_image || page.coverImage || null, is_verified: page.is_verified || page.isVerified || 0, is_active: page.is_active || page.isActive || 1, is_approved: page.is_approved || page.isApproved || 0, approval_notes: page.approval_notes || page.approvalNotes || null, approved_at: page.approved_at || page.approvedAt || null, approved_by: page.approved_by || page.approvedBy || null, metadata: page.metadata || null, created_at: now, updated_at: now };
+    return this.mapPage({ id, owner_id: page.owner_id || page.ownerId, category_id: page.category_id || page.categoryId || null, name: page.name, slug: page.slug, description: page.description || null, avatar: page.avatar || null, cover_image: page.cover_image || page.coverImage || null, is_verified: page.is_verified || page.isVerified || 0, is_active: page.is_active || page.isActive || 1, is_approved: page.is_approved || page.isApproved || 0, approval_notes: page.approval_notes || page.approvalNotes || null, approved_at: page.approved_at || page.approvedAt || null, approved_by: page.approved_by || page.approvedBy || null, metadata: page.metadata || null, created_at: now, updated_at: now });
   }
 
   async findById(id) {
     const row = await db('pages').where({ id }).first();
-    if (!row) return null;
-    if (row.metadata && typeof row.metadata === 'string') {
-      try { row.metadata = JSON.parse(row.metadata); } catch (e) { /* leave as-is */ }
-    }
-    return row;
+    return this.mapPage(row);
   }
 
   async findByName(name) {
@@ -44,14 +60,18 @@ export default class MysqlPageRepository {
 
   async list({ limit = 20, offset = 0 } = {}) {
     const rows = await db('pages').orderBy('created_at', 'desc').limit(limit).offset(offset);
-    if (Array.isArray(rows)) {
-      rows.forEach(r => {
-        if (r.metadata && typeof r.metadata === 'string') {
-          try { r.metadata = JSON.parse(r.metadata); } catch (e) { /* leave as-is */ }
-        }
-      });
-    }
-    return rows || [];
+    return (rows || []).map(row => this.mapPage(row));
+  }
+
+  async listByOwner(ownerId, { limit = 20, offset = 0 } = {}) {
+    const rows = await db('pages').where({ owner_id: ownerId }).orderBy('created_at', 'desc').limit(limit).offset(offset);
+    return (rows || []).map(row => this.mapPage(row));
+  }
+
+  async countByOwner(ownerId) {
+    const row = await db('pages').where({ owner_id: ownerId }).count({ cnt: 'id' }).first();
+    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+    return parseInt(cnt || 0, 10);
   }
 
   async countAll() {
@@ -107,7 +127,7 @@ export default class MysqlPageRepository {
 
   async listByCategory(categoryId, { limit = 20, offset = 0 } = {}) {
     const rows = await db('pages').where({ category_id: categoryId }).orderBy('created_at', 'desc').limit(limit).offset(offset);
-    return rows || [];
+    return (rows || []).map(row => this.mapPage(row));
   }
 
   async unassignCategory(categoryId) {

@@ -179,6 +179,21 @@ export default class PageUseCase {
     return this.pageRepository.list({ limit, offset });
   }
 
+  async ListMyPages({ ownerId, limit = 20, offset = 0 } = {}) {
+    if (!ownerId) throw new Error('owner_required');
+    if (!this.pageRepository || typeof this.pageRepository.listByOwner !== 'function') {
+      throw new Error('not_implemented');
+    }
+    return this.pageRepository.listByOwner(ownerId, { limit, offset });
+  }
+
+  async CountMyPages(ownerId) {
+    if (!ownerId) throw new Error('owner_required');
+    return this.pageRepository && typeof this.pageRepository.countByOwner === 'function'
+      ? this.pageRepository.countByOwner(ownerId)
+      : 0;
+  }
+
   async UpdatePage({ id, ownerId, updates = {} }) {
     if (!id) throw new Error('id_required');
     const existing = await this.pageRepository.findById(id);

@@ -92,6 +92,7 @@ import { makeJobsFreelancersController } from './interfaces/controllers/jobsFree
 import MysqlAdvertRepository from './infrastructure/repositories/mysqlAdvertRepository.js';
 import AdvertUseCase from './application/use-cases/advertUseCase.js';
 import { makeAdvertController } from './interfaces/controllers/advertController.js';
+import { makeCompatController } from './interfaces/controllers/compatController.js';
 
 const serverLogger = logger.child('SERVER');
 const queueLogger = logger.child('EMAIL_QUEUE');
@@ -346,7 +347,7 @@ export default async function startServer() {
   }
 
   // register app routes
-  const controllers = { ...healthController };
+  const controllers = { ...healthController, ...makeCompatController() };
   try {
     const jobsFreelancersRepository = new MysqlJobsFreelancersRepository();
     const jobsFreelancersUseCase = new JobsFreelancersUseCase({ repository: jobsFreelancersRepository });

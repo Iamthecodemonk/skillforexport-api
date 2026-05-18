@@ -38,6 +38,15 @@ export default class MysqlUserRepository {
     return u;
   }
 
+  async findByReferralCode(referralCode) {
+    if (!referralCode) return null;
+    const user = await db('users').where({ referral_code: referralCode }).first();
+    if (!user) return null;
+    const u = new User(user);
+    u.tokenVersion = user.token_version || 0;
+    return u;
+  }
+
   async create(user) {
     const record = user.toRecord ? user.toRecord() : user;
     const now = new Date();
@@ -47,6 +56,8 @@ export default class MysqlUserRepository {
       password: record.password,
       token_version: record.token_version || 0,
       role: record.role || 'user',
+      referral_code: record.referral_code || record.referralCode || null,
+      referred_by_user_id: record.referred_by_user_id || record.referredByUserId || null,
       created_at: now,
       updated_at: now,
     });
@@ -55,6 +66,8 @@ export default class MysqlUserRepository {
       email: record.email,
       password: record.password,
       role: record.role || 'user',
+      referral_code: record.referral_code || record.referralCode || null,
+      referred_by_user_id: record.referred_by_user_id || record.referredByUserId || null,
       created_at: now,
       updated_at: now,
     });
@@ -225,6 +238,7 @@ export default class MysqlUserRepository {
     return {
       id: row.id,
       email: row.email,
+      referral_code: row.referral_code || null,
       role: row.role,
       created_at: row.created_at,
       updated_at: row.updated_at,
@@ -260,6 +274,7 @@ export default class MysqlUserRepository {
       .select(
         'u.id',
         'u.email',
+        'u.referral_code',
         'u.role',
         'u.created_at',
         'u.updated_at',

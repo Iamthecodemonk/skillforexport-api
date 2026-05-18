@@ -339,6 +339,22 @@ export function makePageController({ useCase = null, followersRepository = null 
       }
     },
 
+    listMyPages: async (req, reply) => {
+      try {
+        const actorId = req.user && req.user.id;
+        if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        const { page, perPage, limit, offset } = parsePagination(req.query, 20);
+        const rows = await useCase.ListMyPages({ ownerId: actorId, limit, offset });
+        const total = await useCase.CountMyPages(actorId);
+        return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
+      } catch (err) {
+        if (err && err.message === 'owner_required') return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        if (err && err.message === 'not_implemented') return reply.code(501).send({ success: false, error: { code: 'not_implemented' } });
+        pageLogger.error('listMyPages error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
     updatePage: async (req, reply) => {
       try {
         const { id } = req.params;

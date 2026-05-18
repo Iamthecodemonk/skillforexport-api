@@ -18,19 +18,31 @@ export default class AuthUseCase {
     this.passwordResetRepository = passwordResetRepository;
   }
 
-  async RegisterWithEmailPassword({ email, password }) {
+  async RegisterWithEmailPassword({ email, password, refCode = null }) {
     const existing = await this.userRepository.findByEmail(email);
     if (existing) 
         throw new Error('email_taken');
     const hashed = await bcrypt.hash(password, 10);
     try {
-      const user = new User({ id: uuidv4(), email, password: hashed, createdAt: new Date() });
+      const referredByUserId = await this.findReferralOwnerId(refCode);
+      const referralCode = this.generateReferralCode();
+      const user = new User({ id: uuidv4(), email, password: hashed, referralCode, referredByUserId, createdAt: new Date() });
       return this.userRepository.create(user);
     } catch (err) {
       if (err.message === 'invalid_email_format')
         throw new Error('invalid_email_format');
       throw err;
     }
+  }
+
+  generateReferralCode() {
+    return `S4E${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  }
+
+  async findReferralOwnerId(refCode) {
+    if (!refCode || !this.userRepository || typeof this.userRepository.findByReferralCode !== 'function') return null;
+    const referrer = await this.userRepository.findByReferralCode(refCode).catch(() => null);
+    return referrer ? referrer.id : null;
   }
 
   async InitiateRegistration({ email, password, fullName }) {
@@ -204,7 +216,9 @@ export default class AuthUseCase {
     }
 
     try {
-      const user = new User({ id: uuidv4(), email, password: hashed, createdAt: new Date() });
+      const referredByUserId = await this.findReferralOwnerId(refCode);
+      const referralCode = this.generateReferralCode();
+      const user = new User({ id: uuidv4(), email, password: hashed, referralCode, referredByUserId, createdAt: new Date() });
       const createdUser = await this.userRepository.create(user);
       // Delete the OTP row so temporary data can't be accessed (errors handled by outer catch)
       await this.userRepository.deleteOtp(entry.id);

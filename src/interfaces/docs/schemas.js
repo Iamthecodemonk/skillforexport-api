@@ -1277,6 +1277,7 @@ export const PageResponse = {
   type: 'object',
   properties: {
     id: { type: 'string' },
+    owner_id: { type: 'string' },
     ownerId: { type: 'string' },
     categoryId: { type: ['string','null'] },
     name: { type: 'string' },

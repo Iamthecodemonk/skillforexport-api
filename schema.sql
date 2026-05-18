@@ -782,6 +782,58 @@ LOCK TABLES `notifications` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `saved_items`
+--
+
+DROP TABLE IF EXISTS `saved_items`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `saved_items` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `target_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `target_type` enum('post','question','answer','comment') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_saved_items_user_target` (`user_id`,`target_id`,`target_type`),
+  KEY `idx_saved_items_user_type` (`user_id`,`target_type`),
+  CONSTRAINT `saved_items_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+LOCK TABLES `saved_items` WRITE;
+/*!40000 ALTER TABLE `saved_items` DISABLE KEYS */;
+/*!40000 ALTER TABLE `saved_items` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `generic_reports`
+--
+
+DROP TABLE IF EXISTS `generic_reports`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `generic_reports` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `target_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `target_type` enum('post','question','answer','comment') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `reason` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `details` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_generic_reports_user` (`user_id`),
+  KEY `idx_generic_reports_target` (`target_id`,`target_type`),
+  CONSTRAINT `generic_reports_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+LOCK TABLES `generic_reports` WRITE;
+/*!40000 ALTER TABLE `generic_reports` DISABLE KEYS */;
+/*!40000 ALTER TABLE `generic_reports` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `page_activity_log`
 --
 
@@ -1542,9 +1594,15 @@ CREATE TABLE `users` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `token_version` int DEFAULT NULL,
+  `referral_code` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `referred_by_user_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `disabled_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`),
-  KEY `idx_email` (`email`)
+  UNIQUE KEY `uk_users_referral_code` (`referral_code`),
+  KEY `idx_email` (`email`),
+  KEY `idx_users_referred_by` (`referred_by_user_id`),
+  CONSTRAINT `users_ibfk_1` FOREIGN KEY (`referred_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1554,8 +1612,62 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES ('09874b5f-da13-4f3d-b074-b2094cafcac6','test@admin.com','$2a$10$T7nI5zsD9y2fqtCKjBCFUOoADQwg9EV0KpNvvh4Ojd9jJ2h.TOuPS','admin',NULL,'2026-04-30 18:49:49','2026-04-30 18:49:49',0),('31ef1413-e8f9-48a1-b34e-2e48dcdba9b5','admin1@gmail.com','admin','user',NULL,'2026-04-30 11:09:05','2026-04-30 11:09:05',0),('431fc8ef-fc2f-45e4-8f8f-db84e5acb72e','test1@admin.com','admin','admin',NULL,'2026-04-30 18:41:59','2026-04-30 18:41:59',0),('77927019-f8de-40ce-8504-00f2821df49e','iamthecodemonk@gmail.com','$2a$10$sO7YW3WIGu7OyDn7iw8LTeyujU11YK4wHEdCem3dWWoOhXEPvHqDO','user',NULL,'2026-04-15 15:08:37','2026-04-15 15:08:37',0),('78114f32-efa8-4a67-bbe1-84d73cfdd9d9','Sammyboluwaseun2003@gmail.com','$2a$10$JZlbHaoNXkyHMEVbnnv4MOPvppFGLNJlD0XLqfiSNKuMgq6pprIoO','user',NULL,'2026-04-15 15:50:04','2026-04-15 15:55:07',0),('d178f750-2501-4c12-934e-c9dfa4a7d96b','test@mailinator.com','$2a$10$InlKoe5HbQ58.pDA.3DhPunT.WDyjCLTpiEgsFZYSekNYa3K3Wmf6','user',NULL,'2026-04-27 10:43:23','2026-04-27 10:43:23',0);
+INSERT INTO `users` (`id`,`email`,`password`,`role`,`email_verified_at`,`created_at`,`updated_at`,`token_version`) VALUES ('09874b5f-da13-4f3d-b074-b2094cafcac6','test@admin.com','$2a$10$T7nI5zsD9y2fqtCKjBCFUOoADQwg9EV0KpNvvh4Ojd9jJ2h.TOuPS','admin',NULL,'2026-04-30 18:49:49','2026-04-30 18:49:49',0),('31ef1413-e8f9-48a1-b34e-2e48dcdba9b5','admin1@gmail.com','admin','user',NULL,'2026-04-30 11:09:05','2026-04-30 11:09:05',0),('431fc8ef-fc2f-45e4-8f8f-db84e5acb72e','test1@admin.com','admin','admin',NULL,'2026-04-30 18:41:59','2026-04-30 18:41:59',0),('77927019-f8de-40ce-8504-00f2821df49e','iamthecodemonk@gmail.com','$2a$10$sO7YW3WIGu7OyDn7iw8LTeyujU11YK4wHEdCem3dWWoOhXEPvHqDO','user',NULL,'2026-04-15 15:08:37','2026-04-15 15:08:37',0),('78114f32-efa8-4a67-bbe1-84d73cfdd9d9','Sammyboluwaseun2003@gmail.com','$2a$10$JZlbHaoNXkyHMEVbnnv4MOPvppFGLNJlD0XLqfiSNKuMgq6pprIoO','user',NULL,'2026-04-15 15:50:04','2026-04-15 15:55:07',0),('d178f750-2501-4c12-934e-c9dfa4a7d96b','test@mailinator.com','$2a$10$InlKoe5HbQ58.pDA.3DhPunT.WDyjCLTpiEgsFZYSekNYa3K3Wmf6','user',NULL,'2026-04-27 10:43:23','2026-04-27 10:43:23',0);
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `user_referrals`
+--
+
+DROP TABLE IF EXISTS `user_referrals`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `user_referrals` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `sender_user_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `status` enum('queued','sent','accepted') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'queued',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_referrals_sender` (`sender_user_id`),
+  KEY `idx_user_referrals_email` (`email`),
+  CONSTRAINT `user_referrals_ibfk_1` FOREIGN KEY (`sender_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+LOCK TABLES `user_referrals` WRITE;
+/*!40000 ALTER TABLE `user_referrals` DISABLE KEYS */;
+/*!40000 ALTER TABLE `user_referrals` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `user_settings`
+--
+
+DROP TABLE IF EXISTS `user_settings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `user_settings` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `settings` json DEFAULT NULL,
+  `privacy` json DEFAULT NULL,
+  `notification_email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `notification_email_otp` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `notification_email_verified_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_settings_user` (`user_id`),
+  CONSTRAINT `user_settings_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+LOCK TABLES `user_settings` WRITE;
+/*!40000 ALTER TABLE `user_settings` DISABLE KEYS */;
+/*!40000 ALTER TABLE `user_settings` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 

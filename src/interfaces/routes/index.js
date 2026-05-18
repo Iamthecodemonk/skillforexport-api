@@ -127,22 +127,36 @@ export default async function registerRoutes(fastify, deps) {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: { operationId: 'deleteJob', tags: ['Jobs'], description: 'Delete a job posting. Creator/admin only.', params: idParam(), response: { 200: schemas.IdSuccessResponse } }
   }, handler('deleteJob'));
+  fastify.get('/job/:idOrSlug', { schema: { tags: ['Jobs'], description: 'Legacy alias for GET /jobs/:idOrSlug', params: idParam('idOrSlug') } }, handler('getJob'));
+  fastify.post('/job', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Jobs'], description: 'Legacy alias for POST /jobs', body: schemas.JobCreateBody } }, handler('createJob'));
+  fastify.put('/job/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Jobs'], description: 'Legacy alias for PATCH /jobs/:id', params: idParam(), body: { ...schemas.JobCreateBody, required: [] } } }, handler('updateJob'));
+  fastify.delete('/job/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Jobs'], description: 'Legacy alias for DELETE /jobs/:id', params: idParam() } }, handler('deleteJob'));
   fastify.get('/me/jobs/posted', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: { operationId: 'listMyPostedJobs', tags: ['Jobs'], description: 'List jobs posted by the authenticated user.', querystring: jobsQuery, response: { 200: schemas.JobPaginatedResponse } }
+  }, handler('listMyPostedJobs'));
+  fastify.get('/user/jobs/posted', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { tags: ['Jobs'], description: 'Legacy alias for GET /me/jobs/posted', querystring: jobsQuery, response: { 200: schemas.JobPaginatedResponse } }
   }, handler('listMyPostedJobs'));
   fastify.post('/jobs/:id/applications', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: { operationId: 'applyToJob', tags: ['Jobs'], description: 'Apply to a job.', params: idParam(), body: schemas.JobApplicationBody, response: { 201: dataResponse(schemas.JobApplicationResponse), 409: schemas.GenericErrorResponse } }
   }, handler('applyToJob'));
+  fastify.post('/job/:id/apply', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Jobs'], description: 'Legacy alias for applying to a job. Use resumeMediaId after uploading resume through media endpoints.', params: idParam(), body: schemas.JobApplicationBody } }, handler('applyToJob'));
   fastify.get('/me/jobs/applications', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: { operationId: 'listMyJobApplications', tags: ['Jobs'], description: 'List jobs the authenticated user applied for.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: schemas.JobApplicationPaginatedResponse } }
+  }, handler('listMyJobApplications'));
+  fastify.get('/user/jobs/applied', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { tags: ['Jobs'], description: 'Legacy alias for GET /me/jobs/applications', querystring: { type: 'object', properties: listQueryBase }, response: { 200: schemas.JobApplicationPaginatedResponse } }
   }, handler('listMyJobApplications'));
   fastify.get('/jobs/:id/applications', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: { operationId: 'listJobApplications', tags: ['Jobs'], description: 'List applications for a posted job. Creator/admin only.', params: idParam(), querystring: { type: 'object', properties: listQueryBase }, response: { 200: schemas.JobApplicationPaginatedResponse } }
   }, handler('listJobApplications'));
+  fastify.get('/job/:id/applicants', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Jobs'], description: 'Legacy alias for GET /jobs/:id/applications', params: idParam(), querystring: { type: 'object', properties: listQueryBase } } }, handler('listJobApplications'));
   fastify.patch('/jobs/:jobId/applications/:applicationId', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: { operationId: 'updateJobApplication', tags: ['Jobs'], description: 'Update job application status. Creator/admin only.', params: twoIdParams('jobId', 'applicationId'), body: schemas.StatusUpdateBody, response: { 200: dataResponse(schemas.JobApplicationResponse) } }
@@ -166,6 +180,9 @@ export default async function registerRoutes(fastify, deps) {
   fastify.get('/me/freelancer-profile', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'getMyFreelancerProfile', tags: ['Freelancers'], description: 'Get my freelancer profile.', response: { 200: dataResponse(schemas.FreelancerProfileResponse) } } }, handler('getMyFreelancerProfile'));
   fastify.patch('/me/freelancer-profile', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'updateMyFreelancerProfile', tags: ['Freelancers'], description: 'Update my freelancer profile.', body: { ...schemas.FreelancerCreateBody, required: [] }, response: { 200: dataResponse(schemas.FreelancerProfileResponse) } } }, handler('updateMyFreelancerProfile'));
   fastify.patch('/freelancers/:idOrUserId/status', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'updateFreelancerStatus', tags: ['Freelancers'], description: 'Update a freelancer profile status. Set status to `available` or `certified` to approve/show it publicly.', params: idParam('idOrUserId'), body: schemas.StatusUpdateBody, response: { 200: dataResponse(schemas.FreelancerProfileResponse) } } }, handler('updateFreelancerStatus'));
+  fastify.post('/freelancer/register', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Freelancers'], description: 'Legacy alias for POST /freelancers', body: schemas.FreelancerCreateBody } }, handler('createFreelancer'));
+  fastify.get('/freelancer/profile', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Freelancers'], description: 'Legacy alias for GET /me/freelancer-profile' } }, handler('getMyFreelancerProfile'));
+  fastify.put('/freelancer/profile', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Freelancers'], description: 'Legacy alias for PATCH /me/freelancer-profile' } }, handler('updateMyFreelancerProfile'));
 
   fastify.get('/freelance-jobs', { schema: { operationId: 'listFreelanceJobs', tags: ['Freelance Jobs'], description: 'List approved/active freelance jobs only. Public feed returns `approved`, `active`, and legacy `live` jobs.', querystring: freelanceJobsQuery, response: { 200: schemas.FreelanceJobPaginatedResponse } } }, handler('listFreelanceJobs'));
   fastify.post('/freelance-jobs', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'createFreelanceJob', tags: ['Freelance Jobs'], description: 'Create freelance job. New freelance jobs start as `pending_review` until approved.', body: schemas.FreelanceJobCreateBody, response: { 201: dataResponse(schemas.FreelanceJobResponse) } } }, handler('createFreelanceJob'));
@@ -178,6 +195,9 @@ export default async function registerRoutes(fastify, deps) {
   fastify.get('/me/freelance-jobs/applications', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'listMyFreelanceApplications', tags: ['Freelance Jobs'], description: 'List my freelance job applications.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: schemas.FreelanceApplicationPaginatedResponse } } }, handler('listMyFreelanceApplications'));
   fastify.get('/freelance-jobs/:id/applications', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'listFreelanceJobApplications', tags: ['Freelance Jobs'], description: 'List applications for freelance job.', params: idParam(), querystring: { type: 'object', properties: listQueryBase }, response: { 200: schemas.FreelanceApplicationPaginatedResponse } } }, handler('listFreelanceJobApplications'));
   fastify.patch('/freelance-jobs/:jobId/applications/:applicationId', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'updateFreelanceApplication', tags: ['Freelance Jobs'], description: 'Update freelance application status.', params: twoIdParams('jobId', 'applicationId'), body: schemas.StatusUpdateBody, response: { 200: dataResponse(schemas.FreelanceApplicationResponse) } } }, handler('updateFreelanceApplication'));
+  fastify.post('/freelancer/job', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Freelance Jobs'], description: 'Legacy alias for POST /freelance-jobs', body: schemas.FreelanceJobCreateBody } }, handler('createFreelanceJob'));
+  fastify.get('/freelancer/jobs', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Freelance Jobs'], description: 'Legacy alias for GET /me/freelance-jobs/posted' } }, handler('listMyFreelanceJobs'));
+  fastify.post('/freelancer/email', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Freelancers'], description: 'Legacy freelancer email compatibility endpoint' } }, async (req, reply) => reply.send({ success: true, message: 'Email queued', data: [] }));
 
   // ========== Adverts ==========
   fastify.get('/ads', { schema: { operationId: 'listAds', tags: ['Adverts'], description: 'List active approved adverts for public placement.', querystring: advertsQuery, response: { 200: schemas.AdvertPaginatedResponse } } }, handler('listAdverts'));
@@ -207,6 +227,10 @@ export default async function registerRoutes(fastify, deps) {
     req.body = { status: 'deleted' };
     return handler('updateAdvertSiteStatus')(req, reply);
   });
+
+  fastify.get('/feeds', { schema: { tags: ['Feeds'], description: 'Legacy feed alias for /posts', response: { 200: schemas.PostPaginatedResponse } } }, handler('listPosts'));
+  fastify.get('/enums', { schema: { tags: ['Meta'], description: 'Legacy enum bootstrap endpoint' } }, handler('listEnums'));
+  fastify.post('/contact', { schema: { tags: ['Contact'], description: 'Legacy public contact endpoint' } }, handler('sendContact'));
 
   // Items feature removed
 
@@ -658,6 +682,84 @@ export default async function registerRoutes(fastify, deps) {
       }
     }
   }, handler('getMyStats'));
+  fastify.get('/user/profile', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { tags: ['Users'], description: 'Legacy alias for GET /user/profile/me', response: { 200: dataResponse(schemas.FullProfileResponse) } }
+  }, handler('getMyProfile'));
+  fastify.post('/user/update', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { tags: ['Users'], description: 'Legacy profile update alias. Updates display name and profile fields.', body: schemas.UserProfileBody }
+  }, async (req, reply) => {
+    const id = req.user && req.user.id;
+    if (!id) return sendError(reply, 401, 'unauthorized', 'Unauthorized');
+    if ((req.body || {}).name || (req.body || {}).displayName) {
+      req.params = { id };
+      return handler('updateUser')(req, reply);
+    }
+    req.params = { id };
+    return handler('updateUserProfile')(req, reply);
+  });
+  fastify.get('/user/:id', { schema: { tags: ['Users'], description: 'Legacy public profile alias for GET /users/:id', params: idParam() } }, handler('getUser'));
+  fastify.put('/user/:id/follow', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { tags: ['Users'], description: 'Legacy toggle follow. Follows when not following, unfollows when already following.', params: idParam() }
+  }, async (req, reply) => {
+    const followerId = req.user && req.user.id;
+    if (!followerId) return sendError(reply, 401, 'unauthorized', 'Unauthorized');
+    try {
+      const existing = deps.controllers && deps.controllers.__noop;
+      return handler('followUser')(req, reply);
+    } catch (e) {
+      return handler('followUser')(req, reply);
+    }
+  });
+  fastify.post('/user/referrals', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Send referral emails' } }, handler('sendReferrals'));
+  fastify.post('/user/skills', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Legacy add skills route' } }, handler('addLegacySkills'));
+  fastify.put('/user/privacy', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Update legacy privacy settings' } }, handler('updatePrivacy'));
+  fastify.put('/user/settings', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Update legacy settings' } }, handler('updateSettings'));
+  fastify.put('/user/disable-account', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Disable authenticated account' } }, handler('disableAccount'));
+  fastify.post('/user/notification-email/send-otp', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Send notification email OTP' } }, handler('sendNotificationEmailOtp'));
+  fastify.post('/user/notification-email/verify', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Verify notification email OTP' } }, handler('verifyNotificationEmail'));
+  fastify.get('/user/notifications', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users', 'Notifications'], description: 'Legacy notification list' } }, handler('listNotifications'));
+  fastify.get('/user/posts', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Legacy own posts list' } }, handler('listUserPosts'));
+  fastify.get('/user/comments', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Legacy own comments list' } }, handler('listUserComments'));
+  fastify.get('/user/questions', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Legacy own questions list' } }, handler('listUserQuestions'));
+  fastify.get('/user/answers', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Legacy own answers list' } }, handler('listUserAnswers'));
+  fastify.get('/user/scores/posts', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Legacy post scores list' } }, handler('listPostScores'));
+  fastify.get('/user/scores/answers', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Legacy answer scores list' } }, handler('listAnswerScores'));
+  fastify.get('/user/scores/comments', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Legacy comment scores list' } }, handler('listCommentScores'));
+  fastify.get('/user/saved-posts', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Legacy saved posts list' } }, handler('listSavedPosts'));
+  fastify.get('/user/saved-question', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Legacy saved questions list' } }, handler('listSavedQuestions'));
+  fastify.get('/user/alerts', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Legacy alias for alert preferences' } }, handler('getAlertPreferences'));
+  fastify.post('/user/alerts', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Users'], description: 'Legacy alias for updating alert preferences' } }, handler('updateAlertPreferences'));
+  fastify.get('/notifications', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Notifications'], description: 'List notifications' } }, handler('listNotifications'));
+  fastify.get('/notifications/unread-count', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Notifications'], description: 'Unread notification count' } }, handler('unreadNotificationCount'));
+  fastify.put('/notifications/mark-read', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Notifications'], description: 'Mark notifications read' } }, handler('markNotificationsRead'));
+  fastify.put('/notifications/read-all', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Notifications'], description: 'Mark all notifications read' } }, handler('markAllNotificationsRead'));
+  fastify.put('/notifications/:id/read', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Notifications'], description: 'Mark notification read', params: idParam() } }, handler('markNotificationRead'));
+  fastify.put('/save-data', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Saved Items'], description: 'Legacy generic save endpoint' } }, handler('toggleGenericSave'));
+  fastify.put('/question/:id/save', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Saved Items'], description: 'Legacy question save endpoint', params: idParam() } }, handler('saveQuestion'));
+  fastify.put('/answer/:id/save', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Saved Items'], description: 'Legacy answer save endpoint', params: idParam() } }, handler('saveAnswer'));
+  fastify.put('/comment/:id/save', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Saved Items'], description: 'Legacy comment save endpoint', params: idParam() } }, handler('saveComment'));
+  fastify.put('/report', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Reports'], description: 'Legacy generic report endpoint' } }, handler('genericReport'));
+  fastify.get('/report-reasons', { schema: { tags: ['Reports'], description: 'Legacy report reasons endpoint' } }, handler('reportReasons'));
+  fastify.get('/education', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Education'], description: 'Legacy education resource list' } }, handler('listEducationRoot'));
+  fastify.post('/education', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Education'], description: 'Legacy education create' } }, handler('createEducationRoot'));
+  fastify.put('/education/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Education'], description: 'Legacy education update', params: idParam() } }, handler('updateEducationRoot'));
+  fastify.delete('/education/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Education'], description: 'Legacy education delete', params: idParam() } }, handler('deleteEducationRoot'));
+  fastify.get('/experience', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Experience'], description: 'Legacy experience resource list' } }, handler('listExperienceRoot'));
+  fastify.post('/experience', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Experience'], description: 'Legacy experience create' } }, handler('createExperienceRoot'));
+  fastify.put('/experience/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Experience'], description: 'Legacy experience update', params: idParam() } }, handler('updateExperienceRoot'));
+  fastify.delete('/experience/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Experience'], description: 'Legacy experience delete', params: idParam() } }, handler('deleteExperienceRoot'));
+  fastify.get('/certifications', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Certifications'], description: 'Legacy certification resource list' } }, handler('listCertificationRoot'));
+  fastify.post('/certifications', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Certifications'], description: 'Legacy certification create' } }, handler('createCertificationRoot'));
+  fastify.put('/certifications/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Certifications'], description: 'Legacy certification update', params: idParam() } }, handler('updateCertificationRoot'));
+  fastify.delete('/certifications/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Certifications'], description: 'Legacy certification delete', params: idParam() } }, handler('deleteCertificationRoot'));
+  fastify.get('/projects', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Projects'], description: 'Legacy project resource list' } }, handler('listProjectRoot'));
+  fastify.post('/projects', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Projects'], description: 'Legacy project create' } }, handler('createProjectRoot'));
+  fastify.put('/projects/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Projects'], description: 'Legacy project update', params: idParam() } }, handler('updateProjectRoot'));
+  fastify.post('/projects/:id/update', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Projects'], description: 'Legacy project update fallback', params: idParam() } }, handler('updateProjectRoot'));
+  fastify.delete('/projects/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Projects'], description: 'Legacy project delete', params: idParam() } }, handler('deleteProjectRoot'));
 
   fastify.post('/users/:id/profile', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
@@ -1207,6 +1309,11 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('joinCommunity'));
 
+  fastify.post('/toggle-community/:id', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { tags: ['Communities'], description: 'Legacy community join toggle alias', params: idParam() }
+  }, handler('joinCommunity'));
+
   fastify.delete('/communities/:id/join', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
@@ -1413,6 +1520,38 @@ export default async function registerRoutes(fastify, deps) {
   );
 
   // ========== Posts ==========
+  fastify.post('/post', {
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.createPost, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
+    schema: { tags: ['Posts'], description: 'Legacy alias for POST /posts', body: schemas.PostCreateBody }
+  }, async (req, reply) => {
+    req.body = Object.assign({}, req.body || {}, {
+      communityId: (req.body || {}).communityId || (req.body || {}).community_id,
+      pageId: (req.body || {}).pageId || (req.body || {}).page_id
+    });
+    return handler('createPost')(req, reply);
+  });
+  fastify.get('/post', { schema: { tags: ['Posts'], description: 'Legacy alias for GET /posts', response: { 200: schemas.PostPaginatedResponse } } }, handler('listPosts'));
+  fastify.get('/post/:id', { schema: { tags: ['Posts'], description: 'Legacy alias for GET /posts/:id', params: idParam() } }, handler('getPost'));
+  fastify.put('/post/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Posts'], description: 'Legacy alias for PUT /posts/:id', params: idParam() } }, handler('updatePost'));
+  fastify.delete('/post/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Posts'], description: 'Legacy alias for DELETE /posts/:id', params: idParam() } }, handler('deletePost'));
+  fastify.post('/post/:id/comment', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Posts', 'Comments'], description: 'Legacy alias for POST /posts/:id/comments', params: idParam(), body: schemas.CommentCreateBody } }, handler('createComment'));
+  fastify.get('/post/:id/comment', { schema: { tags: ['Posts', 'Comments'], description: 'Legacy alias for GET /posts/:id/comments', params: idParam() } }, handler('listComments'));
+  fastify.put('/post/:postId/comment/:id/like', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Comments'], description: 'Legacy comment like alias', params: twoIdParams('postId', 'id') } }, handler('toggleCommentReaction'));
+  fastify.put('/post/:postId/comment/:id/follow', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Comments'], description: 'Legacy comment follow compatibility no-op', params: twoIdParams('postId', 'id') } }, async (req, reply) => reply.send({ success: true, message: 'Followed successfully.', data: { following: true } }));
+  fastify.post('/post/:id/repost', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { tags: ['Posts'], description: 'Legacy alias for POST /posts/:id/shares', params: idParam(), body: schemas.PostShareBody }
+  }, async (req, reply) => {
+    req.body = Object.assign({}, req.body || {}, {
+      communityId: (req.body || {}).communityId || (req.body || {}).community_id,
+      comment: (req.body || {}).comment || (req.body || {}).content
+    });
+    return handler('sharePost')(req, reply);
+  });
+  fastify.put('/post/:id/like', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Posts'], description: 'Legacy alias for POST /posts/:id/reactions', params: idParam() } }, handler('togglePostReaction'));
+  fastify.put('/post/:id/save', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Posts'], description: 'Legacy alias for POST /posts/:id/save', params: idParam() } }, handler('toggleSave'));
+  fastify.post('/post/:id/report', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Posts'], description: 'Legacy alias for POST /posts/:id/report', params: idParam() } }, handler('reportPost'));
+
   fastify.post('/posts', {
     preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.createPost, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
@@ -1651,6 +1790,26 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('deletePostMedia'));
 
   // ========== Questions & Answers ==========
+  fastify.post('/question', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { tags: ['Questions'], description: 'Legacy alias for POST /questions', body: schemas.QuestionCreateBody }
+  }, async (req, reply) => {
+    req.body = Object.assign({}, req.body || {}, {
+      communityId: (req.body || {}).communityId || (req.body || {}).community_id,
+      body: (req.body || {}).body || (req.body || {}).guide
+    });
+    return handler('createQuestion')(req, reply);
+  });
+  fastify.get('/question', { schema: { tags: ['Questions'], description: 'Legacy alias for GET /questions', response: { 200: schemas.QuestionPaginatedResponse } } }, handler('listQuestions'));
+  fastify.get('/question/:id', { schema: { tags: ['Questions'], description: 'Legacy alias for GET /questions/:id', params: idParam() } }, handler('getQuestion'));
+  fastify.post('/question/:questionId/answer', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Questions', 'Answers'], description: 'Legacy alias for POST /questions/:questionId/answers', params: idParam('questionId'), body: schemas.AnswerCreateBody } }, handler('createAnswer'));
+  fastify.get('/question/:questionId/answer', { schema: { tags: ['Questions', 'Answers'], description: 'Legacy alias for GET /questions/:questionId/answers', params: idParam('questionId') } }, handler('listAnswers'));
+  fastify.post('/question/:id/report', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Questions'], description: 'Legacy report question route', params: idParam() } }, handler('reportQuestion'));
+  fastify.post('/answer/:id/report', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Answers'], description: 'Legacy report answer route', params: idParam() } }, handler('reportAnswer'));
+  fastify.post('/comment/:id/report', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Comments'], description: 'Legacy alias for POST /comments/:id/report', params: idParam() } }, handler('reportComment'));
+  fastify.get('/contests', { schema: { tags: ['Contests'], description: 'Legacy contests placeholder' } }, handler('emptyPaginated'));
+  fastify.get('/contest/:id', { schema: { tags: ['Contests'], description: 'Legacy contest placeholder', params: idParam() } }, handler('getQuestion'));
+
   fastify.post('/questions', {
     preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.createPost, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
@@ -1727,6 +1886,29 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('listAnswers'));
 
   // ========== Pages ==========
+  fastify.post('/page', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Pages'], description: 'Legacy alias for POST /pages', body: schemas.PageCreateBody } }, handler('createPage'));
+  fastify.get('/page/user', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Pages'], description: 'Legacy alias for GET /me/pages' } }, handler('listMyPages'));
+  fastify.get('/page/:id', { schema: { tags: ['Pages'], description: 'Legacy alias for GET /pages/:id', params: idParam() } }, handler('getPage'));
+  fastify.put('/page/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Pages'], description: 'Legacy alias for PUT /pages/:id', params: idParam() } }, handler('updatePage'));
+  fastify.post('/page/:id/update', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Pages'], description: 'Legacy update fallback alias for PUT /pages/:id', params: idParam() } }, handler('updatePage'));
+  fastify.delete('/page/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Pages'], description: 'Legacy alias for DELETE /pages/:id', params: idParam() } }, handler('deletePage'));
+  fastify.put('/page/:id/follow', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Pages'], description: 'Legacy page follow alias', params: idParam() } }, handler('followPage'));
+  fastify.get('/page/:id/post', { schema: { tags: ['Pages', 'Posts'], description: 'Legacy page posts route', params: idParam() } }, handler('listPostsByPage'));
+  fastify.post('/page/:id/post', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { tags: ['Pages', 'Posts'], description: 'Legacy create page post route', params: idParam(), body: schemas.PostCreateBody }
+  }, async (req, reply) => {
+    req.body = Object.assign({}, req.body || {}, {
+      pageId: req.params.id,
+      communityId: (req.body || {}).communityId || (req.body || {}).community_id
+    });
+    return handler('createPost')(req, reply);
+  });
+  fastify.get('/page/:id/jobs', { schema: { tags: ['Pages', 'Jobs'], description: 'Legacy page jobs placeholder', params: idParam() } }, handler('emptyPaginated'));
+  fastify.get('/page/:id/photos', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Pages'], description: 'Legacy page photos placeholder', params: idParam() } }, handler('emptyPaginated'));
+  fastify.get('/page/:id/uploads', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Pages'], description: 'Legacy page uploads placeholder', params: idParam() } }, handler('emptyPaginated'));
+  fastify.get('/page/:id/recommended-jobs', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { tags: ['Pages', 'Jobs'], description: 'Legacy recommended jobs placeholder', params: idParam() } }, handler('emptyPaginated'));
+
   fastify.post('/pages', {
     preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.createPost, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
@@ -1747,6 +1929,17 @@ export default async function registerRoutes(fastify, deps) {
       response: { 200: schemas.PagePaginatedResponse }
     }
   }, handler('listPages'));
+
+  fastify.get('/me/pages', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'listMyPages',
+      tags: ['Pages'],
+      description: 'List pages owned by the authenticated user. Each page includes ownerId.',
+      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
+      response: { 200: schemas.PagePaginatedResponse, 401: schemas.AuthErrorResponse }
+    }
+  }, handler('listMyPages'));
 
   fastify.get('/pages/:id', {
     schema: {

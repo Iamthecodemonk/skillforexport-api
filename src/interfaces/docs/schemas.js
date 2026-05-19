@@ -590,7 +590,15 @@ export const JobCreateBody = {
   required: ['title','companyName','description'],
   properties: {
     title: { type: 'string' },
-    skills: { oneOf: [{ type: 'array', items: { type: 'string' } }, { type: 'string' }] },
+    skills: {
+      description: 'Skills can be sent as an array of strings, an array of selected skill objects, or a comma-separated string.',
+      anyOf: [
+        { type: 'array', items: { type: 'string' } },
+        { type: 'array', items: { type: 'object', additionalProperties: true } },
+        { type: 'string' },
+        { type: 'null' }
+      ]
+    },
     location: { type: 'string' },
     type: { type: 'string', enum: ['full-time','part-time','contract','hybrid','remote'] },
     workMode: { type: 'string', enum: ['remote','hybrid','onsite'] },

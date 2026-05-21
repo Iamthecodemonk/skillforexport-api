@@ -3,7 +3,7 @@ import { buildPaginatedResponse, parsePagination } from '../paginationResponse.j
 
 const questionLogger = logger.child('QUESTION_CONTROLLER');
 
-export function makeQuestionController({ useCase = null }) {
+export function makeQuestionController({ useCase = null, notificationRepository = null }) {
   if (!useCase) {
     questionLogger.error('makeQuestionController requires a useCase');
     throw new Error('useCase_required');
@@ -62,6 +62,22 @@ export function makeQuestionController({ useCase = null }) {
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         if (!content) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         const created = await useCase.createAnswer({ questionId, userId: actorId, parentAnswerId, content });
+        if (notificationRepository) {
+          try {
+            const question = await useCase.getQuestion({ id: questionId, includeAnswers: false });
+            await notificationRepository.create({
+              userId: question && (question.user_id || question.userId),
+              actorUserId: actorId,
+              type: 'question_answer',
+              title: 'New answer on your question',
+              body: 'Someone answered your question.',
+              target: { type: 'question', id: questionId, title: question && question.title, url: `/questions/${questionId}` },
+              metadata: { answerId: created && created.id, parentAnswerId }
+            });
+          } catch (notifyErr) {
+            questionLogger.warn('answer notification failed', { message: notifyErr.message });
+          }
+        }
         return reply.code(201).send({ success: true, message: 'Answer created successfully', data: created && created.toPlainObject ? created.toPlainObject() : created });
       } catch (err) {
         questionLogger.error('createAnswer error', { message: err.message, stack: err.stack });

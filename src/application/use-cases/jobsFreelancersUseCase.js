@@ -6,14 +6,24 @@ const FREELANCE_JOB_STATUSES = ['pending_review', 'live', 'approved', 'active', 
 const PUBLIC_JOB_STATUSES = ['live', 'approved', 'active'];
 
 export default class JobsFreelancersUseCase {
-  constructor({ repository }) {
+  constructor({ repository, notificationRepository = null }) {
     this.repository = repository;
+    this.notificationRepository = notificationRepository;
   }
 
   assertOwnerOrAdmin(recordUserId, actor) {
     if (!actor || (!actor.id && !actor.userId)) throw new Error('unauthorized');
     const actorId = actor.id || actor.userId;
     if (recordUserId !== actorId && actor.role !== 'admin') throw new Error('forbidden');
+  }
+
+  async notify(payload) {
+    if (!this.notificationRepository) return null;
+    try {
+      return await this.notificationRepository.create(payload);
+    } catch (e) {
+      return null;
+    }
   }
 
   async listJobs(params) {
@@ -44,7 +54,19 @@ export default class JobsFreelancersUseCase {
 
   async updateJobStatus(actor, id, status) {
     if (!JOB_STATUSES.includes(status)) throw new Error('validation_error');
-    return this.updateJob(actor, id, { status });
+    const job = await this.updateJob(actor, id, { status });
+    if (this.notificationRepository && ['approved', 'active', 'live', 'suspended', 'deleted', 'closed', 'archived'].includes(status)) {
+      await this.notify({
+        userId: job.createdByUserId,
+        actorUserId: actor && (actor.id || actor.userId),
+        type: 'job_status',
+        title: status === 'suspended' ? 'Job suspended' : status === 'deleted' ? 'Job deleted' : 'Job status updated',
+        body: `Your job "${job.title}" is now ${status}.`,
+        target: { type: 'job', id: job.id, title: job.title, url: `/jobs/${job.id}` },
+        metadata: { status }
+      });
+    }
+    return job;
   }
 
   async deleteJob(actor, id) {
@@ -58,7 +80,19 @@ export default class JobsFreelancersUseCase {
     if (!actor || !actor.id) throw new Error('unauthorized');
     const job = await this.getJob(id, actor.id);
     if (!PUBLIC_JOB_STATUSES.includes(job.status)) throw new Error('job_not_found');
-    return this.repository.createJobApplication({ jobId: job.id, userId: actor.id, coverLetter: body.coverLetter || null, resumeMediaId: body.resumeMediaId || null, answers: body.answers || [] });
+    const application = await this.repository.createJobApplication({ jobId: job.id, userId: actor.id, coverLetter: body.coverLetter || null, resumeMediaId: body.resumeMediaId || null, answers: body.answers || [] });
+    if (this.notificationRepository) {
+      await this.notify({
+        userId: job.createdByUserId,
+        actorUserId: actor.id,
+        type: 'job_application',
+        title: 'New job application',
+        body: `Someone applied to "${job.title}".`,
+        target: { type: 'job', id: job.id, title: job.title, url: `/jobs/${job.id}` },
+        metadata: { applicationId: application.id }
+      });
+    }
+    return application;
   }
 
   async listMyPostedJobs(actor, params) {
@@ -198,7 +232,19 @@ export default class JobsFreelancersUseCase {
 
   async updateFreelanceJobStatus(actor, id, status) {
     if (!FREELANCE_JOB_STATUSES.includes(status)) throw new Error('validation_error');
-    return this.updateFreelanceJob(actor, id, { status });
+    const job = await this.updateFreelanceJob(actor, id, { status });
+    if (this.notificationRepository && ['approved', 'active', 'live', 'suspended', 'deleted', 'closed', 'archived'].includes(status)) {
+      await this.notify({
+        userId: job.postedByUserId,
+        actorUserId: actor && (actor.id || actor.userId),
+        type: 'freelance_job_status',
+        title: status === 'suspended' ? 'Freelance job suspended' : status === 'deleted' ? 'Freelance job deleted' : 'Freelance job status updated',
+        body: `Your freelance job "${job.title}" is now ${status}.`,
+        target: { type: 'freelance_job', id: job.id, title: job.title, url: `/freelance-jobs/${job.id}` },
+        metadata: { status }
+      });
+    }
+    return job;
   }
 
   async deleteFreelanceJob(actor, id) {
@@ -212,7 +258,19 @@ export default class JobsFreelancersUseCase {
     if (!actor || !actor.id) throw new Error('unauthorized');
     const job = await this.getFreelanceJob(id, actor.id);
     if (!PUBLIC_JOB_STATUSES.includes(job.status)) throw new Error('freelance_job_not_found');
-    return this.repository.createFreelanceJobApplication({ freelanceJobId: job.id, userId: actor.id, proposal: body.proposal || null, bidAmount: body.bidAmount || null, currency: body.currency || 'NGN', attachmentMediaIds: body.attachmentMediaIds || [] });
+    const application = await this.repository.createFreelanceJobApplication({ freelanceJobId: job.id, userId: actor.id, proposal: body.proposal || null, bidAmount: body.bidAmount || null, currency: body.currency || 'NGN', attachmentMediaIds: body.attachmentMediaIds || [] });
+    if (this.notificationRepository) {
+      await this.notify({
+        userId: job.postedByUserId,
+        actorUserId: actor.id,
+        type: 'freelance_job_application',
+        title: 'New freelance job application',
+        body: `Someone applied to "${job.title}".`,
+        target: { type: 'freelance_job', id: job.id, title: job.title, url: `/freelance-jobs/${job.id}` },
+        metadata: { applicationId: application.id }
+      });
+    }
+    return application;
   }
 
   async listMyFreelanceJobs(actor, params) {

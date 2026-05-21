@@ -42,7 +42,7 @@ async function enqueueProfileImageFromUrl({ req, reply, useCase, mediaQueue, use
   return reply.code(202).send({ success: true, data: { jobId: job.id } });
 }
 
-export function makeUserController({ useCase = null, followerRepository = null }) {
+export function makeUserController({ useCase = null, followerRepository = null, notificationRepository = null }) {
   if (!useCase) {
     userLogger.error('makeUserController requires a useCase');
     throw new Error('useCase_required');
@@ -407,6 +407,21 @@ export function makeUserController({ useCase = null, followerRepository = null }
         }
 
         const created = await useCase.followUser(id, actorId);
+        if (notificationRepository) {
+          try {
+            await notificationRepository.create({
+              userId: id,
+              actorUserId: actorId,
+              type: 'user_follow',
+              title: 'New follower',
+              body: 'Someone followed you.',
+              target: { type: 'user', id: actorId, title: null, url: `/users/${actorId}` },
+              metadata: { followId: created && created.id }
+            });
+          } catch (notifyErr) {
+            userLogger.warn('follow notification failed', { message: notifyErr.message });
+          }
+        }
         return reply.code(201).send({ success: true, message: 'Followed', data: { following: true } });
       } catch (err) {
         userLogger.error('followUser error', { message: err.message, stack: err.stack });

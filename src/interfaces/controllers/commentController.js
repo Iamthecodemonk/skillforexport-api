@@ -3,7 +3,7 @@ import { buildPaginatedResponse, parsePagination } from '../paginationResponse.j
 
 const commentLogger = logger.child('COMMENT_CONTROLLER');
 
-export function makeCommentController({ useCase = null }) {
+export function makeCommentController({ useCase = null, notificationRepository = null, postRepository = null }) {
   if (!useCase) throw new Error('useCase_required');
 
   return {
@@ -16,6 +16,35 @@ export function makeCommentController({ useCase = null }) {
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         if (!content) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         const created = await useCase.createComment({ postId, userId: actorId, parentCommentId, content });
+        if (notificationRepository && postRepository) {
+          try {
+            const post = await postRepository.findById(postId, { userId: actorId });
+            if (parentCommentId && useCase.commentRepository && typeof useCase.commentRepository.findById === 'function') {
+              const parent = await useCase.commentRepository.findById(parentCommentId);
+              await notificationRepository.create({
+                userId: parent && parent.user_id,
+                actorUserId: actorId,
+                type: 'comment_reply',
+                title: 'New reply to your comment',
+                body: 'Someone replied to your comment.',
+                target: { type: 'post', id: postId, title: post && post.title, url: `/posts/${postId}` },
+                metadata: { commentId: created.id, parentCommentId }
+              });
+            } else {
+              await notificationRepository.create({
+                userId: post && post.user_id,
+                actorUserId: actorId,
+                type: 'post_comment',
+                title: 'New comment on your post',
+                body: 'Someone commented on your post.',
+                target: { type: 'post', id: postId, title: post && post.title, url: `/posts/${postId}` },
+                metadata: { commentId: created.id }
+              });
+            }
+          } catch (notifyErr) {
+            commentLogger.warn('comment notification failed', { message: notifyErr.message });
+          }
+        }
         return reply.code(201).send({ success: true, data: created });
       } catch (err) {
         commentLogger.error('createComment error', { message: err.message });

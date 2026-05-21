@@ -93,6 +93,8 @@ import MysqlAdvertRepository from './infrastructure/repositories/mysqlAdvertRepo
 import AdvertUseCase from './application/use-cases/advertUseCase.js';
 import { makeAdvertController } from './interfaces/controllers/advertController.js';
 import { makeCompatController } from './interfaces/controllers/compatController.js';
+import MysqlNotificationRepository from './infrastructure/repositories/mysqlNotificationRepository.js';
+import { makeNotificationController } from './interfaces/controllers/notificationController.js';
 
 const serverLogger = logger.child('SERVER');
 const queueLogger = logger.child('EMAIL_QUEUE');
@@ -348,10 +350,17 @@ export default async function startServer() {
 
   // register app routes
   const controllers = { ...healthController, ...makeCompatController() };
+  let notificationRepository = null;
+  try {
+    notificationRepository = new MysqlNotificationRepository();
+    Object.assign(controllers, makeNotificationController({ repository: notificationRepository }));
+  } catch (notificationErr) {
+    serverLogger.warn('Notifications wiring failed', { message: notificationErr && notificationErr.message });
+  }
   try {
     const jobsFreelancersRepository = new MysqlJobsFreelancersRepository();
-    const jobsFreelancersUseCase = new JobsFreelancersUseCase({ repository: jobsFreelancersRepository });
-    Object.assign(controllers, makeJobsFreelancersController({ useCase: jobsFreelancersUseCase }));
+    const jobsFreelancersUseCase = new JobsFreelancersUseCase({ repository: jobsFreelancersRepository, notificationRepository });
+    Object.assign(controllers, makeJobsFreelancersController({ useCase: jobsFreelancersUseCase, notificationRepository }));
   } catch (jobsErr) {
     serverLogger.warn('Jobs/Freelancers wiring failed', { message: jobsErr && jobsErr.message });
   }
@@ -442,7 +451,8 @@ export default async function startServer() {
         loginHistoryRepository: loginHistoryRepo,
         certificationRepository: certRepo,
         educationRepository: eduRepo,
-        experienceRepository: expRepo
+        experienceRepository: expRepo,
+        notificationRepository
       });
       Object.assign(controllers, userController);
       // Posts wiring
@@ -453,7 +463,7 @@ export default async function startServer() {
         if (!app.hasDecorator || !app.hasDecorator('postAdapter')) {
           app.decorate('postAdapter', postAdapter);
         }
-        const postUseCase = new PostUseCase({ postRepository: postRepo });
+        const postUseCase = new PostUseCase({ postRepository: postRepo, notificationRepository });
         const postController = makePostController({ useCase: postUseCase });
         Object.assign(controllers, postController);
         // Post interactions wiring (save/report)
@@ -471,7 +481,7 @@ export default async function startServer() {
         try {
           const commentAdapter = new MysqlCommentRepository();
           const commentUseCase = new CommentUseCase({ commentRepository: commentAdapter });
-          const commentController = makeCommentController({ useCase: commentUseCase });
+          const commentController = makeCommentController({ useCase: commentUseCase, notificationRepository, postRepository: postAdapter });
           Object.assign(controllers, commentController);
         } catch (cErr) {
           serverLogger.warn('Comments wiring failed', cErr && cErr.message);
@@ -481,7 +491,7 @@ export default async function startServer() {
           const postReactionAdapter = new MysqlPostReactionRepository();
           const commentReactionAdapter = new MysqlCommentReactionRepository();
           const reactionUseCase = new ReactionUseCase({ postReactionRepository: postReactionAdapter, commentReactionRepository: commentReactionAdapter });
-          const reactionController = makeReactionController({ useCase: reactionUseCase });
+          const reactionController = makeReactionController({ useCase: reactionUseCase, notificationRepository, postRepository: postAdapter, commentRepository: commentAdapter });
           Object.assign(controllers, reactionController);
         } catch (rErr) {
           serverLogger.warn('Reactions wiring failed', rErr && rErr.message);
@@ -565,7 +575,7 @@ export default async function startServer() {
               const questionRepo = new QuestionRepositoryImpl({ adapter: questionAdapter });
               const answerRepo = new AnswerRepositoryImpl({ adapter: answerAdapter });
               const questionUseCase = new QuestionUseCase({ questionRepository: questionRepo, answerRepository: answerRepo });
-              const questionController = makeQuestionController({ useCase: questionUseCase });
+              const questionController = makeQuestionController({ useCase: questionUseCase, notificationRepository });
               Object.assign(controllers, questionController);
             } catch (qErr) {
               serverLogger.warn('Questions wiring failed', qErr && qErr.message);
@@ -588,7 +598,8 @@ export default async function startServer() {
         portfolioRepository: portfolioRepo,
         followerRepository: followerRepo,
         oauthRepository: oauthRepo,
-        loginHistoryRepository: loginHistoryRepo
+        loginHistoryRepository: loginHistoryRepo,
+        notificationRepository
       });
       Object.assign(controllers, userController);
     }

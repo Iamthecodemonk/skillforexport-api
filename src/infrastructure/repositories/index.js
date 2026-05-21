@@ -17,6 +17,7 @@ export { default as MysqlCommentReactionRepository } from './mysqlCommentReactio
 export { default as MysqlPostSaveRepository } from './mysqlPostSaveRepository.js';
 export { default as MysqlPostReportRepository } from './mysqlPostReportRepository.js';
 export { default as MysqlCommentReportRepository } from './mysqlCommentReportRepository.js';
+export { default as MysqlNotificationRepository } from './mysqlNotificationRepository.js';
 
 export { default as MysqlPageRepository } from './mysqlPageRepository.js';
 export { default as MysqlPageCategoryRepository } from './mysqlPageCategoryRepository.js';

@@ -4,8 +4,9 @@ import logger from '../../utils/logger.js';
 const postLogger = logger.child('POST_USECASE');
 
 export default class PostUseCase {
-  constructor({ postRepository }) {
+  constructor({ postRepository, notificationRepository = null }) {
     this.postRepository = postRepository;
+    this.notificationRepository = notificationRepository;
   }
 
   async CreatePost({ userId, communityId = null, pageId = null, title, content, visibility = null, parentPostId = null, originalPostId = null, mediaAssetIds = [] }) {
@@ -83,6 +84,34 @@ export default class PostUseCase {
       }
     } catch (e) {
       postLogger.warn('incrementPostCount failed', { message: e && e.message });
+    }
+    if (this.notificationRepository) {
+      try {
+        if (pageId && this.pageRepository && typeof this.pageRepository.findById === 'function') {
+          const page = await this.pageRepository.findById(pageId);
+          await this.notificationRepository.create({
+            userId: page && (page.ownerId || page.owner_id),
+            actorUserId: userId,
+            type: 'page_post',
+            title: 'New post on your page',
+            body: `A new post was created on ${page && page.name ? page.name : 'your page'}.`,
+            target: { type: 'post', id: created.id, title: created.title, url: `/posts/${created.id}` },
+            metadata: { pageId }
+          });
+        } else if (communityId && community && (community.owner_id || community.ownerId)) {
+          await this.notificationRepository.create({
+            userId: community.owner_id || community.ownerId,
+            actorUserId: userId,
+            type: 'community_post',
+            title: 'New post in your community',
+            body: `A new post was created in ${community.name || 'your community'}.`,
+            target: { type: 'post', id: created.id, title: created.title, url: `/posts/${created.id}` },
+            metadata: { communityId }
+          });
+        }
+      } catch (notifyErr) {
+        postLogger.warn('post notification failed', { message: notifyErr && notifyErr.message });
+      }
     }
     return created;
   }

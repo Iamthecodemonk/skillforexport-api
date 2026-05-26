@@ -9,10 +9,43 @@ export default class PageUseCase {
     this.pageCategoryRepository = null;
   }
 
-  async CreatePage({ ownerId, categoryId = null, name, slug, description = null, metadata = null }) {
-    if (!ownerId) throw new Error('owner_required');
+  normalizePageType(type, pageType) {
+    const value = String(type || pageType || 'business').trim().toLowerCase();
+    if (!['business', 'student'].includes(value)) throw new Error('invalid_page_type');
+    return value;
+  }
+
+  validateTypedPage({ type, name, description, metadata = {}, typeWasProvided = false }) {
+    if (typeWasProvided && !type) throw new Error('page_type_required');
     if (!name || String(name).trim() === '') throw new Error('name_required');
+    if (type === 'business') {
+      if (typeWasProvided && !metadata.contactEmail) throw new Error('contact_email_required');
+      if (typeWasProvided && !metadata.website) throw new Error('website_required');
+    }
+    if (type === 'student') {
+      if (!metadata.courseOfStudy) throw new Error('course_of_study_required');
+      if (!metadata.graduationDate) throw new Error('graduation_date_required');
+      if (!description || String(description).trim() === '') throw new Error('description_required');
+    }
+  }
+
+  mergePageMetadata(metadata = null, extra = {}) {
+    const merged = {
+      ...(metadata || {})
+    };
+    for (const key of ['slogan', 'contactEmail', 'website', 'staffSize', 'businessCategory', 'email', 'phone', 'courseOfStudy', 'graduationDate', 'skills']) {
+      if (typeof extra[key] !== 'undefined') merged[key] = extra[key];
+    }
+    return merged;
+  }
+
+  async CreatePage({ ownerId, categoryId = null, type = null, pageType = null, page_type = null, name, slug, description = null, avatar = null, coverImage = null, metadata = null, ...extra }) {
+    if (!ownerId) throw new Error('owner_required');
     if (!slug || String(slug).trim() === '') throw new Error('slug_required');
+    const typeWasProvided = typeof type !== 'undefined' && type !== null || typeof pageType !== 'undefined' && pageType !== null || typeof page_type !== 'undefined' && page_type !== null;
+    const normalizedType = this.normalizePageType(type || page_type, pageType);
+    const mergedMetadata = this.mergePageMetadata(metadata, extra);
+    this.validateTypedPage({ type: normalizedType, name, description, metadata: mergedMetadata, typeWasProvided });
     // Ensure page name is unique
     try {
       if (this.pageRepository && typeof this.pageRepository.findByName === 'function') {
@@ -70,10 +103,13 @@ export default class PageUseCase {
       id: uuidv4(),
       owner_id: ownerId,
       category_id: categoryId,
+      page_type: normalizedType,
       name: String(name),
       slug: String(slug),
       description: description || null,
-      metadata: metadata || null
+      avatar: avatar || null,
+      coverImage: coverImage || null,
+      metadata: Object.keys(mergedMetadata).length ? mergedMetadata : null
     };
     // Apply requires_approval flag from category if present
     try {
@@ -91,6 +127,44 @@ export default class PageUseCase {
       page.is_approved = 1;
     }
     return this.pageRepository.create(page);
+  }
+
+  async GetPagePrefill({ ownerId, type, userRepository = null, profileRepository = null, skillRepository = null }) {
+    if (!ownerId) throw new Error('owner_required');
+    const normalizedType = this.normalizePageType(type, type);
+    const [user, profile, skills] = await Promise.all([
+      userRepository && typeof userRepository.findById === 'function' ? userRepository.findById(ownerId) : Promise.resolve(null),
+      profileRepository && typeof profileRepository.findByUserId === 'function' ? profileRepository.findByUserId(ownerId) : Promise.resolve(null),
+      skillRepository && typeof skillRepository.listByUserId === 'function' ? skillRepository.listByUserId(ownerId) : Promise.resolve([])
+    ]);
+    const userData = user && user.toPlainObject ? user.toPlainObject() : user;
+    const profileData = profile && profile.toPlainObject ? profile.toPlainObject() : profile;
+    const skillNames = (skills || []).map(skill => {
+      const item = skill && skill.toPlainObject ? skill.toPlainObject() : skill;
+      return item && (item.skill || item.name);
+    }).filter(Boolean);
+
+    if (normalizedType === 'student') {
+      return {
+        type: 'student',
+        pageType: 'student',
+        name: (profileData && (profileData.displayName || profileData.username)) || null,
+        email: userData && userData.email || null,
+        phone: profileData && profileData.phone || null,
+        courseOfStudy: profileData && (profileData.courseOfStudy || profileData.course_of_study) || null,
+        skills: skillNames,
+        avatar: profileData && profileData.avatar || null
+      };
+    }
+
+    return {
+      type: 'business',
+      pageType: 'business',
+      contactEmail: userData && userData.email || null,
+      website: profileData && profileData.website || null,
+      businessCategory: null,
+      avatar: profileData && profileData.avatar || null
+    };
   }
 
   async UpdatePageCategory({ id, updates = {} }) {
@@ -199,7 +273,19 @@ export default class PageUseCase {
     const existing = await this.pageRepository.findById(id);
     if (!existing) throw new Error('page_not_found');
     if (existing.owner_id !== ownerId) throw new Error('not_authorized');
-    return this.pageRepository.update(id, updates);
+    const typeWasProvided = typeof updates.type !== 'undefined' && updates.type !== null || typeof updates.pageType !== 'undefined' && updates.pageType !== null || typeof updates.page_type !== 'undefined' && updates.page_type !== null;
+    const nextType = typeWasProvided
+      ? this.normalizePageType(updates.type || updates.page_type, updates.pageType)
+      : this.normalizePageType(existing.type || existing.page_type, existing.pageType);
+    const mergedMetadata = this.mergePageMetadata(
+      typeof updates.metadata !== 'undefined' ? updates.metadata : existing.metadata,
+      updates
+    );
+    const nextName = typeof updates.name !== 'undefined' ? updates.name : existing.name;
+    const nextDescription = typeof updates.description !== 'undefined' ? updates.description : existing.description;
+    this.validateTypedPage({ type: nextType, name: nextName, description: nextDescription, metadata: mergedMetadata, typeWasProvided });
+    const payload = { ...updates, page_type: nextType, metadata: Object.keys(mergedMetadata).length ? mergedMetadata : null };
+    return this.pageRepository.update(id, payload);
   }
 
   async DeletePage({ id, ownerId }) {

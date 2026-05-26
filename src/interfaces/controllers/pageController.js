@@ -3,7 +3,7 @@ import { buildPaginatedResponse, parsePagination } from '../paginationResponse.j
 
 const pageLogger = logger.child('PAGE_CONTROLLER');
 
-export function makePageController({ useCase = null, followersRepository = null }) {
+export function makePageController({ useCase = null, followersRepository = null, userRepository = null, profileRepository = null, skillRepository = null }) {
   if (!useCase) {
     pageLogger.error('makePageController requires a UseCase');
     throw new Error('useCase_required');
@@ -15,12 +15,13 @@ export function makePageController({ useCase = null, followersRepository = null 
         const actorId = req.user && req.user.id;
         if (!actorId) 
             return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
-        const { categoryId, name, slug, description, metadata } = req.body || {};
-        const created = await useCase.CreatePage({ ownerId: actorId, categoryId, name, slug, description, metadata });
+        const body = req.body || {};
+        const { categoryId, type, pageType, name, slug, description, avatar, coverImage, metadata } = body;
+        const created = await useCase.CreatePage({ ownerId: actorId, categoryId, type, pageType, name, slug, description, avatar, coverImage, metadata, ...body });
         return reply.code(201).send({ success: true, message: 'Page created successfully', data: created });
       } catch (err) {
-        if ((err && err.message === 'name_required') || (err && err.message === 'slug_required'))
-          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        if (['name_required', 'slug_required', 'page_type_required', 'invalid_page_type', 'contact_email_required', 'website_required', 'course_of_study_required', 'graduation_date_required', 'description_required'].includes(err && err.message))
+          return reply.code(422).send({ success: false, error: { code: err.message, message: err.message } });
         if (err && err.message === 'name_exists')
           return reply.code(409).send({ success: false, error: { code: 'name_exists', message: 'Page name already exists' } });
         if (err && err.message === 'owner_required')
@@ -244,6 +245,27 @@ export function makePageController({ useCase = null, followersRepository = null 
       }
     },
 
+    getPagePrefill: async (req, reply) => {
+      try {
+        const actorId = req.user && req.user.id;
+        if (!actorId)
+          return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        const data = await useCase.GetPagePrefill({
+          ownerId: actorId,
+          type: (req.query && req.query.type) || (req.query && req.query.pageType) || 'business',
+          userRepository,
+          profileRepository,
+          skillRepository
+        });
+        return reply.send({ success: true, message: 'Page prefill retrieved successfully', data });
+      } catch (err) {
+        if (err && err.message === 'invalid_page_type')
+          return reply.code(422).send({ success: false, error: { code: 'invalid_page_type' } });
+        pageLogger.error('getPagePrefill error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
     listPageCategories: async (req, reply) => {
       try {
         const { page, perPage, limit, offset } = parsePagination(req.query, 50);
@@ -369,6 +391,8 @@ export function makePageController({ useCase = null, followersRepository = null 
             return reply.code(404).send({ success: false, error: { code: 'page_not_found' } });
         if (err && err.message === 'not_authorized') 
             return reply.code(403).send({ success: false, error: { code: 'not_authorized' } });
+        if (['name_required', 'page_type_required', 'invalid_page_type', 'contact_email_required', 'website_required', 'course_of_study_required', 'graduation_date_required', 'description_required'].includes(err && err.message))
+          return reply.code(422).send({ success: false, error: { code: err.message, message: err.message } });
         pageLogger.error('updatePage error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }

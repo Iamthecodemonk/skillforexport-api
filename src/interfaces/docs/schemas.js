@@ -1229,14 +1229,102 @@ export const PageCreateBody = {
   type: 'object',
   required: ['name','slug'],
   properties: {
-    categoryId: { type: 'string' },
+    type: { type: 'string', enum: ['business', 'student'], description: 'Page type. New clients should always send this.' },
+    pageType: { type: 'string', enum: ['business', 'student'], description: 'Alias for type.' },
+    page_type: { type: 'string', enum: ['business', 'student'], description: 'Snake-case alias for type.' },
+    categoryId: { type: ['string','null'] },
     name: { type: 'string' },
     slug: { type: 'string' },
     description: { type: 'string' },
-    metadata: { type: ['object','null'] }
+    avatar: { type: ['string','null'] },
+    coverImage: { type: ['string','null'] },
+    slogan: { type: 'string', description: 'Business page metadata shortcut.' },
+    contactEmail: { type: 'string', format: 'email', description: 'Business page metadata shortcut.' },
+    website: { type: 'string', description: 'Business page metadata shortcut.' },
+    staffSize: { type: 'string', description: 'Business page metadata shortcut.' },
+    businessCategory: { type: 'string', description: 'Business page metadata shortcut.' },
+    email: { type: 'string', format: 'email', description: 'Student page metadata shortcut.' },
+    phone: { type: 'string', description: 'Student page metadata shortcut.' },
+    courseOfStudy: { type: 'string', description: 'Student page metadata shortcut.' },
+    graduationDate: { type: 'string', format: 'date', description: 'Student page metadata shortcut.' },
+    skills: { anyOf: [{ type: 'array', items: { type: 'string' } }, { type: 'string' }], description: 'Student page metadata shortcut.' },
+    metadata: {
+      type: ['object','null'],
+      additionalProperties: true,
+      properties: {
+        slogan: { type: 'string' },
+        contactEmail: { type: 'string', format: 'email' },
+        website: { type: 'string' },
+        staffSize: { type: 'string' },
+        businessCategory: { type: 'string' },
+        email: { type: 'string', format: 'email' },
+        phone: { type: 'string' },
+        courseOfStudy: { type: 'string' },
+        graduationDate: { type: 'string', format: 'date' },
+        skills: { anyOf: [{ type: 'array', items: { type: 'string' } }, { type: 'string' }] }
+      }
+    }
   },
-  example: { name: 'My Page', slug: 'my-page', description: 'A public page' }
+  examples: [
+    {
+      summary: 'Business page',
+      value: {
+        type: 'business',
+        name: 'Ben Confectioneries',
+        slug: 'ben-confectioneries',
+        description: '<p>Business description</p>',
+        metadata: {
+          slogan: 'Cooking Up Love',
+          contactEmail: 'business@email.com',
+          website: 'https://example.com',
+          staffSize: '1-10',
+          businessCategory: 'Information Technology'
+        }
+      }
+    },
+    {
+      summary: 'Student page',
+      value: {
+        type: 'student',
+        name: 'Sunday Godswill',
+        slug: 'sunday-godswill',
+        description: '<p>Student about text</p>',
+        metadata: {
+          email: 'student@email.com',
+          phone: '+234 000 000 0000',
+          courseOfStudy: 'Computer Science',
+          graduationDate: '2026-05-26',
+          skills: ['C++', 'JavaScript']
+        }
+      }
+    }
+  ],
+  example: {
+    type: 'student',
+    name: 'Sunday Godswill',
+    slug: 'sunday-godswill',
+    description: '<p>Student about text</p>',
+    metadata: { courseOfStudy: 'Computer Science', graduationDate: '2026-05-26', skills: ['C++', 'JavaScript'] }
+  }
 };
+
+export const PagePrefillResponse = {
+  type: 'object',
+  properties: {
+    type: { type: 'string', enum: ['business', 'student'] },
+    pageType: { type: 'string', enum: ['business', 'student'] },
+    name: { type: ['string','null'] },
+    email: { type: ['string','null'] },
+    phone: { type: ['string','null'] },
+    courseOfStudy: { type: ['string','null'] },
+    skills: { type: 'array', items: { type: 'string' } },
+    contactEmail: { type: ['string','null'] },
+    website: { type: ['string','null'] },
+    businessCategory: { type: ['string','null'] },
+    avatar: { type: ['string','null'] }
+  }
+};
+PagePrefillResponse.example = { type: 'student', pageType: 'student', name: 'Sunday Godswill', email: 'student@email.com', phone: '+234 000 000 0000', courseOfStudy: 'Computer Science', skills: ['C++', 'JavaScript'], avatar: 'https://example.com/avatar.jpg' };
 
 export const PageCategoryCreateBody = {
   type: 'object',
@@ -1287,11 +1375,15 @@ export const PageResponse = {
     id: { type: 'string' },
     owner_id: { type: 'string' },
     ownerId: { type: 'string' },
+    page_type: { type: 'string', enum: ['business', 'student'] },
+    type: { type: 'string', enum: ['business', 'student'] },
+    pageType: { type: 'string', enum: ['business', 'student'] },
     categoryId: { type: ['string','null'] },
     name: { type: 'string' },
     slug: { type: 'string' },
     description: { type: 'string' },
     avatar: { type: ['string','null'] },
+    cover_image: { type: ['string','null'] },
     coverImage: { type: ['string','null'] },
     isVerified: { type: 'number' },
     isActive: { type: 'number' },
@@ -1307,7 +1399,7 @@ export const PageResponse = {
     updatedAt: { type: 'string' }
   }
 };
-PageResponse.example = { id: 'page-uuid', ownerId: 'user-uuid', categoryId: 'page-category-uuid', name: 'My Page', slug: 'my-page', description: 'A public page', avatar: null, coverImage: null, isVerified: 0, isActive: 1, isApproved: 1, approvalNotes: null, approvedAt: '2026-04-20T10:00:00Z', approvedBy: 'admin-uuid', metadata: { theme: 'business' }, followers_count: 12, posts_count: 3, category_pages_count: 25, createdAt: '2026-04-10T09:00:00Z', updatedAt: '2026-04-20T10:00:00Z' };
+PageResponse.example = { id: 'page-uuid', ownerId: 'user-uuid', page_type: 'student', type: 'student', pageType: 'student', categoryId: 'page-category-uuid', name: 'Sunday Godswill', slug: 'sunday-godswill', description: '<p>Student about text</p>', avatar: null, cover_image: null, coverImage: null, isVerified: 0, isActive: 1, isApproved: 1, approvalNotes: null, approvedAt: '2026-04-20T10:00:00Z', approvedBy: 'admin-uuid', metadata: { courseOfStudy: 'Computer Science', graduationDate: '2026-05-26', skills: ['C++', 'JavaScript'] }, followers_count: 12, posts_count: 3, category_pages_count: 25, createdAt: '2026-04-10T09:00:00Z', updatedAt: '2026-04-20T10:00:00Z' };
 
 export const PageListResponse = { type: 'array', items: PageResponse };
 
@@ -1597,6 +1689,7 @@ export default {
   MediaJobStatusResponse,
   PageCategoryCreateBody,
   PageCreateBody,
+  PagePrefillResponse,
   PageResponse,
   PageListResponse,
   PageFollower,

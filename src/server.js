@@ -525,7 +525,13 @@ export default async function startServer() {
           }
           const pageFollowerAdapter = new MysqlPageFollowerRepository();
           const pageFollowerRepo = new PageFollowerRepositoryImpl({ adapter: pageFollowerAdapter });
-          const pageController = makePageController({ useCase: pageUseCase, followersRepository: pageFollowerRepo });
+          const pageController = makePageController({
+            useCase: pageUseCase,
+            followersRepository: pageFollowerRepo,
+            userRepository: userRepo,
+            profileRepository: profileRepo,
+            skillRepository: skillRepo
+          });
           Object.assign(controllers, pageController);
           // Communities wiring
           try {

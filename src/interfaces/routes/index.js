@@ -1952,6 +1952,7 @@ export default async function registerRoutes(fastify, deps) {
   // ========== Pages ==========
   fastify.post('/page', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyCreatePage', tags: ['Pages'], description: 'Legacy alias for POST /pages', body: schemas.PageCreateBody, response: { 201: dataResponse(schemas.PageResponse), 422: schemas.GenericErrorResponse } } }, handler('createPage'));
   fastify.get('/page/user', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyListMyPages', tags: ['Pages'], description: 'Legacy alias for GET /me/pages', querystring: { type: 'object', properties: listQueryBase }, response: { 200: schemas.PagePaginatedResponse } } }, handler('listMyPages'));
+  fastify.get('/page/prefill', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyGetPagePrefill', tags: ['Pages'], description: 'Legacy alias for GET /pages/prefill. Returns form defaults for a business or student page.', querystring: { type: 'object', properties: { type: { type: 'string', enum: ['business', 'student'] }, pageType: { type: 'string', enum: ['business', 'student'] } } }, response: { 200: dataResponse(schemas.PagePrefillResponse), 401: schemas.AuthErrorResponse, 422: schemas.GenericErrorResponse } } }, handler('getPagePrefill'));
   fastify.get('/page/:id', { schema: { operationId: 'legacyGetPage', tags: ['Pages'], description: 'Legacy alias for GET /pages/:id', params: idParam(), response: { 200: dataResponse(schemas.PageResponse), 404: schemas.GenericErrorResponse } } }, handler('getPage'));
   fastify.put('/page/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyUpdatePage', tags: ['Pages'], description: 'Legacy alias for PUT /pages/:id', params: idParam(), body: { ...schemas.PageCreateBody, required: [] }, response: { 200: dataResponse(schemas.PageResponse), 404: schemas.GenericErrorResponse } } }, handler('updatePage'));
   fastify.post('/page/:id/update', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyUpdatePageFallback', tags: ['Pages'], description: 'Legacy update fallback alias for PUT /pages/:id', params: idParam(), body: { ...schemas.PageCreateBody, required: [] }, response: { 200: dataResponse(schemas.PageResponse), 404: schemas.GenericErrorResponse } } }, handler('updatePage'));
@@ -2004,6 +2005,27 @@ export default async function registerRoutes(fastify, deps) {
       response: { 200: schemas.PagePaginatedResponse, 401: schemas.AuthErrorResponse }
     }
   }, handler('listMyPages'));
+
+  fastify.get('/pages/prefill', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'getPagePrefill',
+      tags: ['Pages'],
+      description: 'Return prefilled values for creating a business or student page.',
+      querystring: {
+        type: 'object',
+        properties: {
+          type: { type: 'string', enum: ['business', 'student'] },
+          pageType: { type: 'string', enum: ['business', 'student'] }
+        }
+      },
+      response: {
+        200: dataResponse(schemas.PagePrefillResponse),
+        401: schemas.AuthErrorResponse,
+        422: schemas.GenericErrorResponse
+      }
+    }
+  }, handler('getPagePrefill'));
 
   fastify.get('/pages/:id', {
     schema: {
@@ -2141,7 +2163,7 @@ export default async function registerRoutes(fastify, deps) {
       operationId: 'updatePage',
       tags: ['Pages'],
       description: 'Update a page. Only the page owner may update.',
-      body: { type: 'object', properties: { name: { type: 'string' }, slug: { type: 'string' }, description: { type: 'string' }, metadata: { type: 'object' } }, example: { name: 'My Updated Page', slug: 'my-updated-page', description: 'Updated page description', metadata: { theme: 'business' } } },
+      body: { ...schemas.PageCreateBody, required: [], example: { type: 'business', name: 'Ben Confectioneries', slug: 'ben-confectioneries', description: '<p>Updated business description</p>', metadata: { slogan: 'Cooking Up Love', contactEmail: 'business@email.com', website: 'https://example.com', staffSize: '1-10', businessCategory: 'Information Technology' } } },
       response: {
         200: {
           type: 'object',

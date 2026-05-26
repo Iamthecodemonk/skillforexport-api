@@ -10,6 +10,8 @@ export default class MysqlPageRepository {
     }
     page.ownerId = page.ownerId || page.owner_id || null;
     page.categoryId = page.categoryId || page.category_id || null;
+    page.type = page.type || page.pageType || page.page_type || 'business';
+    page.pageType = page.pageType || page.type || page.page_type || 'business';
     page.coverImage = page.coverImage || page.cover_image || null;
     page.isVerified = typeof page.isVerified !== 'undefined' ? page.isVerified : page.is_verified;
     page.isActive = typeof page.isActive !== 'undefined' ? page.isActive : page.is_active;
@@ -29,6 +31,7 @@ export default class MysqlPageRepository {
       id,
       owner_id: page.owner_id || page.ownerId,
       category_id: page.category_id || page.categoryId || null,
+      page_type: page.page_type || page.pageType || page.type || 'business',
       name: page.name,
       slug: page.slug,
       description: page.description || null,
@@ -44,7 +47,7 @@ export default class MysqlPageRepository {
       created_at: now,
       updated_at: now
     });
-    return this.mapPage({ id, owner_id: page.owner_id || page.ownerId, category_id: page.category_id || page.categoryId || null, name: page.name, slug: page.slug, description: page.description || null, avatar: page.avatar || null, cover_image: page.cover_image || page.coverImage || null, is_verified: page.is_verified || page.isVerified || 0, is_active: page.is_active || page.isActive || 1, is_approved: page.is_approved || page.isApproved || 0, approval_notes: page.approval_notes || page.approvalNotes || null, approved_at: page.approved_at || page.approvedAt || null, approved_by: page.approved_by || page.approvedBy || null, metadata: page.metadata || null, created_at: now, updated_at: now });
+    return this.mapPage({ id, owner_id: page.owner_id || page.ownerId, category_id: page.category_id || page.categoryId || null, page_type: page.page_type || page.pageType || page.type || 'business', name: page.name, slug: page.slug, description: page.description || null, avatar: page.avatar || null, cover_image: page.cover_image || page.coverImage || null, is_verified: page.is_verified || page.isVerified || 0, is_active: page.is_active || page.isActive || 1, is_approved: page.is_approved || page.isApproved || 0, approval_notes: page.approval_notes || page.approvalNotes || null, approved_at: page.approved_at || page.approvedAt || null, approved_by: page.approved_by || page.approvedBy || null, metadata: page.metadata || null, created_at: now, updated_at: now });
   }
 
   async findById(id) {
@@ -84,9 +87,13 @@ export default class MysqlPageRepository {
     const now = new Date();
     const payload = {};
     if (typeof updates.name !== 'undefined') payload.name = updates.name;
+    if (typeof updates.type !== 'undefined') payload.page_type = updates.type;
+    if (typeof updates.pageType !== 'undefined') payload.page_type = updates.pageType;
+    if (typeof updates.page_type !== 'undefined') payload.page_type = updates.page_type;
     if (typeof updates.slug !== 'undefined') payload.slug = updates.slug;
     if (typeof updates.description !== 'undefined') payload.description = updates.description;
     if (typeof updates.avatar !== 'undefined') payload.avatar = updates.avatar;
+    if (typeof updates.coverImage !== 'undefined') payload.cover_image = updates.coverImage;
     if (typeof updates.cover_image !== 'undefined') payload.cover_image = updates.cover_image;
     if (typeof updates.is_active !== 'undefined') payload.is_active = updates.is_active;
     if (typeof updates.is_approved !== 'undefined') payload.is_approved = updates.is_approved;

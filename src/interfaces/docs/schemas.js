@@ -655,6 +655,44 @@ export const StatusUpdateBody = {
   example: { status: 'approved' }
 };
 
+export const JobStatusUpdateBody = {
+  type: 'object',
+  required: ['status'],
+  properties: {
+    status: {
+      type: 'string',
+      enum: ['draft','pending_review','live','approved','active','closed','archived','deleted','suspended'],
+      description: '`approved`, `active`, or legacy `live` makes the job visible publicly. `suspended` and `deleted` hide it from public feeds.'
+    }
+  },
+  examples: [
+    { summary: 'Approve', value: { status: 'approved' } },
+    { summary: 'Suspend', value: { status: 'suspended' } },
+    { summary: 'Unsuspend / publish', value: { status: 'approved' } },
+    { summary: 'Delete', value: { status: 'deleted' } }
+  ],
+  example: { status: 'approved' }
+};
+
+export const FreelanceJobStatusUpdateBody = {
+  type: 'object',
+  required: ['status'],
+  properties: {
+    status: {
+      type: 'string',
+      enum: ['pending_review','live','approved','active','closed','archived','deleted','suspended'],
+      description: '`approved`, `active`, or legacy `live` makes the freelance job visible publicly. `suspended` and `deleted` hide it from public feeds.'
+    }
+  },
+  examples: [
+    { summary: 'Approve', value: { status: 'approved' } },
+    { summary: 'Suspend', value: { status: 'suspended' } },
+    { summary: 'Unsuspend / publish', value: { status: 'approved' } },
+    { summary: 'Delete', value: { status: 'deleted' } }
+  ],
+  example: { status: 'approved' }
+};
+
 export const AlertPreferencesResponse = {
   type: 'object',
   properties: {
@@ -1647,6 +1685,8 @@ export default {
   JobApplicationBody,
   JobApplicationPaginatedResponse,
   StatusUpdateBody,
+  JobStatusUpdateBody,
+  FreelanceJobStatusUpdateBody,
   AlertPreferencesResponse,
   AlertPreferencesBody,
   FreelancerProfileResponse,

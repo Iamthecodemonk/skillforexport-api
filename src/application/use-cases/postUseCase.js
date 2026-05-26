@@ -170,11 +170,11 @@ export default class PostUseCase {
     return this.postRepository.update(id, { title, content });
   }
 
-  async DeletePost({ id, userId }) {
+  async DeletePost({ id, userId, actorRole = null }) {
     if (!id) throw new Error('id_required');
     const existing = await this.postRepository.findById(id);
     if (!existing) throw new Error('post_not_found');
-    if (existing.user_id !== userId) throw new Error('not_authorized');
+    if (existing.user_id !== userId && actorRole !== 'admin') throw new Error('not_authorized');
     await this.postRepository.delete(id);
     try {
       if (existing && existing.page_id && this.pageRepository && typeof this.pageRepository.incrementPostCount === 'function') {

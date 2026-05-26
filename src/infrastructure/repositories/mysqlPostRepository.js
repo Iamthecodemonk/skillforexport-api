@@ -196,7 +196,29 @@ export default class MysqlPostRepository {
   }
 
   async delete(id) {
-    await db('posts').where({ id }).del();
+    await db.transaction(async (trx) => {
+      const postIds = [id];
+      let frontier = [id];
+      while (frontier.length > 0) {
+        const children = await trx('posts').whereIn('parent_post_id', frontier).pluck('id');
+        const freshChildren = children.filter(childId => !postIds.includes(childId));
+        if (freshChildren.length === 0) break;
+        postIds.push(...freshChildren);
+        frontier = freshChildren;
+      }
+
+      const commentIds = await trx('comments').whereIn('post_id', postIds).pluck('id');
+      if (commentIds.length > 0) {
+        await trx('comment_reactions').whereIn('comment_id', commentIds).del();
+        await trx('comment_reports').whereIn('comment_id', commentIds).del();
+      }
+      await trx('comments').whereIn('post_id', postIds).del();
+      await trx('post_media').whereIn('post_id', postIds).del();
+      await trx('post_reactions').whereIn('post_id', postIds).del();
+      await trx('post_saves').whereIn('post_id', postIds).del();
+      await trx('post_reports').whereIn('post_id', postIds).del();
+      await trx('posts').whereIn('id', postIds).del();
+    });
     return true;
   }
 }

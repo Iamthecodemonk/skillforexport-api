@@ -161,6 +161,34 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('health'));
 
   // ========== Jobs, Alerts, Freelancers ==========
+  fastify.get('/admin/jobs', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { operationId: 'adminListJobs', tags: ['Admin', 'Jobs'], description: 'Admin list of all regular jobs, including pending, approved, suspended, deleted, closed, and archived jobs.', querystring: jobsQuery, response: { 200: schemas.JobPaginatedResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse } }
+  }, handler('listAllJobs'));
+  fastify.patch('/admin/jobs/:id/status', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { operationId: 'adminUpdateJobStatus', tags: ['Admin', 'Jobs'], description: 'Admin update job status. Use `approved` or `active` to publish, `suspended` to hide, and `deleted` to remove from public views.', params: idParam(), body: schemas.JobStatusUpdateBody, response: { 200: dataResponse(schemas.JobResponse), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } }
+  }, handler('updateJobStatusAsAdmin'));
+  fastify.post('/admin/jobs/:id/approve', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminApproveJob', tags: ['Admin', 'Jobs'], description: 'Admin approve a regular job.', params: idParam(), response: { 200: dataResponse(schemas.JobResponse), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } } }, async (req, reply) => {
+    req.body = { status: 'approved' };
+    return handler('updateJobStatusAsAdmin')(req, reply);
+  });
+  fastify.post('/admin/jobs/:id/suspend', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminSuspendJob', tags: ['Admin', 'Jobs'], description: 'Admin suspend a regular job.', params: idParam(), response: { 200: dataResponse(schemas.JobResponse), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } } }, async (req, reply) => {
+    req.body = { status: 'suspended' };
+    return handler('updateJobStatusAsAdmin')(req, reply);
+  });
+  fastify.post('/admin/jobs/:id/unsuspend', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminUnsuspendJob', tags: ['Admin', 'Jobs'], description: 'Admin unsuspend a regular job by returning it to approved.', params: idParam(), response: { 200: dataResponse(schemas.JobResponse), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } } }, async (req, reply) => {
+    req.body = { status: 'approved' };
+    return handler('updateJobStatusAsAdmin')(req, reply);
+  });
+  fastify.delete('/admin/jobs/:id', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { operationId: 'adminDeleteJob', tags: ['Admin', 'Jobs'], description: 'Admin delete a regular job.', params: idParam(), response: { 200: schemas.IdSuccessResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse } }
+  }, handler('deleteJobAsAdmin'));
+  fastify.get('/jobs/all', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { operationId: 'legacyAdminListJobs', tags: ['Admin', 'Jobs'], description: 'Legacy admin alias for GET /admin/jobs.', querystring: jobsQuery, response: { 200: schemas.JobPaginatedResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse } }
+  }, handler('listAllJobs'));
   fastify.get('/jobs', {
     schema: { operationId: 'listJobs', tags: ['Jobs'], description: 'List approved/active jobs only. Public feed returns `approved`, `active`, and legacy `live` jobs.', querystring: jobsQuery, response: { 200: schemas.JobPaginatedResponse } }
   }, handler('listJobs'));
@@ -177,7 +205,7 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('updateJob'));
   fastify.patch('/jobs/:id/status', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'updateJobStatus', tags: ['Jobs'], description: 'Update a job status. Set status to `approved` or `active` to show it publicly; `live` is still supported for existing data.', params: idParam(), body: schemas.StatusUpdateBody, response: { 200: dataResponse(schemas.JobResponse) } }
+    schema: { operationId: 'updateJobStatus', tags: ['Jobs'], description: 'Update a job status. Set status to `approved` or `active` to show it publicly; `live` is still supported for existing data.', params: idParam(), body: schemas.JobStatusUpdateBody, response: { 200: dataResponse(schemas.JobResponse), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } }
   }, handler('updateJobStatus'));
   fastify.delete('/jobs/:id', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
@@ -241,10 +269,38 @@ export default async function registerRoutes(fastify, deps) {
   fastify.put('/freelancer/profile', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyUpdateMyFreelancerProfile', tags: ['Freelancers'], description: 'Legacy alias for PATCH /me/freelancer-profile', body: { ...schemas.FreelancerCreateBody, required: [] }, response: { 200: dataResponse(schemas.FreelancerProfileResponse), 422: schemas.GenericErrorResponse } } }, handler('updateMyFreelancerProfile'));
 
   fastify.get('/freelance-jobs', { schema: { operationId: 'listFreelanceJobs', tags: ['Freelance Jobs'], description: 'List approved/active freelance jobs only. Public feed returns `approved`, `active`, and legacy `live` jobs.', querystring: freelanceJobsQuery, response: { 200: schemas.FreelanceJobPaginatedResponse } } }, handler('listFreelanceJobs'));
+  fastify.get('/admin/freelance-jobs', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { operationId: 'adminListFreelanceJobs', tags: ['Admin', 'Freelance Jobs'], description: 'Admin list of all freelance jobs, including pending, approved, suspended, deleted, closed, and archived jobs.', querystring: freelanceJobsQuery, response: { 200: schemas.FreelanceJobPaginatedResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse } }
+  }, handler('listAllFreelanceJobs'));
+  fastify.patch('/admin/freelance-jobs/:id/status', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { operationId: 'adminUpdateFreelanceJobStatus', tags: ['Admin', 'Freelance Jobs'], description: 'Admin update freelance job status. Use `approved` or `active` to publish, `suspended` to hide, and `deleted` to remove from public views.', params: idParam(), body: schemas.FreelanceJobStatusUpdateBody, response: { 200: dataResponse(schemas.FreelanceJobResponse), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } }
+  }, handler('updateFreelanceJobStatusAsAdmin'));
+  fastify.post('/admin/freelance-jobs/:id/approve', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminApproveFreelanceJob', tags: ['Admin', 'Freelance Jobs'], description: 'Admin approve a freelance job.', params: idParam(), response: { 200: dataResponse(schemas.FreelanceJobResponse), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } } }, async (req, reply) => {
+    req.body = { status: 'approved' };
+    return handler('updateFreelanceJobStatusAsAdmin')(req, reply);
+  });
+  fastify.post('/admin/freelance-jobs/:id/suspend', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminSuspendFreelanceJob', tags: ['Admin', 'Freelance Jobs'], description: 'Admin suspend a freelance job.', params: idParam(), response: { 200: dataResponse(schemas.FreelanceJobResponse), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } } }, async (req, reply) => {
+    req.body = { status: 'suspended' };
+    return handler('updateFreelanceJobStatusAsAdmin')(req, reply);
+  });
+  fastify.post('/admin/freelance-jobs/:id/unsuspend', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminUnsuspendFreelanceJob', tags: ['Admin', 'Freelance Jobs'], description: 'Admin unsuspend a freelance job by returning it to approved.', params: idParam(), response: { 200: dataResponse(schemas.FreelanceJobResponse), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } } }, async (req, reply) => {
+    req.body = { status: 'approved' };
+    return handler('updateFreelanceJobStatusAsAdmin')(req, reply);
+  });
+  fastify.delete('/admin/freelance-jobs/:id', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { operationId: 'adminDeleteFreelanceJob', tags: ['Admin', 'Freelance Jobs'], description: 'Admin delete a freelance job.', params: idParam(), response: { 200: schemas.IdSuccessResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse } }
+  }, handler('deleteFreelanceJobAsAdmin'));
+  fastify.get('/freelance-jobs/all', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { operationId: 'legacyAdminListFreelanceJobs', tags: ['Admin', 'Freelance Jobs'], description: 'Legacy admin alias for GET /admin/freelance-jobs.', querystring: freelanceJobsQuery, response: { 200: schemas.FreelanceJobPaginatedResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse } }
+  }, handler('listAllFreelanceJobs'));
   fastify.post('/freelance-jobs', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'createFreelanceJob', tags: ['Freelance Jobs'], description: 'Create freelance job. New freelance jobs start as `pending_review` until approved.', body: schemas.FreelanceJobCreateBody, response: { 201: dataResponse(schemas.FreelanceJobResponse) } } }, handler('createFreelanceJob'));
   fastify.get('/freelance-jobs/:idOrSlug', { schema: { operationId: 'getFreelanceJob', tags: ['Freelance Jobs'], description: 'Get approved freelance job detail. Non-approved freelance jobs are hidden from public users; owners/admins may view them.', params: idParam('idOrSlug'), response: { 200: dataResponse(schemas.FreelanceJobResponse), 404: schemas.GenericErrorResponse } } }, handler('getFreelanceJob'));
   fastify.patch('/freelance-jobs/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'updateFreelanceJob', tags: ['Freelance Jobs'], description: 'Update freelance job.', params: idParam(), body: { ...schemas.FreelanceJobCreateBody, required: [] }, response: { 200: dataResponse(schemas.FreelanceJobResponse) } } }, handler('updateFreelanceJob'));
-  fastify.patch('/freelance-jobs/:id/status', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'updateFreelanceJobStatus', tags: ['Freelance Jobs'], description: 'Update freelance job status. Set status to `approved` or `active` to show it publicly; `live` is still supported for existing data.', params: idParam(), body: schemas.StatusUpdateBody, response: { 200: dataResponse(schemas.FreelanceJobResponse) } } }, handler('updateFreelanceJobStatus'));
+  fastify.patch('/freelance-jobs/:id/status', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'updateFreelanceJobStatus', tags: ['Freelance Jobs'], description: 'Update freelance job status. Set status to `approved` or `active` to show it publicly; `live` is still supported for existing data.', params: idParam(), body: schemas.FreelanceJobStatusUpdateBody, response: { 200: dataResponse(schemas.FreelanceJobResponse), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } } }, handler('updateFreelanceJobStatus'));
   fastify.delete('/freelance-jobs/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'deleteFreelanceJob', tags: ['Freelance Jobs'], description: 'Delete freelance job.', params: idParam(), response: { 200: schemas.IdSuccessResponse } } }, handler('deleteFreelanceJob'));
   fastify.post('/freelance-jobs/:id/applications', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'applyToFreelanceJob', tags: ['Freelance Jobs'], description: 'Apply to freelance job.', params: idParam(), body: schemas.FreelanceApplicationBody, response: { 201: dataResponse(schemas.FreelanceApplicationResponse) } } }, handler('applyToFreelanceJob'));
   fastify.get('/me/freelance-jobs/posted', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'listMyFreelanceJobs', tags: ['Freelance Jobs'], description: 'List my posted freelance jobs.', querystring: freelanceJobsQuery, response: { 200: schemas.FreelanceJobPaginatedResponse } } }, handler('listMyFreelanceJobs'));

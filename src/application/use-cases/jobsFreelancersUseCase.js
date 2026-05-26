@@ -17,6 +17,11 @@ export default class JobsFreelancersUseCase {
     if (recordUserId !== actorId && actor.role !== 'admin') throw new Error('forbidden');
   }
 
+  assertAdmin(actor) {
+    if (!actor || (!actor.id && !actor.userId)) throw new Error('unauthorized');
+    if (actor.role !== 'admin') throw new Error('forbidden');
+  }
+
   async notify(payload) {
     if (!this.notificationRepository) return null;
     try {
@@ -32,6 +37,16 @@ export default class JobsFreelancersUseCase {
 
   async countJobs(params) {
     return this.repository.countJobs(params);
+  }
+
+  async listAllJobs(actor, params = {}) {
+    this.assertAdmin(actor);
+    return this.repository.listJobs({ ...params, status: params.status || null, statuses: params.statuses || null });
+  }
+
+  async countAllJobs(actor, params = {}) {
+    this.assertAdmin(actor);
+    return this.repository.countJobs({ ...params, status: params.status || null, statuses: params.statuses || null });
   }
 
   async getJob(idOrSlug, userId = null) {
@@ -69,11 +84,21 @@ export default class JobsFreelancersUseCase {
     return job;
   }
 
+  async updateJobStatusAsAdmin(actor, id, status) {
+    this.assertAdmin(actor);
+    return this.updateJobStatus(actor, id, status);
+  }
+
   async deleteJob(actor, id) {
     const existing = await this.getJob(id, actor && actor.id);
     this.assertOwnerOrAdmin(existing.createdByUserId, actor);
     await this.repository.deleteJob(existing.id);
     return { id: existing.id };
+  }
+
+  async deleteJobAsAdmin(actor, id) {
+    this.assertAdmin(actor);
+    return this.deleteJob(actor, id);
   }
 
   async applyToJob(actor, id, body = {}) {
@@ -212,6 +237,16 @@ export default class JobsFreelancersUseCase {
     return this.repository.countFreelanceJobs(params);
   }
 
+  async listAllFreelanceJobs(actor, params = {}) {
+    this.assertAdmin(actor);
+    return this.repository.listFreelanceJobs({ ...params, status: params.status || null, statuses: params.statuses || null });
+  }
+
+  async countAllFreelanceJobs(actor, params = {}) {
+    this.assertAdmin(actor);
+    return this.repository.countFreelanceJobs({ ...params, status: params.status || null, statuses: params.statuses || null });
+  }
+
   async getFreelanceJob(idOrSlug, userId = null) {
     const job = await this.repository.findFreelanceJob(idOrSlug, userId);
     if (!job) throw new Error('freelance_job_not_found');
@@ -247,11 +282,21 @@ export default class JobsFreelancersUseCase {
     return job;
   }
 
+  async updateFreelanceJobStatusAsAdmin(actor, id, status) {
+    this.assertAdmin(actor);
+    return this.updateFreelanceJobStatus(actor, id, status);
+  }
+
   async deleteFreelanceJob(actor, id) {
     const existing = await this.getFreelanceJob(id, actor && actor.id);
     this.assertOwnerOrAdmin(existing.postedByUserId, actor);
     await this.repository.deleteFreelanceJob(existing.id);
     return { id: existing.id };
+  }
+
+  async deleteFreelanceJobAsAdmin(actor, id) {
+    this.assertAdmin(actor);
+    return this.deleteFreelanceJob(actor, id);
   }
 
   async applyToFreelanceJob(actor, id, body = {}) {

@@ -172,9 +172,16 @@ export function makePostController({ useCase = null }) {
         const { id } = req.params;
         const body = req.body || {};
         const actorId = req.user && req.user.id;
+        const actorRole = req.user && req.user.role;
         if (!actorId) 
           return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
-        await useCase.DeletePost({ id, userId: actorId });
+        await useCase.DeletePost({ id, userId: actorId, actorRole });
+        try {
+          const redis = req.server && req.server.redisClient;
+          if (redis) await redis.del('feed:global', `feed:user:${actorId}`);
+        } catch (cacheErr) {
+          postLogger.warn('feed cache invalidation failed after delete', { message: cacheErr && cacheErr.message });
+        }
         return reply.code(200).send({ success: true, message: 'Deleted success', data: [] });
       } catch (err) {
         postLogger.error('deletePost error', { message: err.message, stack: err.stack });

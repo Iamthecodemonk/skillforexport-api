@@ -40,6 +40,14 @@ export function makeJobsFreelancersController({ useCase }) {
         return reply.send(buildPaginatedResponse(req, { data, page: params.page, perPage: params.perPage, total }));
       } catch (err) { return handleError(reply, err); }
     },
+    listAllJobs: async (req, reply) => {
+      try {
+        const params = queryParams(req);
+        const data = await useCase.listAllJobs(actor(req), params);
+        const total = await useCase.countAllJobs(actor(req), params);
+        return reply.send(buildPaginatedResponse(req, { data, page: params.page, perPage: params.perPage, total }));
+      } catch (err) { return handleError(reply, err); }
+    },
     getJob: async (req, reply) => {
       try {
         const job = await useCase.getJob(req.params.idOrSlug, userId(req));
@@ -60,8 +68,16 @@ export function makeJobsFreelancersController({ useCase }) {
       try { return success(reply, await useCase.updateJobStatus(actor(req), req.params.id, (req.body || {}).status)); }
       catch (err) { return handleError(reply, err); }
     },
+    updateJobStatusAsAdmin: async (req, reply) => {
+      try { return success(reply, await useCase.updateJobStatusAsAdmin(actor(req), req.params.id, (req.body || {}).status)); }
+      catch (err) { return handleError(reply, err); }
+    },
     deleteJob: async (req, reply) => {
       try { return success(reply, await useCase.deleteJob(actor(req), req.params.id)); }
+      catch (err) { return handleError(reply, err); }
+    },
+    deleteJobAsAdmin: async (req, reply) => {
+      try { return success(reply, await useCase.deleteJobAsAdmin(actor(req), req.params.id)); }
       catch (err) { return handleError(reply, err); }
     },
     listMyPostedJobs: async (req, reply) => {
@@ -148,6 +164,14 @@ export function makeJobsFreelancersController({ useCase }) {
         return reply.send(buildPaginatedResponse(req, { data, page: params.page, perPage: params.perPage, total }));
       } catch (err) { return handleError(reply, err); }
     },
+    listAllFreelanceJobs: async (req, reply) => {
+      try {
+        const params = queryParams(req);
+        const data = await useCase.listAllFreelanceJobs(actor(req), params);
+        const total = await useCase.countAllFreelanceJobs(actor(req), params);
+        return reply.send(buildPaginatedResponse(req, { data, page: params.page, perPage: params.perPage, total }));
+      } catch (err) { return handleError(reply, err); }
+    },
     getFreelanceJob: async (req, reply) => {
       try {
         const job = await useCase.getFreelanceJob(req.params.idOrSlug, userId(req));
@@ -168,8 +192,16 @@ export function makeJobsFreelancersController({ useCase }) {
       try { return success(reply, await useCase.updateFreelanceJobStatus(actor(req), req.params.id, (req.body || {}).status)); }
       catch (err) { return handleError(reply, err); }
     },
+    updateFreelanceJobStatusAsAdmin: async (req, reply) => {
+      try { return success(reply, await useCase.updateFreelanceJobStatusAsAdmin(actor(req), req.params.id, (req.body || {}).status)); }
+      catch (err) { return handleError(reply, err); }
+    },
     deleteFreelanceJob: async (req, reply) => {
       try { return success(reply, await useCase.deleteFreelanceJob(actor(req), req.params.id)); }
+      catch (err) { return handleError(reply, err); }
+    },
+    deleteFreelanceJobAsAdmin: async (req, reply) => {
+      try { return success(reply, await useCase.deleteFreelanceJobAsAdmin(actor(req), req.params.id)); }
       catch (err) { return handleError(reply, err); }
     },
     applyToFreelanceJob: async (req, reply) => {

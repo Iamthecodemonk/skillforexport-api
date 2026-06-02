@@ -2,6 +2,12 @@ import db from '../knexConfig.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export default class MysqlPageRepository {
+  async hasPageTypeColumn() {
+    if (typeof this._hasPageTypeColumn !== 'undefined') return this._hasPageTypeColumn;
+    this._hasPageTypeColumn = await db.schema.hasColumn('pages', 'page_type');
+    return this._hasPageTypeColumn;
+  }
+
   mapPage(row) {
     if (!row) return null;
     const page = { ...row };
@@ -10,8 +16,9 @@ export default class MysqlPageRepository {
     }
     page.ownerId = page.ownerId || page.owner_id || null;
     page.categoryId = page.categoryId || page.category_id || null;
-    page.type = page.type || page.pageType || page.page_type || 'business';
-    page.pageType = page.pageType || page.type || page.page_type || 'business';
+    const metadataType = page.metadata && (page.metadata.pageType || page.metadata.type || page.metadata._pageType);
+    page.type = page.type || page.pageType || page.page_type || metadataType || 'business';
+    page.pageType = page.pageType || page.type || page.page_type || metadataType || 'business';
     page.coverImage = page.coverImage || page.cover_image || null;
     page.isVerified = typeof page.isVerified !== 'undefined' ? page.isVerified : page.is_verified;
     page.isActive = typeof page.isActive !== 'undefined' ? page.isActive : page.is_active;
@@ -27,11 +34,15 @@ export default class MysqlPageRepository {
   async create(page) {
     const id = page.id || uuidv4();
     const now = new Date();
-    await db('pages').insert({
+    const pageType = page.page_type || page.pageType || page.type || 'business';
+    const hasPageTypeColumn = await this.hasPageTypeColumn();
+    const metadata = hasPageTypeColumn
+      ? page.metadata
+      : { ...(page.metadata || {}), type: pageType, pageType };
+    const payload = {
       id,
       owner_id: page.owner_id || page.ownerId,
       category_id: page.category_id || page.categoryId || null,
-      page_type: page.page_type || page.pageType || page.type || 'business',
       name: page.name,
       slug: page.slug,
       description: page.description || null,
@@ -43,11 +54,13 @@ export default class MysqlPageRepository {
       approval_notes: page.approval_notes || page.approvalNotes || null,
       approved_at: page.approved_at || page.approvedAt || null,
       approved_by: page.approved_by || page.approvedBy || null,
-      metadata: typeof page.metadata !== 'undefined' && page.metadata !== null ? JSON.stringify(page.metadata) : null,
+      metadata: typeof metadata !== 'undefined' && metadata !== null ? JSON.stringify(metadata) : null,
       created_at: now,
       updated_at: now
-    });
-    return this.mapPage({ id, owner_id: page.owner_id || page.ownerId, category_id: page.category_id || page.categoryId || null, page_type: page.page_type || page.pageType || page.type || 'business', name: page.name, slug: page.slug, description: page.description || null, avatar: page.avatar || null, cover_image: page.cover_image || page.coverImage || null, is_verified: page.is_verified || page.isVerified || 0, is_active: page.is_active || page.isActive || 1, is_approved: page.is_approved || page.isApproved || 0, approval_notes: page.approval_notes || page.approvalNotes || null, approved_at: page.approved_at || page.approvedAt || null, approved_by: page.approved_by || page.approvedBy || null, metadata: page.metadata || null, created_at: now, updated_at: now });
+    };
+    if (hasPageTypeColumn) payload.page_type = pageType;
+    await db('pages').insert(payload);
+    return this.mapPage({ id, owner_id: page.owner_id || page.ownerId, category_id: page.category_id || page.categoryId || null, page_type: pageType, name: page.name, slug: page.slug, description: page.description || null, avatar: page.avatar || null, cover_image: page.cover_image || page.coverImage || null, is_verified: page.is_verified || page.isVerified || 0, is_active: page.is_active || page.isActive || 1, is_approved: page.is_approved || page.isApproved || 0, approval_notes: page.approval_notes || page.approvalNotes || null, approved_at: page.approved_at || page.approvedAt || null, approved_by: page.approved_by || page.approvedBy || null, metadata, created_at: now, updated_at: now });
   }
 
   async findById(id) {
@@ -86,10 +99,13 @@ export default class MysqlPageRepository {
   async update(id, updates) {
     const now = new Date();
     const payload = {};
+    const hasPageTypeColumn = await this.hasPageTypeColumn();
+    let nextPageType = null;
     if (typeof updates.name !== 'undefined') payload.name = updates.name;
-    if (typeof updates.type !== 'undefined') payload.page_type = updates.type;
-    if (typeof updates.pageType !== 'undefined') payload.page_type = updates.pageType;
-    if (typeof updates.page_type !== 'undefined') payload.page_type = updates.page_type;
+    if (typeof updates.type !== 'undefined') nextPageType = updates.type;
+    if (typeof updates.pageType !== 'undefined') nextPageType = updates.pageType;
+    if (typeof updates.page_type !== 'undefined') nextPageType = updates.page_type;
+    if (nextPageType && hasPageTypeColumn) payload.page_type = nextPageType;
     if (typeof updates.slug !== 'undefined') payload.slug = updates.slug;
     if (typeof updates.description !== 'undefined') payload.description = updates.description;
     if (typeof updates.avatar !== 'undefined') payload.avatar = updates.avatar;
@@ -101,6 +117,14 @@ export default class MysqlPageRepository {
     if (typeof updates.approved_at !== 'undefined') payload.approved_at = updates.approved_at;
     if (typeof updates.approved_by !== 'undefined') payload.approved_by = updates.approved_by;
     if (typeof updates.metadata !== 'undefined') payload.metadata = updates.metadata !== null ? JSON.stringify(updates.metadata) : null;
+    if (!hasPageTypeColumn && (nextPageType || typeof updates.metadata !== 'undefined')) {
+      const existing = await this.findById(id);
+      const baseMetadata = typeof updates.metadata !== 'undefined'
+        ? (updates.metadata || {})
+        : (existing && existing.metadata || {});
+      const fallbackType = nextPageType || existing && (existing.type || existing.pageType) || 'business';
+      payload.metadata = JSON.stringify({ ...baseMetadata, type: fallbackType, pageType: fallbackType });
+    }
     if (Object.keys(payload).length === 0) return this.findById(id);
     payload.updated_at = now;
     await db('pages').where({ id }).update(payload);

@@ -39,16 +39,26 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
     registerMedia: async (req, reply) => {
       try {
         const body = req.body || {};
-        const publicId = body.publicId;
-        const userId = req.user && req.user.id;
-        const pageId = body.pageId || null;
+        const publicId = body.publicId || body.public_id;
+        const actorId = req.user && req.user.id;
+        const actorRole = req.user && req.user.role;
+        const requestedUserId = body.userId || body.user_id || null;
+        const pageId = body.pageId || body.page_id || null;
+        const title = body.title || null;
         const kind = body.kind || 'other';
+        const userId = pageId && !requestedUserId ? null : (requestedUserId || actorId);
 
         if (!publicId) {
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         }
-        if (!userId) {
+        if (!actorId) {
           return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        }
+        if (requestedUserId && requestedUserId !== actorId && actorRole !== 'admin') {
+          return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+        }
+        if (!pageId && !userId) {
+          return reply.code(422).send({ success: false, error: { code: 'owner_required', message: 'Provide pageId or userId' } });
         }
 
         if (!mediaQueue) {
@@ -67,8 +77,9 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
             }
           }
         }
-        const job = await mediaQueue.add('register-direct', { userId, pageId, publicId, kind, assetId: uuidv4() }, { attempts: 2, backoff: { type: 'exponential', delay: 2000 } });
-        return reply.code(202).send({ success: true, data: { jobId: job.id } });
+        const assetId = uuidv4();
+        const job = await mediaQueue.add('register-direct', { userId, pageId, publicId, kind, title, assetId }, { attempts: 2, backoff: { type: 'exponential', delay: 2000 } });
+        return reply.code(202).send({ success: true, data: { jobId: job.id, assetId } });
       } catch (err) {
         mediaLogger.error('registerMedia error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -215,6 +226,7 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
           invalid_image_url: 'The provided URL did not return a valid image. Upload the image file or provide a direct image URL.',
           tmp_file_not_found: 'Uploaded file not found on server; please retry.',
           cloudinary_resource_not_found: 'Uploaded resource not found on Cloudinary.',
+          invalid_media_kind: 'Uploaded resource type does not match the requested media kind.',
           cloudinary_not_configured: 'Image service is not configured. Contact support.',
           upload_failed: 'Failed to upload image. Please try again later.',
           file_too_large: 'The uploaded file exceeds the allowed size for this type.'

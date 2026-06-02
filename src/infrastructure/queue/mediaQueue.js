@@ -115,12 +115,13 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
               userId,
               pageId: data.pageId,
               kind: 'avatar',
+              title: data.title || null,
               provider: 'cloudinary',
               providerPublicId: result.public_id,
               url: result.secure_url || result.url,
               mimeType: result.format || null,
               sizeBytes: result.bytes || null,
-              metadata: result
+              metadata: { ...result, title: data.title || null, pageId: data.pageId || null, userId }
             });
             if (asset && asset.id) queueLogger.info('Asset record created', { assetId: asset.id });
           }
@@ -157,12 +158,13 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
               userId,
               pageId: data.pageId,
               kind: 'banner',
+              title: data.title || null,
               provider: 'cloudinary',
               providerPublicId: result.public_id,
               url: result.secure_url || result.url,
               mimeType: result.format || null,
               sizeBytes: result.bytes || null,
-              metadata: result
+              metadata: { ...result, title: data.title || null, pageId: data.pageId || null, userId }
             });
             if (asset && asset.id) queueLogger.info('Asset record created (banner)', { assetId: asset.id });
           }
@@ -230,12 +232,13 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
               userId,
               pageId: data.pageId,
               kind: kind || 'avatar',
+              title: data.title || null,
               provider: 'cloudinary',
               providerPublicId: result.public_id,
               url: result.secure_url || result.url,
               mimeType: result.format || (ft && ft.mime) || null,
               sizeBytes: result.bytes || null,
-              metadata: result
+              metadata: { ...result, title: data.title || null, pageId: data.pageId || null, userId, kind }
             });
             if (asset && asset.id) queueLogger.info('Asset record created from file upload', { assetId: asset.id });
           }
@@ -275,15 +278,21 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
 
         if (name === 'register-direct') {
           const userId = getUserId(data);
-          const { publicId, kind } = data;
+          const { publicId, kind, title = null } = data;
           // Verify resource exists in Cloudinary
           let info = null;
           try {
             const cloud = cloudinary.configure ? cloudinary.configure() : cloudinary;
-            info = await cloud.api.resource(publicId);
+            try {
+              info = await cloud.api.resource(publicId, { resource_type: 'image' });
+            } catch (imageErr) {
+              info = await cloud.api.resource(publicId, { resource_type: 'video' });
+            }
           } catch (e) {
             throw new Error('cloudinary_resource_not_found');
           }
+          if (kind === 'image' && info.resource_type === 'video') throw new Error('invalid_media_kind');
+          if (kind === 'video' && info.resource_type !== 'video') throw new Error('invalid_media_kind');
           if (assetAdapter) {
             const assetId = data.assetId || job.id;
             const asset = await safeCreateAsset({
@@ -291,12 +300,13 @@ export function createMediaWorker(redisConnection, { cloudinary, profileReposito
               userId,
               pageId: data.pageId,
               kind: kind || 'other',
+              title,
               provider: 'cloudinary',
               providerPublicId: info.public_id,
               url: info.secure_url || info.url,
-              mimeType: info.format || null,
+              mimeType: info.resource_type === 'video' ? 'video' : (info.format || null),
               sizeBytes: info.bytes || null,
-              metadata: info
+              metadata: { ...info, title, pageId: data.pageId || null, userId, kind: kind || 'other' }
             });
             if (asset && asset.id) queueLogger.info('Asset record created for direct upload', { assetId: asset.id });
           }

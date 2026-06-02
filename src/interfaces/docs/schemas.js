@@ -1197,15 +1197,28 @@ export const PublicProfileResponse = {
 export const MediaRegisterBody = {
   type: 'object',
   required: ['publicId'],
-  properties: { publicId: { type: 'string' }, kind: { type: 'string', description: 'Use advert_image for advert uploads.' }, replace: { type: 'boolean' }, pageId: { type: ['string','null'] } },
-  example: { publicId: 'adverts/abcd1234', kind: 'advert_image', pageId: null }
+  properties: {
+    publicId: { type: 'string', description: 'Cloudinary public id returned after direct upload.' },
+    title: { type: ['string','null'], description: 'Optional display title for the uploaded media.' },
+    kind: { type: 'string', enum: ['image','video','avatar','banner','post_image','advert_image','document','other'], description: 'Use image/video for page or personal uploads. Existing avatar/banner/advert kinds are still supported.' },
+    replace: { type: 'boolean' },
+    pageId: { type: ['string','null'], description: 'Set for page-owned media uploads.' },
+    page_id: { type: ['string','null'], description: 'Snake-case alias for pageId.' },
+    userId: { type: ['string','null'], description: 'Set for personal/profile uploads. Defaults to authenticated user when omitted.' },
+    user_id: { type: ['string','null'], description: 'Snake-case alias for userId.' }
+  },
+  examples: [
+    { summary: 'Page image upload', value: { publicId: 'pages/femi/photo1', title: 'Upload title', kind: 'image', pageId: 'page-id' } },
+    { summary: 'Personal video upload', value: { publicId: 'users/user-id/video1', title: 'Upload title', kind: 'video', userId: 'user-id' } }
+  ],
+  example: { publicId: 'pages/femi/photo1', title: 'Upload title', kind: 'image', pageId: 'page-id' }
 };
 
 export const JobAcceptedResponse = {
   type: 'object',
   properties: {
     success: { type: 'boolean' },
-    data: { type: 'object', properties: { jobId: { type: 'string' } } }
+    data: { type: 'object', properties: { jobId: { type: 'string' }, assetId: { type: 'string' } } }
   }
 };
 

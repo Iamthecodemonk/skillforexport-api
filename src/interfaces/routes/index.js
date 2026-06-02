@@ -1006,6 +1006,8 @@ export default async function registerRoutes(fastify, deps) {
       response: {
         202: schemas.JobAcceptedResponse,
         409: { type: 'object' },
+        401: schemas.AuthErrorResponse,
+        403: schemas.GenericErrorResponse,
         422: {
           type: 'object',
           properties: {

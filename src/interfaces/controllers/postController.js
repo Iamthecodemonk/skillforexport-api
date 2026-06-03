@@ -3,6 +3,14 @@ import { buildPaginatedResponse, parsePagination } from '../paginationResponse.j
 
 const postLogger = logger.child('POST_CONTROLLER');
 
+const firstDefined = (...values) => values.find(value => typeof value !== 'undefined' && value !== null && value !== '');
+
+const nestedQueryValue = (query, group, key) => {
+  if (!query) return undefined;
+  if (query[group] && typeof query[group] === 'object') return query[group][key];
+  return query[`${group}[${key}]`];
+};
+
 export function makePostController({ useCase = null }) {
   if (!useCase) {
     postLogger.error('makePostController requires a useCase');
@@ -14,7 +22,10 @@ export function makePostController({ useCase = null }) {
       try {
         const body = req.body || {};
         const actorId = req.user && req.user.id;
-        const { communityId, pageId, title, content, visibility, mediaAssetIds } = body;
+        const communityId = firstDefined(body.communityId, body.community_id);
+        const pageId = firstDefined(body.pageId, body.page_id);
+        const mediaAssetIds = firstDefined(body.mediaAssetIds, body.media_asset_ids, body.assetIds, body.asset_ids) || [];
+        const { title, content, visibility } = body;
         if (!actorId) {
           return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         }
@@ -91,13 +102,23 @@ export function makePostController({ useCase = null }) {
     listPosts: async (req, reply) => {
       try {
         const { page, perPage, limit, offset } = parsePagination(req.query, 20);
-        const lastCreatedAt = req.query && req.query.lastCreatedAt ? req.query.lastCreatedAt : null;
-        const lastId = req.query && req.query.lastId ? req.query.lastId : null;
+        const query = req.query || {};
+        const lastCreatedAt = query.lastCreatedAt || query.last_created_at || null;
+        const lastId = query.lastId || query.last_id || null;
         const actorId = req.user && req.user.id;
-        const communityId = req.query && (req.query.communityId || req.query.community_id) ? (req.query.communityId || req.query.community_id) : null;
-        const rows = await useCase.ListPosts({ limit, offset, lastCreatedAt, lastId, userId: actorId || null, communityId });
+        const communityId = firstDefined(
+          query.communityId,
+          query.community_id,
+          nestedQueryValue(query, 'filters', 'community_id'),
+          nestedQueryValue(query, 'filters', 'communityId')
+        ) || null;
+        const search = firstDefined(query.q, query.search, nestedQueryValue(query, 'filters', 'search')) || null;
+        const sortField = firstDefined(query.sortField, query.sort_field, nestedQueryValue(query, 'sort', 'field')) || null;
+        const sortDirection = firstDefined(query.sortDirection, query.sort_direction, nestedQueryValue(query, 'sort', 'direction')) || null;
+        const publicOnly = !communityId;
+        const rows = await useCase.ListPosts({ limit, offset, lastCreatedAt, lastId, userId: actorId || null, communityId, publicOnly, search, sortField, sortDirection });
         const total = useCase.postRepository && typeof useCase.postRepository.countAll === 'function'
-          ? await useCase.postRepository.countAll({ communityId })
+          ? await useCase.postRepository.countAll({ communityId, publicOnly, search })
           : rows.length;
         return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
       } catch (err) {

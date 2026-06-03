@@ -134,6 +134,25 @@ export default async function registerRoutes(fastify, deps) {
       siteId: { type: 'string' }
     }
   };
+  const feedQuery = {
+    type: 'object',
+    properties: {
+      ...listQueryBase,
+      search: { type: 'string' },
+      communityId: { type: 'string' },
+      community_id: { type: 'string' },
+      'filters[search]': { type: 'string', description: 'Contract-compatible search filter.' },
+      'filters[community_id]': { type: 'string', description: 'Contract-compatible community filter.' },
+      sortField: { type: 'string', enum: ['created_at', 'updated_at', 'title', 'score', 'comment_count'] },
+      sortDirection: { type: 'string', enum: ['asc', 'desc'] },
+      'sort[field]': { type: 'string', enum: ['created_at', 'updated_at', 'title', 'score', 'comment_count'], description: 'Contract-compatible sort field.' },
+      'sort[direction]': { type: 'string', enum: ['asc', 'desc'], description: 'Contract-compatible sort direction.' },
+      lastCreatedAt: { type: 'string' },
+      last_created_at: { type: 'string' },
+      lastId: { type: 'string' },
+      last_id: { type: 'string' }
+    }
+  };
 
   // ========== Root ==========
   fastify.get('/', {
@@ -340,7 +359,7 @@ export default async function registerRoutes(fastify, deps) {
     return handler('updateAdvertSiteStatus')(req, reply);
   });
 
-  fastify.get('/feeds', { schema: { operationId: 'legacyListFeeds', tags: ['Feeds'], description: 'Legacy feed alias for /posts', querystring: { type: 'object', properties: { ...listQueryBase, communityId: { type: 'string' }, lastCreatedAt: { type: 'string' }, lastId: { type: 'string' } } }, response: { 200: schemas.PostPaginatedResponse } } }, handler('listPosts'));
+  fastify.get('/feeds', { schema: { operationId: 'listFeeds', tags: ['Feeds'], description: 'Feed endpoint alias for /posts. Without a community filter, returns the home feed with visibility=public only. With `communityId`, `community_id`, or `filters[community_id]`, returns that community feed including visibility=public and visibility=community posts. Supports contract query keys `filters[search]`, `sort[field]`, and `sort[direction]`.', querystring: feedQuery, response: { 200: schemas.PostPaginatedResponse } } }, handler('listPosts'));
   fastify.get('/enums', { schema: { operationId: 'legacyListEnums', tags: ['Meta'], description: 'Legacy enum bootstrap endpoint', response: { 200: genericSuccess } } }, handler('listEnums'));
   fastify.post('/contact', { schema: { operationId: 'legacySendContact', tags: ['Contact'], description: 'Legacy public contact endpoint', body: { type: 'object', required: ['name', 'email', 'message'], properties: { name: { type: 'string' }, email: { type: 'string', format: 'email' }, subject: { type: 'string' }, message: { type: 'string' } }, additionalProperties: true }, response: { 201: genericArraySuccess, 422: schemas.GenericErrorResponse } } }, handler('sendContact'));
 

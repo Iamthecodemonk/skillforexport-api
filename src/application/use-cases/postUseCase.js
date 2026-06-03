@@ -123,8 +123,8 @@ export default class PostUseCase {
     return row;
   }
 
-  async ListPosts({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, communityId = null } = {}) {
-    return this.postRepository.list({ limit, offset, lastCreatedAt, lastId, userId, communityId });
+  async ListPosts({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, communityId = null, publicOnly = false, search = null, sortField = null, sortDirection = null } = {}) {
+    return this.postRepository.list({ limit, offset, lastCreatedAt, lastId, userId, communityId, publicOnly, search, sortField, sortDirection });
   }
 
   async SharePost({ postId, userId, communityId, comment = null }) {

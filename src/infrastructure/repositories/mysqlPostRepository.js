@@ -14,6 +14,40 @@ const parseJsonArray = (value) => {
 
 const toBool = (value) => value === true || value === 1 || value === '1';
 
+const applyPostFilters = (q, { communityId = null, publicOnly = false, search = null } = {}) => {
+  if (communityId) {
+    q.where('p.community_id', communityId);
+  } else if (publicOnly) {
+    q.where('p.visibility', 'public');
+  }
+
+  const term = typeof search === 'string' ? search.trim() : '';
+  if (term) {
+    q.andWhere(function () {
+      this.where('p.title', 'like', `%${term}%`)
+        .orWhere('p.content', 'like', `%${term}%`)
+        .orWhere('up.username', 'like', `%${term}%`)
+        .orWhere('u.email', 'like', `%${term}%`)
+        .orWhere('c.name', 'like', `%${term}%`);
+    });
+  }
+};
+
+const applyPostOrdering = (q, { sortField = null, sortDirection = null } = {}) => {
+  const sortableColumns = {
+    created_at: 'p.created_at',
+    updated_at: 'p.updated_at',
+    title: 'p.title',
+    score: 'score',
+    comment_count: 'comment_count'
+  };
+  const field = sortableColumns[sortField] || 'p.created_at';
+  const direction = String(sortDirection || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+  q.orderBy(field, direction);
+  if (field !== 'p.id') q.orderBy('p.id', direction);
+};
+
 export default class MysqlPostRepository {
   async create(post) {
     const id = post.id || uuidv4();
@@ -132,11 +166,10 @@ export default class MysqlPostRepository {
     return this.mapPost(row);
   }
 
-  async list({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, communityId = null } = {}) {
-    const q = this.basePostQuery(userId).orderBy('p.created_at', 'desc').orderBy('p.id', 'desc').limit(limit);
-    if (communityId) {
-      q.where('p.community_id', communityId);
-    }
+  async list({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, communityId = null, publicOnly = false, search = null, sortField = null, sortDirection = null } = {}) {
+    const q = this.basePostQuery(userId).limit(limit);
+    applyPostFilters(q, { communityId, publicOnly, search });
+    applyPostOrdering(q, { sortField, sortDirection });
     if (lastCreatedAt) {
       // keyset pagination: created_at < lastCreatedAt OR (created_at = lastCreatedAt AND id < lastId)
       q.where(function () {
@@ -164,9 +197,13 @@ export default class MysqlPostRepository {
     return (rows || []).map(row => this.mapPost(row));
   }
 
-  async countAll({ communityId = null } = {}) {
-    const q = db('posts').count({ cnt: 'id' });
-    if (communityId) q.where({ community_id: communityId });
+  async countAll({ communityId = null, publicOnly = false, search = null } = {}) {
+    const q = db('posts as p')
+      .leftJoin('users as u', 'u.id', 'p.user_id')
+      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+      .leftJoin('communities as c', 'c.id', 'p.community_id')
+      .count({ cnt: 'p.id' });
+    applyPostFilters(q, { communityId, publicOnly, search });
     const row = await q.first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);

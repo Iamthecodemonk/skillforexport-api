@@ -124,7 +124,7 @@ export default class MysqlPostRepository {
       .select(
         'p.*',
         'u.email as user_email',
-        'up.username as user_name',
+        db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as user_name'),
         'up.avatar as user_avatar',
         'c.name as community_name',
         'c.description as community_description',

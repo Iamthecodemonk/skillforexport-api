@@ -37,15 +37,64 @@ async function createGenericReport({ userId, targetId, targetType, reason = null
 }
 
 export function makeCompatController() {
+  const states = [
+    'Abia',
+    'Adamawa',
+    'Akwa Ibom',
+    'Anambra',
+    'Bauchi',
+    'Bayelsa',
+    'Benue',
+    'Borno',
+    'Cross River',
+    'Delta',
+    'Ebonyi',
+    'Edo',
+    'Ekiti',
+    'Enugu',
+    'FCT',
+    'Gombe',
+    'Imo',
+    'Jigawa',
+    'Kaduna',
+    'Kano',
+    'Katsina',
+    'Kebbi',
+    'Kogi',
+    'Kwara',
+    'Lagos',
+    'Nasarawa',
+    'Niger',
+    'Ogun',
+    'Ondo',
+    'Osun',
+    'Oyo',
+    'Plateau',
+    'Rivers',
+    'Sokoto',
+    'Taraba',
+    'Yobe',
+    'Zamfara'
+  ];
+  const experience = ['entry-level', 'junior', 'mid-level', 'senior', 'lead', '0-1 years', '1-2 years', '2-3 years', '3-5 years', '5+ years'];
+  const jobTypes = ['full-time', 'part-time', 'contract', 'hybrid', 'remote'];
+
   return {
     listEnums: async (req, reply) => reply.send({
       success: true,
       data: {
-        jobTypes: ['full-time', 'part-time', 'contract', 'hybrid', 'remote'],
+        experience,
+        states,
+        jobTypes,
+        job_types: jobTypes,
         workModes: ['remote', 'hybrid', 'onsite'],
+        work_modes: ['remote', 'hybrid', 'onsite'],
         jobStatuses: ['draft', 'pending_review', 'approved', 'active', 'closed', 'archived'],
+        job_statuses: ['draft', 'pending_review', 'approved', 'active', 'closed', 'archived'],
         freelancerStatuses: ['draft', 'pending_review', 'available', 'certified', 'suspended'],
+        freelancer_statuses: ['draft', 'pending_review', 'available', 'certified', 'suspended'],
         reportTargetTypes: ['post', 'question', 'answer', 'comment'],
+        report_target_types: ['post', 'question', 'answer', 'comment'],
         privacyLevels: { public: 1, followers: 2, private: 3 }
       }
     }),

@@ -36,6 +36,31 @@ export default async function registerRoutes(fastify, deps) {
   const anyObject = { type: 'object', additionalProperties: true };
   const anyArray = { type: 'array', items: anyObject };
   const genericSuccess = dataResponse(anyObject);
+  const enumBootstrapResponse = dataResponse({
+    type: 'object',
+    properties: {
+      experience: { type: 'array', items: { type: 'string' } },
+      states: { type: 'array', items: { type: 'string' } },
+      jobTypes: { type: 'array', items: { type: 'string' } },
+      job_types: { type: 'array', items: { type: 'string' } },
+      workModes: { type: 'array', items: { type: 'string' } },
+      work_modes: { type: 'array', items: { type: 'string' } },
+      jobStatuses: { type: 'array', items: { type: 'string' } },
+      job_statuses: { type: 'array', items: { type: 'string' } },
+      freelancerStatuses: { type: 'array', items: { type: 'string' } },
+      freelancer_statuses: { type: 'array', items: { type: 'string' } },
+      reportTargetTypes: { type: 'array', items: { type: 'string' } },
+      report_target_types: { type: 'array', items: { type: 'string' } },
+      privacyLevels: {
+        type: 'object',
+        properties: {
+          public: { type: 'number' },
+          followers: { type: 'number' },
+          private: { type: 'number' }
+        }
+      }
+    }
+  });
   const genericArraySuccess = dataResponse(anyArray);
   const genericPaginatedResponse = {
     type: 'object',
@@ -360,7 +385,7 @@ export default async function registerRoutes(fastify, deps) {
   });
 
   fastify.get('/feeds', { schema: { operationId: 'listFeeds', tags: ['Feeds'], description: 'Feed endpoint alias for /posts. Without a community filter, returns the home feed with visibility=public only. With `communityId`, `community_id`, or `filters[community_id]`, returns that community feed including visibility=public and visibility=community posts. Supports contract query keys `filters[search]`, `sort[field]`, and `sort[direction]`.', querystring: feedQuery, response: { 200: schemas.PostPaginatedResponse } } }, handler('listPosts'));
-  fastify.get('/enums', { schema: { operationId: 'legacyListEnums', tags: ['Meta'], description: 'Legacy enum bootstrap endpoint', response: { 200: genericSuccess } } }, handler('listEnums'));
+  fastify.get('/enums', { schema: { operationId: 'legacyListEnums', tags: ['Meta'], description: 'Legacy enum bootstrap endpoint. Includes backward-compatible `experience`, `states`, and `job_types` keys plus current camelCase enum keys.', response: { 200: enumBootstrapResponse } } }, handler('listEnums'));
   fastify.post('/contact', { schema: { operationId: 'legacySendContact', tags: ['Contact'], description: 'Legacy public contact endpoint', body: { type: 'object', required: ['name', 'email', 'message'], properties: { name: { type: 'string' }, email: { type: 'string', format: 'email' }, subject: { type: 'string' }, message: { type: 'string' } }, additionalProperties: true }, response: { 201: genericArraySuccess, 422: schemas.GenericErrorResponse } } }, handler('sendContact'));
 
   // Items feature removed
@@ -1671,7 +1696,7 @@ export default async function registerRoutes(fastify, deps) {
     });
     return handler('createPost')(req, reply);
   });
-  fastify.get('/post', { schema: { operationId: 'legacyListPosts', tags: ['Posts'], description: 'Legacy alias for GET /posts', querystring: { type: 'object', properties: { ...listQueryBase, communityId: { type: 'string' }, lastCreatedAt: { type: 'string' }, lastId: { type: 'string' } } }, response: { 200: schemas.PostPaginatedResponse } } }, handler('listPosts'));
+  fastify.get('/post', { schema: { operationId: 'legacyListPosts', tags: ['Posts'], description: 'Legacy alias for GET /posts. Supports contract query keys `filters[search]`, `filters[community_id]`, `sort[field]`, and `sort[direction]`.', querystring: feedQuery, response: { 200: schemas.PostPaginatedResponse } } }, handler('listPosts'));
   fastify.get('/post/:id', { schema: { operationId: 'legacyGetPost', tags: ['Posts'], description: 'Legacy alias for GET /posts/:id', params: idParam(), response: { 200: dataResponse(schemas.PostResponse), 404: schemas.GenericErrorResponse } } }, handler('getPost'));
   fastify.put('/post/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyUpdatePost', tags: ['Posts'], description: 'Legacy alias for PUT /posts/:id', params: idParam(), body: { type: 'object', properties: { userId: { type: 'string' }, title: { type: 'string' }, content: { type: 'string' } }, additionalProperties: true }, response: { 200: dataResponse(schemas.PostResponse), 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } } }, handler('updatePost'));
   fastify.delete('/post/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyDeletePost', tags: ['Posts'], description: 'Legacy alias for DELETE /posts/:id', params: idParam(), body: { type: 'object', properties: { userId: { type: 'string' } } }, response: { 200: schemas.EmptyArraySuccessResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } } }, handler('deletePost'));
@@ -1727,8 +1752,8 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listPosts',
       tags: ['Posts'],
-      description: 'List posts for the home feed by default. Pass `communityId` to list a specific community feed. Frontend should treat posts with `community_id`/`communityId` set as community-context posts.',
-      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }, { name: 'communityId', in: 'query', schema: { type: 'string' } }, { name: 'lastCreatedAt', in: 'query', schema: { type: 'string', description: 'Use for keyset pagination: ISO timestamp of last item from previous page' } }, { name: 'lastId', in: 'query', schema: { type: 'string', description: 'Use with `lastCreatedAt` for keyset pagination: last item id from previous page' } }],
+      description: 'List posts for the home feed by default. Without a community filter, returns visibility=public only. Pass `communityId`, `community_id`, or `filters[community_id]` to list a community feed. Supports contract query keys `filters[search]`, `sort[field]`, and `sort[direction]`.',
+      querystring: feedQuery,
       response: { 200: schemas.PostPaginatedResponse }
     }
   }, handler('listPosts'));

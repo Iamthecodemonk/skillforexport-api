@@ -378,11 +378,14 @@ export const PostCreateBody = {
   properties: {
     userId: { type: 'string', description: 'Ignored for authenticated requests; backend uses the bearer token user.' },
     communityId: { type: ['string','null'], description: 'Use null or omit for Everyone/public home feed. Use a community id only for community feed posts.' },
+    community_id: { type: ['string','null'], description: 'Legacy/request-map alias for communityId.' },
     pageId: { type: ['string','null'], description: 'Optional page id when posting as/under a page.' },
+    page_id: { type: ['string','null'], description: 'Legacy/request-map alias for pageId.' },
     title: { type: 'string' },
     content: { type: 'string' },
-    visibility: { type: ['string','null'], enum: ['public','community','community_only','community_public', null], description: 'Optional. Defaults to public for Everyone posts or the community default when communityId is set.' },
-    mediaAssetIds: { type: 'array', items: { type: 'string' }, description: 'Optional completed asset ids returned by /media/register. Do not send direct media URLs here.' }
+    visibility: { type: ['string','null'], enum: ['public','connections','community', null], description: 'Optional. Defaults to public for Everyone posts or the community default when communityId is set.' },
+    mediaAssetIds: { type: 'array', items: { type: 'string' }, description: 'Optional completed asset ids returned by /media/register. Do not send direct media URLs here.' },
+    media_asset_ids: { type: 'array', items: { type: 'string' }, description: 'Legacy/request-map alias for mediaAssetIds.' }
   },
   examples: [
     { summary: 'Everyone / home feed post', value: { communityId: null, title: 'Hello world', content: 'Public home feed post.', mediaAssetIds: ['asset-uuid-123'] } },

@@ -376,15 +376,20 @@ export const PostCreateBody = {
   type: 'object',
   required: ['title','content'],
   properties: {
-    userId: { type: 'string' },
-    communityId: { type: 'string' },
-    pageId: { type: 'string' },
+    userId: { type: 'string', description: 'Ignored for authenticated requests; backend uses the bearer token user.' },
+    communityId: { type: ['string','null'], description: 'Use null or omit for Everyone/public home feed. Use a community id only for community feed posts.' },
+    pageId: { type: ['string','null'], description: 'Optional page id when posting as/under a page.' },
     title: { type: 'string' },
-    content: { type: 'string' }
-    , mediaAssetIds: { type: 'array', items: { type: 'string' }, description: 'Optional list of media asset ids (uploaded via /media/register or asset endpoints). All assets must be processed and have a URL before creating a post.' }
-  }
+    content: { type: 'string' },
+    visibility: { type: ['string','null'], enum: ['public','community','community_only','community_public', null], description: 'Optional. Defaults to public for Everyone posts or the community default when communityId is set.' },
+    mediaAssetIds: { type: 'array', items: { type: 'string' }, description: 'Optional completed asset ids returned by /media/register. Do not send direct media URLs here.' }
+  },
+  examples: [
+    { summary: 'Everyone / home feed post', value: { communityId: null, title: 'Hello world', content: 'Public home feed post.', mediaAssetIds: ['asset-uuid-123'] } },
+    { summary: 'Community feed post', value: { communityId: 'community-uuid', title: 'Community update', content: 'Post shown in this community feed.', mediaAssetIds: [] } }
+  ]
 };
-PostCreateBody.example = { communityId: null, title: 'Hello world', content: 'Hello world — this is a test post.', mediaAssetIds: ['asset-uuid-123'] };
+PostCreateBody.example = { communityId: null, title: 'Hello world', content: 'Hello world - this is a test post.', mediaAssetIds: ['asset-uuid-123'] };
 
 export const QuestionCreateBody = {
   type: 'object',

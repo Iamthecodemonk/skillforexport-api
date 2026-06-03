@@ -1679,7 +1679,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'createPost',
       tags: ['Posts'],
-      description: 'Create a new post. Provide `title` and `content` in body. Optional `communityId`. Upload media first (use /media/register or media endpoints), wait until media job(s) are processed, then include their `mediaAssetIds` here — the server will validate that each asset is processed and has a URL before creating the post.',
+      description: 'Create a new post. If the frontend user selects Everyone, omit `communityId` or send `communityId: null`; the post belongs on the public/home feed. If posting into a community, send that community id. Upload media first through /media/register, wait until completed, then send the returned asset ids in `mediaAssetIds`; do not send direct media URLs here.',
       body: schemas.PostCreateBody,
       response: {
         201: {
@@ -1708,7 +1708,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listPosts',
       tags: ['Posts'],
-      description: 'List posts (feed). Returns a paginator payload at the root.',
+      description: 'List posts for the home feed by default. Pass `communityId` to list a specific community feed. Frontend should treat posts with `community_id`/`communityId` set as community-context posts.',
       parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }, { name: 'communityId', in: 'query', schema: { type: 'string' } }, { name: 'lastCreatedAt', in: 'query', schema: { type: 'string', description: 'Use for keyset pagination: ISO timestamp of last item from previous page' } }, { name: 'lastId', in: 'query', schema: { type: 'string', description: 'Use with `lastCreatedAt` for keyset pagination: last item id from previous page' } }],
       response: { 200: schemas.PostPaginatedResponse }
     }

@@ -14,7 +14,7 @@ import { Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 import { MysqlUserRepository } from './infrastructure/repositories/index.js';
 import { UserRepositoryImpl } from './domain/repositories/userRepository.js';
-import { MysqlUserProfileRepository, MysqlUserAssetRepository, MysqlUserSkillRepository, MysqlUserPortfolioRepository, MysqlFollowerRepository, MysqlUserOauthRepository, MysqlUserLoginHistoryRepository, MysqlUserCertificationRepository, MysqlUserEducationRepository, MysqlUserExperienceRepository, MysqlUserSettingsRepository } from './infrastructure/repositories/index.js';
+import { MysqlUserProfileRepository, MysqlUserAssetRepository, MysqlUserSkillRepository, MysqlUserPortfolioRepository, MysqlFollowerRepository, MysqlUserOauthRepository, MysqlUserLoginHistoryRepository, MysqlUserCertificationRepository, MysqlUserEducationRepository, MysqlUserExperienceRepository, MysqlUserSettingsRepository, MysqlLegalDocumentRepository } from './infrastructure/repositories/index.js';
 import { UserProfileRepositoryImpl } from './domain/repositories/userProfileRepository.js';
 import { UserSkillRepositoryImpl } from './domain/repositories/userSkillRepository.js';
 import { UserPortfolioRepositoryImpl } from './domain/repositories/userPortfolioRepository.js';
@@ -95,6 +95,8 @@ import { makeAdvertController } from './interfaces/controllers/advertController.
 import { makeCompatController } from './interfaces/controllers/compatController.js';
 import MysqlNotificationRepository from './infrastructure/repositories/mysqlNotificationRepository.js';
 import { makeNotificationController } from './interfaces/controllers/notificationController.js';
+import LegalDocumentUseCase from './application/use-cases/legalDocumentUseCase.js';
+import { makeLegalDocumentController } from './interfaces/controllers/legalDocumentController.js';
 
 const serverLogger = logger.child('SERVER');
 const queueLogger = logger.child('EMAIL_QUEUE');
@@ -362,6 +364,13 @@ export default async function startServer() {
     Object.assign(controllers, makeNotificationController({ repository: notificationRepository }));
   } catch (notificationErr) {
     serverLogger.warn('Notifications wiring failed', { message: notificationErr && notificationErr.message });
+  }
+  try {
+    const legalDocumentRepository = new MysqlLegalDocumentRepository();
+    const legalDocumentUseCase = new LegalDocumentUseCase({ repository: legalDocumentRepository });
+    Object.assign(controllers, makeLegalDocumentController({ useCase: legalDocumentUseCase }));
+  } catch (legalErr) {
+    serverLogger.warn('Legal documents wiring failed', { message: legalErr && legalErr.message });
   }
   try {
     const jobsFreelancersRepository = new MysqlJobsFreelancersRepository();

@@ -1692,6 +1692,75 @@ export const PostShareEventResponse = {
   }
 };
 
+export const LegalDocumentResponse = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    slug: { type: 'string' },
+    title: { type: 'string' },
+    content: { type: 'string' },
+    contentType: { type: 'string', enum: ['html', 'markdown', 'plain_text'] },
+    version: { type: 'string' },
+    status: { type: 'string', enum: ['draft', 'published', 'archived'] },
+    effectiveDate: { type: ['string', 'null'] },
+    publishedAt: { type: ['string', 'null'] },
+    createdAt: { type: ['string', 'null'] },
+    updatedAt: { type: ['string', 'null'] }
+  },
+  example: {
+    id: 'legal-doc-uuid',
+    slug: 'privacy-policy',
+    title: 'Privacy Policy',
+    content: '<p>Privacy policy content...</p>',
+    contentType: 'html',
+    version: '1.0',
+    status: 'published',
+    effectiveDate: '2026-06-04',
+    publishedAt: '2026-06-04T10:00:00Z',
+    createdAt: '2026-06-04T10:00:00Z',
+    updatedAt: '2026-06-04T10:00:00Z'
+  }
+};
+
+export const LegalDocumentsGroupedResponse = {
+  type: 'object',
+  additionalProperties: LegalDocumentResponse,
+  properties: {
+    privacyPolicy: LegalDocumentResponse,
+    cookiePolicy: LegalDocumentResponse,
+    communityRegulations: LegalDocumentResponse,
+    termsOfService: LegalDocumentResponse
+  }
+};
+
+export const LegalDocumentCreateBody = {
+  type: 'object',
+  required: ['slug', 'title', 'content'],
+  properties: {
+    slug: { type: 'string', example: 'privacy-policy' },
+    title: { type: 'string', example: 'Privacy Policy' },
+    content: { type: 'string', example: '<p>Privacy policy content...</p>' },
+    contentType: { type: 'string', enum: ['html', 'markdown', 'plain_text'], example: 'html' },
+    version: { type: 'string', example: '1.0' },
+    status: { type: 'string', enum: ['draft', 'published', 'archived'], example: 'published' },
+    effectiveDate: { type: 'string', example: '2026-06-04' }
+  },
+  example: {
+    slug: 'privacy-policy',
+    title: 'Privacy Policy',
+    content: '<p>Privacy policy content...</p>',
+    contentType: 'html',
+    version: '1.0',
+    status: 'published',
+    effectiveDate: '2026-06-04'
+  }
+};
+
+export const LegalDocumentUpdateBody = {
+  ...LegalDocumentCreateBody,
+  required: []
+};
+
 export default {
   ItemCreateBody,
   ItemResponse,
@@ -1775,6 +1844,10 @@ export default {
   PostShareResponse,
   PostShareEventBody,
   PostShareEventResponse,
+  LegalDocumentResponse,
+  LegalDocumentsGroupedResponse,
+  LegalDocumentCreateBody,
+  LegalDocumentUpdateBody,
   UserProfileBody,
   UserProfileResponse,
   UserUpdateBody,

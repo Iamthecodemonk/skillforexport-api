@@ -408,6 +408,37 @@ LOCK TABLES `items` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `legal_documents`
+--
+
+DROP TABLE IF EXISTS `legal_documents`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `legal_documents` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `slug` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `content` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `content_type` enum('html','markdown','plain_text') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'html',
+  `version` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '1.0',
+  `status` enum('draft','published','archived') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'published',
+  `effective_date` date DEFAULT NULL,
+  `published_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_legal_documents_slug` (`slug`),
+  KEY `idx_legal_documents_status` (`status`),
+  KEY `idx_legal_documents_slug_status` (`slug`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+LOCK TABLES `legal_documents` WRITE;
+/*!40000 ALTER TABLE `legal_documents` DISABLE KEYS */;
+/*!40000 ALTER TABLE `legal_documents` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `advert_locations`
 --
 

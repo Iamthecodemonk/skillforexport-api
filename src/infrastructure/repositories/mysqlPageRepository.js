@@ -14,11 +14,22 @@ export default class MysqlPageRepository {
     if (page.metadata && typeof page.metadata === 'string') {
       try { page.metadata = JSON.parse(page.metadata); } catch (e) { /* leave as-is */ }
     }
+    if (!page.metadata || typeof page.metadata !== 'object' || Array.isArray(page.metadata)) {
+      page.metadata = page.metadata ? page.metadata : null;
+    }
     page.ownerId = page.ownerId || page.owner_id || null;
     page.categoryId = page.categoryId || page.category_id || null;
     const metadataType = page.metadata && (page.metadata.pageType || page.metadata.type || page.metadata._pageType);
     page.type = page.type || page.pageType || page.page_type || metadataType || 'business';
     page.pageType = page.pageType || page.type || page.page_type || metadataType || 'business';
+    if (page.metadata && typeof page.metadata === 'object') {
+      const metadataFields = ['slogan', 'contactEmail', 'website', 'staffSize', 'businessCategory', 'email', 'phone', 'courseOfStudy', 'graduationDate', 'skills'];
+      for (const field of metadataFields) {
+        if (typeof page[field] === 'undefined' && typeof page.metadata[field] !== 'undefined') {
+          page[field] = page.metadata[field];
+        }
+      }
+    }
     page.coverImage = page.coverImage || page.cover_image || null;
     page.isVerified = typeof page.isVerified !== 'undefined' ? page.isVerified : page.is_verified;
     page.isActive = typeof page.isActive !== 'undefined' ? page.isActive : page.is_active;

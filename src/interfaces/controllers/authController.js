@@ -132,7 +132,7 @@ export function makeAuthController({ useCase }) {
 
     CompleteRegistration: async (req, reply) => {
       try {
-        const { email, name, ref_code: refCode, otpCode, password } = req.body || {};
+        const { email, name, ref_code: refCode, otpCode, password, onboarding } = req.body || {};
         const validationErrors = {};
         if (!email) validationErrors.email = ['email is required'];
         if (!name) validationErrors.name = ['name is required'];
@@ -142,12 +142,13 @@ export function makeAuthController({ useCase }) {
         }
 
         // password is optional here because a temporary hashed password may be stored with the OTP
-        const { user, token } = await useCase.CompleteRegistration({
+        const { user, token, profile = null, education = [], experiences = [], onboardingCompleted = false, settings = null } = await useCase.CompleteRegistration({
           email,
           name,
           refCode,
           otpCode,
-          password
+          password,
+          onboarding
         });
         const decoded = jwt.decode(token) || {};
         const now = Math.floor(Date.now() / 1000);
@@ -172,8 +173,19 @@ export function makeAuthController({ useCase }) {
         if (!token) authLogger.warn('CompleteRegistration produced no token', { user: user && user.id });
         const userObj = (user && typeof user.toPlainObject === 'function') ? user.toPlainObject() : (user || null);
         if (userObj) userObj.api_token = token || null;
+        const data = userObj
+          ? {
+              ...userObj,
+              user: userObj,
+              profile,
+              education,
+              experiences,
+              settings,
+              onboardingCompleted
+            }
+          : null;
         return reply.code(201).send(buildSuccessResponse({
-          data: userObj,
+          data,
           token
         }));
       } catch (err) {

@@ -11,6 +11,7 @@ export { default as MysqlUserLoginHistoryRepository } from './mysqlUserLoginHist
 export { default as MysqlUserCertificationRepository } from './mysqlUserCertificationRepository.js';
 export { default as MysqlUserEducationRepository } from './mysqlUserEducationRepository.js';
 export { default as MysqlUserExperienceRepository } from './mysqlUserExperienceRepository.js';
+export { default as MysqlUserSettingsRepository } from './mysqlUserSettingsRepository.js';
 export { default as MysqlCommentRepository } from './mysqlCommentRepository.js';
 export { default as MysqlPostReactionRepository } from './mysqlPostReactionRepository.js';
 export { default as MysqlCommentReactionRepository } from './mysqlCommentReactionRepository.js';

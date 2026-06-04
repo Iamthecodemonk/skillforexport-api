@@ -29,12 +29,41 @@ export default class PageUseCase {
     }
   }
 
-  mergePageMetadata(metadata = null, extra = {}) {
+  normalizeMetadata(metadata = null) {
+    if (!metadata) return {};
+    if (typeof metadata === 'string') {
+      try {
+        const parsed = JSON.parse(metadata);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+      } catch (e) {
+        return {};
+      }
+    }
+    return typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {};
+  }
+
+  mergePageMetadata(baseMetadata = null, submittedMetadata = null, topLevelFields = {}) {
     const merged = {
-      ...(metadata || {})
+      ...this.normalizeMetadata(baseMetadata),
+      ...this.normalizeMetadata(submittedMetadata)
     };
+    const data = this.normalizeMetadata(topLevelFields);
+    const aliases = {
+      contact_email: 'contactEmail',
+      staff_size: 'staffSize',
+      business_category: 'businessCategory',
+      course_of_study: 'courseOfStudy',
+      graduation_date: 'graduationDate'
+    };
+    for (const [legacyKey, canonicalKey] of Object.entries(aliases)) {
+      if (typeof data[legacyKey] !== 'undefined' && typeof data[canonicalKey] === 'undefined') {
+        merged[canonicalKey] = data[legacyKey];
+      }
+    }
     for (const key of ['slogan', 'contactEmail', 'website', 'staffSize', 'businessCategory', 'email', 'phone', 'courseOfStudy', 'graduationDate', 'skills']) {
-      if (typeof extra[key] !== 'undefined') merged[key] = extra[key];
+      if (typeof data[key] !== 'undefined') {
+        merged[key] = data[key];
+      }
     }
     return merged;
   }
@@ -44,7 +73,7 @@ export default class PageUseCase {
     if (!slug || String(slug).trim() === '') throw new Error('slug_required');
     const typeWasProvided = typeof type !== 'undefined' && type !== null || typeof pageType !== 'undefined' && pageType !== null || typeof page_type !== 'undefined' && page_type !== null;
     const normalizedType = this.normalizePageType(type || page_type, pageType);
-    const mergedMetadata = this.mergePageMetadata(metadata, extra);
+    const mergedMetadata = this.mergePageMetadata(null, metadata, extra);
     this.validateTypedPage({ type: normalizedType, name, description, metadata: mergedMetadata, typeWasProvided });
     // Ensure page name is unique
     try {
@@ -277,10 +306,7 @@ export default class PageUseCase {
     const nextType = typeWasProvided
       ? this.normalizePageType(updates.type || updates.page_type, updates.pageType)
       : this.normalizePageType(existing.type || existing.page_type, existing.pageType);
-    const mergedMetadata = this.mergePageMetadata(
-      typeof updates.metadata !== 'undefined' ? updates.metadata : existing.metadata,
-      updates
-    );
+    const mergedMetadata = this.mergePageMetadata(existing.metadata, updates.metadata, updates);
     const nextName = typeof updates.name !== 'undefined' ? updates.name : existing.name;
     const nextDescription = typeof updates.description !== 'undefined' ? updates.description : existing.description;
     this.validateTypedPage({ type: nextType, name: nextName, description: nextDescription, metadata: mergedMetadata, typeWasProvided });

@@ -14,7 +14,7 @@ import { Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 import { MysqlUserRepository } from './infrastructure/repositories/index.js';
 import { UserRepositoryImpl } from './domain/repositories/userRepository.js';
-import { MysqlUserProfileRepository, MysqlUserAssetRepository, MysqlUserSkillRepository, MysqlUserPortfolioRepository, MysqlFollowerRepository, MysqlUserOauthRepository, MysqlUserLoginHistoryRepository, MysqlUserCertificationRepository, MysqlUserEducationRepository, MysqlUserExperienceRepository } from './infrastructure/repositories/index.js';
+import { MysqlUserProfileRepository, MysqlUserAssetRepository, MysqlUserSkillRepository, MysqlUserPortfolioRepository, MysqlFollowerRepository, MysqlUserOauthRepository, MysqlUserLoginHistoryRepository, MysqlUserCertificationRepository, MysqlUserEducationRepository, MysqlUserExperienceRepository, MysqlUserSettingsRepository } from './infrastructure/repositories/index.js';
 import { UserProfileRepositoryImpl } from './domain/repositories/userProfileRepository.js';
 import { UserSkillRepositoryImpl } from './domain/repositories/userSkillRepository.js';
 import { UserPortfolioRepositoryImpl } from './domain/repositories/userPortfolioRepository.js';
@@ -321,6 +321,7 @@ export default async function startServer() {
 
   // auth setup
   let authController = null;
+  let authUseCase = null;
   let profileAdapter = null;
   let profileRepo = null;
   let userAdapter = null;
@@ -337,8 +338,13 @@ export default async function startServer() {
     const cleanupHours = parseInt(process.env.OTP_CLEANUP_HOURS || '24', 10);
     const removed = await userRepo.deleteExpiredOtps(cleanupHours);
     serverLogger.info('Expired OTP cleanup completed', { removed });
+    const authEducationAdapter = new MysqlUserEducationRepository();
+    const authExperienceAdapter = new MysqlUserExperienceRepository();
+    const authEducationRepo = new UserEducationRepositoryImpl({ adapter: authEducationAdapter });
+    const authExperienceRepo = new UserExperienceRepositoryImpl({ adapter: authExperienceAdapter });
+    const userSettingsRepo = new MysqlUserSettingsRepository();
     const passwordResetAdapter = new MysqlPasswordResetRepository();
-    const authUseCase = new AuthUseCase({ userRepository: userRepo, profileRepository: profileRepo, emailQueue: emailQueue, jwtSecret: process.env.JWT_SECRET, jwtExpiresIn: process.env.JWT_EXPIRES_IN, passwordResetRepository: passwordResetAdapter });
+    authUseCase = new AuthUseCase({ userRepository: userRepo, profileRepository: profileRepo, educationRepository: authEducationRepo, experienceRepository: authExperienceRepo, settingsRepository: userSettingsRepo, emailQueue: emailQueue, jwtSecret: process.env.JWT_SECRET, jwtExpiresIn: process.env.JWT_EXPIRES_IN, passwordResetRepository: passwordResetAdapter });
     authController = makeAuthController({ useCase: authUseCase });
     // oauth controller (Google)
     const oauthController = makeOauthController({ useCase: authUseCase });

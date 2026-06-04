@@ -3,15 +3,21 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import User from '../../domain/entities/User.js';
+import UserProfile from '../../domain/entities/UserProfile.js';
+import UserEducation from '../../domain/entities/UserEducation.js';
+import UserExperience from '../../domain/entities/UserExperience.js';
 import logger from '../../utils/logger.js';
 import dotenv from 'dotenv';
 dotenv.config();
 const authLogger = logger.child('AUTH_USECASE');
 
 export default class AuthUseCase {
-  constructor({ userRepository, profileRepository = null, emailQueue, jwtSecret, jwtExpiresIn, passwordResetRepository = null }) {
+  constructor({ userRepository, profileRepository = null, educationRepository = null, experienceRepository = null, settingsRepository = null, emailQueue, jwtSecret, jwtExpiresIn, passwordResetRepository = null }) {
     this.userRepository = userRepository;
     this.profileRepository = profileRepository;
+    this.educationRepository = educationRepository;
+    this.experienceRepository = experienceRepository;
+    this.settingsRepository = settingsRepository;
     this.emailQueue = emailQueue;
     this.jwtSecret = jwtSecret || process.env.JWT_SECRET || 'secret';
     this.jwtExpiresIn = jwtExpiresIn || '7d';
@@ -37,6 +43,146 @@ export default class AuthUseCase {
 
   generateReferralCode() {
     return `S4E${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  }
+
+  toPlain(value) {
+    return value && typeof value.toPlainObject === 'function' ? value.toPlainObject() : value;
+  }
+
+  normalizeOnboarding(onboarding = {}) {
+    return onboarding && typeof onboarding === 'object' && !Array.isArray(onboarding) ? onboarding : {};
+  }
+
+  yearToDate(year) {
+    if (!year) return null;
+    const parsed = parseInt(String(year), 10);
+    if (!Number.isFinite(parsed) || parsed < 1900 || parsed > 2200) return null;
+    return new Date(`${parsed}-01-01T00:00:00.000Z`);
+  }
+
+  async ensureProfile({ userId, name, onboarding = {} }) {
+    if (!this.profileRepository || typeof this.profileRepository.findByUserId !== 'function') return null;
+    const locationParts = [onboarding.state, onboarding.country].filter(Boolean);
+    const location = locationParts.length ? locationParts.join(', ') : null;
+    const patch = {
+      displayName: name || null
+    };
+    if (location) patch.location = location;
+    if (onboarding.jobTitle && !patch.bio) patch.bio = onboarding.jobTitle;
+
+    const existing = await this.profileRepository.findByUserId(userId);
+    if (existing) {
+      const updatePatch = {};
+      if (patch.displayName) updatePatch.displayName = patch.displayName;
+      if (patch.location) updatePatch.location = patch.location;
+      if (patch.bio && !(existing.bio)) updatePatch.bio = patch.bio;
+      if (Object.keys(updatePatch).length === 0) return existing;
+      return this.profileRepository.update(existing.id, updatePatch);
+    }
+
+    return this.profileRepository.create(new UserProfile({
+      id: uuidv4(),
+      user_id: userId,
+      displayName: patch.displayName,
+      bio: patch.bio || null,
+      location: patch.location || null,
+      created_at: new Date()
+    }));
+  }
+
+  async ensureEducation({ userId, onboarding = {} }) {
+    if (!this.educationRepository || typeof this.educationRepository.create !== 'function') return [];
+    if (String(onboarding.accountType || '').toLowerCase() !== 'student') {
+      return typeof this.educationRepository.listByUserId === 'function' ? this.educationRepository.listByUserId(userId) : [];
+    }
+    if (!onboarding.university && !onboarding.courseOfStudy && !onboarding.yearStarted) {
+      return typeof this.educationRepository.listByUserId === 'function' ? this.educationRepository.listByUserId(userId) : [];
+    }
+    const existing = typeof this.educationRepository.listByUserId === 'function'
+      ? await this.educationRepository.listByUserId(userId)
+      : [];
+    const duplicate = (existing || []).some((item) => {
+      const row = this.toPlain(item) || {};
+      return row.school === onboarding.university && row.field === onboarding.courseOfStudy;
+    });
+    if (!duplicate) {
+      await this.educationRepository.create(new UserEducation({
+        id: uuidv4(),
+        userId,
+        school: onboarding.university || null,
+        field: onboarding.courseOfStudy || null,
+        startDate: this.yearToDate(onboarding.yearStarted)
+      }));
+    }
+    return typeof this.educationRepository.listByUserId === 'function' ? this.educationRepository.listByUserId(userId) : [];
+  }
+
+  async ensureExperience({ userId, onboarding = {} }) {
+    if (!this.experienceRepository || typeof this.experienceRepository.create !== 'function') return [];
+    const accountType = String(onboarding.accountType || 'default').toLowerCase();
+    if (accountType === 'student') {
+      return typeof this.experienceRepository.listByUserId === 'function' ? this.experienceRepository.listByUserId(userId) : [];
+    }
+    if (!onboarding.jobTitle && !onboarding.workplace) {
+      return typeof this.experienceRepository.listByUserId === 'function' ? this.experienceRepository.listByUserId(userId) : [];
+    }
+    const existing = typeof this.experienceRepository.listByUserId === 'function'
+      ? await this.experienceRepository.listByUserId(userId)
+      : [];
+    const duplicate = (existing || []).some((item) => {
+      const row = this.toPlain(item) || {};
+      return row.title === onboarding.jobTitle && row.company === onboarding.workplace;
+    });
+    if (!duplicate) {
+      await this.experienceRepository.create(new UserExperience({
+        id: uuidv4(),
+        userId,
+        company: onboarding.workplace || null,
+        title: onboarding.jobTitle || null,
+        employmentType: 'full-time',
+        isCurrent: true
+      }));
+    }
+    return typeof this.experienceRepository.listByUserId === 'function' ? this.experienceRepository.listByUserId(userId) : [];
+  }
+
+  async saveOnboardingSettings({ userId, onboarding = {} }) {
+    if (!this.settingsRepository || typeof this.settingsRepository.mergeSettings !== 'function') return null;
+    const acceptedTerms = onboarding.acceptedTerms === true || onboarding.accepted_terms === true;
+    const nowIso = new Date().toISOString();
+    return this.settingsRepository.mergeSettings(userId, {
+      onboarding: {
+        accountType: onboarding.accountType || 'default',
+        is16OrAbove: onboarding.is16OrAbove === true || onboarding.is_16_or_above === true,
+        acceptedTerms,
+        acceptedTermsAt: acceptedTerms ? (onboarding.acceptedTermsAt || nowIso) : null,
+        state: onboarding.state || null,
+        country: onboarding.country || null,
+        onboardingCompleted: true,
+        completedAt: nowIso
+      }
+    });
+  }
+
+  async applyOnboarding({ user, name, onboarding = {} }) {
+    const userObj = this.toPlain(user);
+    const userId = userObj && userObj.id;
+    if (!userId) return { user, profile: null, education: [], experiences: [], settings: null, onboardingCompleted: false };
+    const normalizedOnboarding = this.normalizeOnboarding(onboarding);
+    const [profile, education, experiences, settings] = await Promise.all([
+      this.ensureProfile({ userId, name, onboarding: normalizedOnboarding }),
+      this.ensureEducation({ userId, onboarding: normalizedOnboarding }),
+      this.ensureExperience({ userId, onboarding: normalizedOnboarding }),
+      this.saveOnboardingSettings({ userId, onboarding: normalizedOnboarding })
+    ]);
+    return {
+      user,
+      profile: this.toPlain(profile),
+      education: (education || []).map((item) => this.toPlain(item)),
+      experiences: (experiences || []).map((item) => this.toPlain(item)),
+      settings,
+      onboardingCompleted: true
+    };
   }
 
   async findReferralOwnerId(refCode) {
@@ -185,10 +331,17 @@ export default class AuthUseCase {
     return { email };
   }
 
-  async CompleteRegistration({ email, name, refCode, otpCode, password }) {
+  async CompleteRegistration({ email, name, refCode, otpCode, password, onboarding = {} }) {
     // Validate email format at domain layer
     if (!email || !User.isValidEmail(email)) {
       throw new Error('invalid_email_format');
+    }
+
+    const existingUser = await this.userRepository.findByEmail(email);
+    if (existingUser) {
+      const token = jwt.sign({ sub: existingUser.id, email: existingUser.email, tv: (existingUser.tokenVersion || 0) }, this.jwtSecret, { expiresIn: this.jwtExpiresIn });
+      const onboardingResult = await this.applyOnboarding({ user: existingUser, name, onboarding });
+      return { ...onboardingResult, token };
     }
 
     let entry = null;
@@ -224,7 +377,8 @@ export default class AuthUseCase {
       await this.userRepository.deleteOtp(entry.id);
       // Generate token (include token version for revocation)
       const token = jwt.sign({ sub: createdUser.id, email: createdUser.email, tv: (createdUser.tokenVersion || 0) }, this.jwtSecret, { expiresIn: this.jwtExpiresIn });
-      return { user: createdUser, token };
+      const onboardingResult = await this.applyOnboarding({ user: createdUser, name: name || tempFullName, onboarding });
+      return { ...onboardingResult, token };
     } catch (err) {
       if (err.message === 'invalid_email_format')
         throw new Error('invalid_email_format');

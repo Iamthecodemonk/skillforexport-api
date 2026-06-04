@@ -260,14 +260,30 @@ export const ResetPasswordBody = {
 export const RegisterCompleteBody = {
   type: 'object',
   required: ['email', 'name'],
-  description: 'Complete registration after OTP verification.',
+  description: 'Complete registration after OTP verification. Optional onboarding data is persisted into profile, education/experience, and user settings.',
   properties: {
     email: { type: 'string', example: 'user@example.com' },
     name: { type: 'string', example: 'Jane Doe' },
-    ref_code: { type: 'string', example: 'ABC123' }
+    ref_code: { type: 'string', example: 'ABC123' },
+    onboarding: {
+      type: 'object',
+      additionalProperties: true,
+      properties: {
+        acceptedTerms: { type: 'boolean' },
+        is16OrAbove: { type: 'boolean' },
+        state: { type: 'string', example: 'Lagos' },
+        country: { type: 'string', example: 'Nigeria' },
+        accountType: { type: 'string', enum: ['default', 'student'] },
+        jobTitle: { type: 'string', example: 'Product Designer' },
+        workplace: { type: 'string', example: 'Skills4Export' },
+        university: { type: 'string', example: 'University of Lagos' },
+        yearStarted: { type: 'string', example: '2024' },
+        courseOfStudy: { type: 'string', example: 'Computer Science' }
+      }
+    }
   }
 };
-RegisterCompleteBody.example = { email: 'user@example.com', name: 'Jane Doe', ref_code: 'ABC123' };
+RegisterCompleteBody.example = { email: 'user@example.com', name: 'Jane Doe', ref_code: 'ABC123', onboarding: { acceptedTerms: true, is16OrAbove: true, state: 'Lagos', country: 'Nigeria', accountType: 'student', university: 'University of Lagos', yearStarted: '2024', courseOfStudy: 'Computer Science' } };
 
 export const ChangePasswordBody = {
   type: 'object',
@@ -301,7 +317,19 @@ export const AuthSuccessResponse = {
     success: { type: 'boolean' },
     message: { type: ['string', 'null'] },
     token: { type: ['string', 'null'] },
-    data: AuthTokenResponse
+    data: {
+      type: 'object',
+      additionalProperties: true,
+      properties: {
+        ...AuthTokenResponse.properties,
+        user: AuthTokenResponse,
+        profile: { type: ['object', 'null'], additionalProperties: true },
+        education: { type: 'array', items: { type: 'object', additionalProperties: true } },
+        experiences: { type: 'array', items: { type: 'object', additionalProperties: true } },
+        settings: { type: ['object', 'null'], additionalProperties: true },
+        onboardingCompleted: { type: 'boolean' }
+      }
+    }
   },
   example: {
     success: true,
@@ -1451,6 +1479,16 @@ export const PageResponse = {
     approvedAt: { type: ['string','null'] },
     approvedBy: { type: ['string','null'] },
     metadata: { type: ['object','null'] },
+    slogan: { type: ['string','null'], description: 'Business page metadata shortcut mirrored from metadata.slogan.' },
+    contactEmail: { type: ['string','null'], description: 'Business page metadata shortcut mirrored from metadata.contactEmail.' },
+    website: { type: ['string','null'], description: 'Business page metadata shortcut mirrored from metadata.website.' },
+    staffSize: { type: ['string','null'], description: 'Business page metadata shortcut mirrored from metadata.staffSize.' },
+    businessCategory: { type: ['string','null'], description: 'Business page metadata shortcut mirrored from metadata.businessCategory.' },
+    email: { type: ['string','null'], description: 'Student page metadata shortcut mirrored from metadata.email.' },
+    phone: { type: ['string','null'], description: 'Student page metadata shortcut mirrored from metadata.phone.' },
+    courseOfStudy: { type: ['string','null'], description: 'Student page metadata shortcut mirrored from metadata.courseOfStudy.' },
+    graduationDate: { type: ['string','null'], description: 'Student page metadata shortcut mirrored from metadata.graduationDate.' },
+    skills: { anyOf: [{ type: 'array', items: { type: 'string' } }, { type: 'string' }, { type: 'null' }], description: 'Student page metadata shortcut mirrored from metadata.skills.' },
     followers_count: { type: ['number','null'], description: 'Number of followers for the page (optional; present if calculated/denormalized)' },
     posts_count: { type: ['number','null'], description: 'Denormalized post count for the page (optional; present when the pages table maintains a post_count column)' },
     category_pages_count: { type: ['number','null'], description: 'Total pages in the page category (optional; present if counted)' },

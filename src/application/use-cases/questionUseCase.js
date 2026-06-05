@@ -67,9 +67,9 @@ export default class QuestionUseCase {
     return this.answerRepository.create(a);
   }
 
-  async listAnswers({ questionId, limit = 50, offset = 0 }) {
+  async listAnswers({ questionId, limit = 50, offset = 0, userId = null }) {
     if (!this.answerRepository) throw new Error('answers_not_implemented');
     if (!questionId) throw new Error('question_required');
-    return this.answerRepository.listByQuestion(questionId, { limit, offset });
+    return this.answerRepository.listByQuestion(questionId, { limit, offset, userId });
   }
 }

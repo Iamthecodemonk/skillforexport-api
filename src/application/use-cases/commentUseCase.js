@@ -22,8 +22,8 @@ export default class CommentUseCase {
     return this.commentRepository.create(comment);
   }
 
-  async listCommentsByPost(postId, { limit = 50, offset = 0 } = {}) {
+  async listCommentsByPost(postId, { limit = 50, offset = 0, userId = null } = {}) {
     if (!postId) throw new Error('post_required');
-    return this.commentRepository.listByPost(postId, { limit, offset });
+    return this.commentRepository.listByPost(postId, { limit, offset, userId });
   }
 }

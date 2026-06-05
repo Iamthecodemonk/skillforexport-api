@@ -31,7 +31,7 @@ export function makeReactionController({ useCase = null, notificationRepository 
             reactionLogger.warn('post reaction notification failed', { message: notifyErr.message });
           }
         }
-        return reply.send({ success: true, data: res });
+        return reply.send({ success: true, message: 'Post reaction updated successfully', data: res });
       } catch (err) {
         reactionLogger.error('togglePostReaction error', { message: err.message });
         if (err.message === 'post_required' || err.message === 'user_required') return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
@@ -64,7 +64,7 @@ export function makeReactionController({ useCase = null, notificationRepository 
             reactionLogger.warn('comment reaction notification failed', { message: notifyErr.message });
           }
         }
-        return reply.send({ success: true, data: res });
+        return reply.send({ success: true, message: 'Comment reaction updated successfully', data: res });
       } catch (err) {
         reactionLogger.error('toggleCommentReaction error', { message: err.message });
         if (err.message === 'comment_required' || err.message === 'user_required') return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });

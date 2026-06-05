@@ -12,7 +12,8 @@ export function makeCommentController({ useCase = null, notificationRepository =
         const { id: postId } = req.params;
         const body = req.body || {};
         const actorId = req.user && req.user.id;
-        const { content, parentCommentId } = body;
+        const { content } = body;
+        const parentCommentId = body.parentCommentId || body.parent_comment_id || null;
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         if (!content) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         const created = await useCase.createComment({ postId, userId: actorId, parentCommentId, content });
@@ -45,7 +46,7 @@ export function makeCommentController({ useCase = null, notificationRepository =
             commentLogger.warn('comment notification failed', { message: notifyErr.message });
           }
         }
-        return reply.code(201).send({ success: true, data: created });
+        return reply.code(201).send({ success: true, message: 'Comment created successfully', data: created });
       } catch (err) {
         commentLogger.error('createComment error', { message: err.message });
         if (err.message === 'post_required' || err.message === 'user_required' || err.message === 'content_required') {
@@ -59,7 +60,8 @@ export function makeCommentController({ useCase = null, notificationRepository =
       try {
         const { id: postId } = req.params;
         const { page, perPage, limit, offset } = parsePagination(req.query, 50);
-        const rows = await useCase.listCommentsByPost(postId, { limit, offset });
+        const actorId = req.user && req.user.id;
+        const rows = await useCase.listCommentsByPost(postId, { limit, offset, userId: actorId || null });
         const total = useCase.commentRepository && typeof useCase.commentRepository.countByPost === 'function'
           ? await useCase.commentRepository.countByPost(postId)
           : rows.length;

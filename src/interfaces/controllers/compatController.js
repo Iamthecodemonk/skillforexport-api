@@ -257,11 +257,11 @@ export function makeCompatController() {
       const { id, q, report_reason_id: reasonId, additional_notes: notes } = req.body || {};
       const targetType = ({ p: 'post', q: 'question', a: 'answer', c: 'comment' })[q] || q;
       if (!id || !targetType) return reply.code(422).send({ success: false, message: 'id and q are required', data: null });
-      return reply.send({ success: true, data: await createGenericReport({ userId, targetId: id, targetType, reason: reasonId || null, details: notes || null }) });
+      return reply.send({ success: true, message: 'Report submitted successfully', data: await createGenericReport({ userId, targetId: id, targetType, reason: reasonId || null, details: notes || null }) });
     },
 
-    reportQuestion: async (req, reply) => reply.code(201).send({ success: true, data: await createGenericReport({ userId: actorId(req), targetId: req.params.id, targetType: 'question', reason: (req.body || {}).reason || (req.body || {}).report_reason_id || null, details: (req.body || {}).details || (req.body || {}).additional_notes || null }) }),
-    reportAnswer: async (req, reply) => reply.code(201).send({ success: true, data: await createGenericReport({ userId: actorId(req), targetId: req.params.id, targetType: 'answer', reason: (req.body || {}).reason || (req.body || {}).report_reason_id || null, details: (req.body || {}).details || (req.body || {}).additional_notes || null }) }),
+    reportQuestion: async (req, reply) => reply.code(201).send({ success: true, message: 'Question reported successfully', data: await createGenericReport({ userId: actorId(req), targetId: req.params.id, targetType: 'question', reason: (req.body || {}).reason || (req.body || {}).report_reason_id || null, details: (req.body || {}).details || (req.body || {}).additional_notes || null }) }),
+    reportAnswer: async (req, reply) => reply.code(201).send({ success: true, message: 'Answer reported successfully', data: await createGenericReport({ userId: actorId(req), targetId: req.params.id, targetType: 'answer', reason: (req.body || {}).reason || (req.body || {}).report_reason_id || null, details: (req.body || {}).details || (req.body || {}).additional_notes || null }) }),
     reportReasons: async (req, reply) => reply.send({ success: true, data: [
       { id: 'spam', name: 'Spam' },
       { id: 'abuse', name: 'Abuse or harassment' },

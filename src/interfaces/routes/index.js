@@ -1850,8 +1850,8 @@ export default async function registerRoutes(fastify, deps) {
       response: {
         201: {
           type: 'object',
-          properties: { success: { type: 'boolean' }, data: schemas.CommentResponse },
-          example: { success: true, data: schemas.CommentResponse.example }
+          properties: { success: { type: 'boolean' }, message: { type: 'string' }, data: schemas.CommentResponse },
+          example: { success: true, message: 'Comment created successfully', data: schemas.CommentResponse.example }
         },
         422: schemas.GenericErrorResponse
       }
@@ -1876,7 +1876,7 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Posts', 'Reactions'],
       description: 'Toggle reaction on a post (one reaction per user). Omitting `type` defaults to `like`.',
       body: schemas.ReactionBody,
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.ReactionToggleResponse } }, 422: { type: 'object' } }
+      response: { 200: dataResponse(schemas.ReactionToggleResponse), 422: { type: 'object' } }
     }
   }, handler('togglePostReaction'));
 
@@ -1893,6 +1893,7 @@ export default async function registerRoutes(fastify, deps) {
           type: 'object',
           properties: {
             success: { type: 'boolean' },
+            message: { type: 'string' },
             data: {
               type: 'object',
               properties: {
@@ -1902,7 +1903,7 @@ export default async function registerRoutes(fastify, deps) {
               }
             }
           },
-          example: { success: true, data: { postId: 'post-uuid', userId: 'user-uuid', saved: true } }
+          example: { success: true, message: 'Post saved successfully', data: { postId: 'post-uuid', userId: 'user-uuid', saved: true } }
         },
         422: schemas.GenericErrorResponse
       }
@@ -1916,7 +1917,7 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Posts', 'Moderation'],
       description: 'Report a post for moderation.',
       body: schemas.PostReportBody,
-      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PostReportResponse } }, 422: { type: 'object' } }
+      response: { 201: dataResponse(schemas.PostReportResponse), 422: { type: 'object' } }
     }
   }, handler('reportPost'));
 
@@ -1927,7 +1928,7 @@ export default async function registerRoutes(fastify, deps) {
       tags: ['Comments', 'Reactions'],
       description: 'Toggle reaction on a comment (one reaction per user). Omitting `type` defaults to `like`.',
       body: schemas.ReactionBody,
-      response: { 200: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.ReactionToggleResponse } }, 422: { type: 'object' } }
+      response: { 200: dataResponse(schemas.ReactionToggleResponse), 422: { type: 'object' } }
     }
   }, handler('toggleCommentReaction'));
 
@@ -1939,7 +1940,7 @@ export default async function registerRoutes(fastify, deps) {
       description: 'Report a comment for moderation. Authenticated user is used; body userId is optional/ignored.',
       params: idParam(),
       body: schemas.PostReportBody,
-      response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.CommentReportResponse } }, 422: { type: 'object' } }
+      response: { 201: dataResponse(schemas.CommentReportResponse), 422: { type: 'object' } }
     }
   }, handler('reportComment'));
 
@@ -1992,8 +1993,8 @@ export default async function registerRoutes(fastify, deps) {
       response: {
         201: {
           type: 'object',
-          properties: { success: { type: 'boolean' }, data: schemas.QuestionResponse },
-          example: { success: true, data: schemas.QuestionResponse.example }
+          properties: { success: { type: 'boolean' }, message: { type: 'string' }, data: schemas.QuestionResponse },
+          example: { success: true, message: 'Question created successfully', data: schemas.QuestionResponse.example }
         },
         401: { type: 'object' },
         422: { type: 'object' }
@@ -2020,8 +2021,8 @@ export default async function registerRoutes(fastify, deps) {
       response: {
         200: {
           type: 'object',
-          properties: { success: { type: 'boolean' }, data: schemas.QuestionResponse },
-          example: { success: true, data: schemas.QuestionResponse.example }
+          properties: { success: { type: 'boolean' }, message: { type: 'string' }, data: schemas.QuestionResponse },
+          example: { success: true, message: 'Success', data: schemas.QuestionResponse.example }
         },
         404: { type: 'object' }
       }
@@ -2038,8 +2039,8 @@ export default async function registerRoutes(fastify, deps) {
       response: {
         201: {
           type: 'object',
-          properties: { success: { type: 'boolean' }, data: schemas.AnswerResponse },
-          example: { success: true, data: schemas.AnswerResponse.example }
+          properties: { success: { type: 'boolean' }, message: { type: 'string' }, data: schemas.AnswerResponse },
+          example: { success: true, message: 'Answer created successfully', data: schemas.AnswerResponse.example }
         },
         401: { type: 'object' },
         422: { type: 'object' }

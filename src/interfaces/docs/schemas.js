@@ -499,11 +499,11 @@ QuestionResponse.example = {
 
 export const QuestionListResponse = { type: 'array', items: QuestionResponse };
 
-export const AnswerCreateBody = { type: 'object', required: ['content'], properties: { content: { type: 'string' }, parentAnswerId: { type: ['string','null'] } } };
+export const AnswerCreateBody = { type: 'object', required: ['content'], properties: { content: { type: 'string' }, parentAnswerId: { type: ['string','null'] }, parent_answer_id: { type: ['string','null'] } } };
 AnswerCreateBody.example = { content: 'You can fix it by...' };
 
-export const AnswerResponse = { type: 'object', properties: { id: { type: 'string' }, questionId: { type: 'string' }, userId: { type: 'string' }, parentAnswerId: { type: ['string','null'] }, content: { type: 'string' }, createdAt: { type: 'string' }, updatedAt: { type: 'string' }, user: { type: ['object','null'], properties: { id: { type: 'string' }, name: { type: ['string','null'] }, email: { type: ['string','null'] } } } } };
-AnswerResponse.example = { id: 'a-uuid', questionId: 'q-uuid', userId: 'user-uuid', parentAnswerId: null, content: 'This is how...', createdAt: '2026-04-01T13:00:00Z', updatedAt: '2026-04-01T13:00:00Z', user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com' } };
+export const AnswerResponse = { type: 'object', properties: { id: { type: 'string' }, question_id: { type: 'string' }, questionId: { type: 'string' }, user_id: { type: 'string' }, userId: { type: 'string' }, parent_answer_id: { type: ['string','null'] }, parentAnswerId: { type: ['string','null'] }, content: { type: 'string' }, score: { type: 'number' }, is_liked: { type: 'boolean' }, isLiked: { type: 'boolean' }, created_at: { type: 'string' }, createdAt: { type: 'string' }, updated_at: { type: 'string' }, updatedAt: { type: 'string' }, user: { type: ['object','null'], properties: { id: { type: 'string' }, name: { type: ['string','null'] }, email: { type: ['string','null'] }, avatar: { type: ['string','null'] }, avatarUrl: { type: ['string','null'] } } } } };
+AnswerResponse.example = { id: 'a-uuid', question_id: 'q-uuid', questionId: 'q-uuid', user_id: 'user-uuid', userId: 'user-uuid', parent_answer_id: null, parentAnswerId: null, content: 'This is how...', score: 3, is_liked: false, isLiked: false, created_at: '2026-04-01T13:00:00Z', createdAt: '2026-04-01T13:00:00Z', updated_at: '2026-04-01T13:00:00Z', updatedAt: '2026-04-01T13:00:00Z', user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null, avatarUrl: null } };
 
 
 export const PostResponse = {
@@ -1303,14 +1303,14 @@ PostMediaResponse.example = { id: 'media-uuid', post_id: 'post-uuid', media_type
 export const CommentCreateBody = {
   type: 'object',
   required: ['content'],
-  properties: { userId: { type: 'string' }, content: { type: 'string' }, parentCommentId: { type: ['string','null'] } }
+  properties: { userId: { type: 'string' }, content: { type: 'string' }, parentCommentId: { type: ['string','null'] }, parent_comment_id: { type: ['string','null'] } }
 };
 
 export const CommentResponse = {
   type: 'object',
-  properties: { id: { type: 'string' }, post_id: { type: 'string' }, user_id: { type: 'string' }, parent_comment_id: { type: ['string','null'] }, content: { type: 'string' }, created_at: { type: 'string' } }
+  properties: { id: { type: 'string' }, post_id: { type: 'string' }, postId: { type: 'string' }, user_id: { type: 'string' }, userId: { type: 'string' }, parent_comment_id: { type: ['string','null'] }, parentCommentId: { type: ['string','null'] }, content: { type: 'string' }, score: { type: 'number' }, is_liked: { type: 'boolean' }, isLiked: { type: 'boolean' }, is_report: { type: 'boolean' }, isReport: { type: 'boolean' }, created_at: { type: 'string' }, createdAt: { type: 'string' }, updated_at: { type: 'string' }, updatedAt: { type: 'string' }, user: { type: ['object','null'], properties: { id: { type: 'string' }, name: { type: ['string','null'] }, email: { type: ['string','null'] }, avatar: { type: ['string','null'] }, avatarUrl: { type: ['string','null'] } } } }
 };
-CommentResponse.example = { id: 'comment-uuid', post_id: 'post-uuid', user_id: 'user-uuid', parent_comment_id: null, content: 'This is really helpful.', created_at: '2026-04-10T12:30:00Z' };
+CommentResponse.example = { id: 'comment-uuid', post_id: 'post-uuid', postId: 'post-uuid', user_id: 'user-uuid', userId: 'user-uuid', parent_comment_id: null, parentCommentId: null, content: 'This is really helpful.', score: 2, is_liked: false, isLiked: false, is_report: false, isReport: false, created_at: '2026-04-10T12:30:00Z', createdAt: '2026-04-10T12:30:00Z', updated_at: '2026-04-10T12:30:00Z', updatedAt: '2026-04-10T12:30:00Z', user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null, avatarUrl: null } };
 
 export const PageCreateBody = {
   type: 'object',

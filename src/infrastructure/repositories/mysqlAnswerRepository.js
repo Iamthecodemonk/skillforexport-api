@@ -2,43 +2,86 @@ import db from '../knexConfig.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export default class MysqlAnswerRepository {
+  mapAnswer(row) {
+    if (!row) return null;
+    const score = parseInt(row.score || 0, 10);
+    const isLiked = row.is_liked === true || row.is_liked === 1 || row.is_liked === '1';
+    return {
+      id: row.id,
+      question_id: row.question_id,
+      questionId: row.question_id,
+      user_id: row.user_id,
+      userId: row.user_id,
+      parent_answer_id: row.parent_answer_id || null,
+      parentAnswerId: row.parent_answer_id || null,
+      content: row.content,
+      score,
+      is_liked: isLiked,
+      isLiked,
+      created_at: row.created_at,
+      createdAt: row.created_at,
+      updated_at: row.updated_at,
+      updatedAt: row.updated_at,
+      user: {
+        id: row.user_id,
+        name: row.user_name || null,
+        email: row.user_email || null,
+        avatar: row.user_avatar || null,
+        avatarUrl: row.user_avatar || null
+      }
+    };
+  }
+
+  baseAnswerQuery(userId = null) {
+    const q = db('answers as a')
+      .leftJoin('users as u', 'u.id', 'a.user_id')
+      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+      .select(
+        'a.*',
+        'u.email as user_email',
+        db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as user_name'),
+        'up.avatar as user_avatar',
+        db.raw('(SELECT COUNT(*) FROM answer_reactions ar WHERE ar.answer_id = a.id) as score')
+      );
+
+    if (userId) {
+      q.select(db.raw('EXISTS(SELECT 1 FROM answer_reactions ar2 WHERE ar2.user_id = ? AND ar2.answer_id = a.id) as is_liked', [userId]));
+    } else {
+      q.select(db.raw('false as is_liked'));
+    }
+
+    return q;
+  }
+
   async create(record) {
     const id = record.id || uuidv4();
     const now = new Date();
+    const userId = record.user_id || record.userId;
     await db('answers').insert({
       id,
       question_id: record.question_id || record.questionId,
-      user_id: record.user_id || record.userId,
+      user_id: userId,
       parent_answer_id: record.parent_answer_id || record.parentAnswerId || null,
       content: record.content,
       created_at: now,
       updated_at: now
     });
-    return db('answers').where({ id }).first();
+    return this.findById(id, { userId });
   }
 
-  async findById(id) {
-    return db('answers').where({ id }).first();
+  async findById(id, { userId = null } = {}) {
+    const row = await this.baseAnswerQuery(userId).where('a.id', id).first();
+    return this.mapAnswer(row);
   }
 
-  async listByQuestion(questionId, { limit = 50, offset = 0 } = {}) {
-    const rows = await db('answers as a')
-      .leftJoin('users as u', 'u.id', 'a.user_id')
-      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+  async listByQuestion(questionId, { limit = 50, offset = 0, userId = null } = {}) {
+    const rows = await this.baseAnswerQuery(userId)
       .where('a.question_id', questionId)
       .orderBy('a.created_at', 'asc')
       .limit(limit)
-      .offset(offset)
-      .select('a.*', 'u.email as answerer_email', 'up.username as answerer_name');
+      .offset(offset);
 
-    return rows.map(({ answerer_email, answerer_name, ...answer }) => ({
-      ...answer,
-      user: {
-        id: answer.user_id,
-        name: answerer_name || null,
-        email: answerer_email || null
-      }
-    }));
+    return (rows || []).map(row => this.mapAnswer(row));
   }
 
   async countByQuestion(questionId) {

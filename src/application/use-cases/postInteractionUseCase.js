@@ -12,7 +12,12 @@ export default class PostInteractionUseCase {
   async toggleSave({ postId, userId }) {
     if (!postId) throw new Error('post_required');
     if (!userId) throw new Error('user_required');
-    return this.postSaveRepository.toggle({ user_id: userId, post_id: postId });
+    const result = await this.postSaveRepository.toggle({ user_id: userId, post_id: postId });
+    return {
+      postId,
+      userId,
+      saved: result && result.action !== 'removed'
+    };
   }
 
   async reportPost({ postId, userId, reason = null, details = null }) {

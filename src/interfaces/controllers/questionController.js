@@ -58,7 +58,9 @@ export function makeQuestionController({ useCase = null, notificationRepository 
       try {
         const actorId = req.user && req.user.id;
         const { questionId } = req.params;
-        const { parentAnswerId, content } = req.body || {};
+        const body = req.body || {};
+        const { content } = body;
+        const parentAnswerId = body.parentAnswerId || body.parent_answer_id || null;
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         if (!content) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         const created = await useCase.createAnswer({ questionId, userId: actorId, parentAnswerId, content });
@@ -91,7 +93,8 @@ export function makeQuestionController({ useCase = null, notificationRepository 
       try {
         const { questionId } = req.params;
         const { page, perPage, limit, offset } = parsePagination(req.query, 50);
-        const rows = await useCase.listAnswers({ questionId, limit, offset });
+        const actorId = req.user && req.user.id;
+        const rows = await useCase.listAnswers({ questionId, limit, offset, userId: actorId || null });
         const data = rows.map(r => (r && r.toPlainObject) ? r.toPlainObject() : r);
         const total = useCase.answerRepository && typeof useCase.answerRepository.countByQuestion === 'function'
           ? await useCase.answerRepository.countByQuestion(questionId)

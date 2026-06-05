@@ -1076,6 +1076,71 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('registerMedia'));
 
+  fastify.post('/media/upload', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'uploadMediaFile',
+      tags: ['Media'],
+      description: 'Upload a file through the backend to the platform Cloudinary account. Use this when the frontend should not handle Cloudinary directly. Returns an assetId and URL; pass assetId in mediaAssetIds when creating a post.',
+      requestBody: {
+        content: {
+          'multipart/form-data': {
+            schema: {
+              type: 'object',
+              properties: {
+                file: { type: 'string', format: 'binary' },
+                title: { type: 'string' },
+                kind: { type: 'string', enum: ['post_image', 'image', 'video', 'document', 'avatar', 'banner', 'advert_image'] },
+                pageId: { type: 'string' }
+              },
+              required: ['file']
+            }
+          }
+        }
+      },
+      response: {
+        201: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+            data: {
+              type: 'object',
+              properties: {
+                assetId: { type: 'string' },
+                id: { type: 'string' },
+                url: { type: 'string' },
+                publicId: { type: 'string' },
+                kind: { type: 'string' },
+                title: { type: ['string', 'null'] },
+                mimeType: { type: ['string', 'null'] },
+                sizeBytes: { type: ['number', 'null'] },
+                asset: { type: 'object', additionalProperties: true }
+              }
+            }
+          },
+          example: {
+            success: true,
+            message: 'Media uploaded successfully',
+            data: {
+              assetId: 'asset-uuid',
+              id: 'asset-uuid',
+              url: 'https://res.cloudinary.com/demo/image/upload/posts/photo.jpg',
+              publicId: 'posts/photo',
+              kind: 'post_image',
+              title: 'Post image',
+              mimeType: 'image/jpeg',
+              sizeBytes: 120345
+            }
+          }
+        },
+        401: schemas.AuthErrorResponse,
+        422: schemas.GenericErrorResponse,
+        503: schemas.GenericErrorResponse
+      }
+    }
+  }, handler('uploadMediaFile'));
+
   fastify.get('/media/jobs/:id', {
     schema: {
       operationId: 'getMediaJobStatus',
@@ -1729,7 +1794,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'createPost',
       tags: ['Posts'],
-      description: 'Create a new post. If the frontend user selects Everyone, omit `communityId` or send `communityId: null`; the post belongs on the public/home feed. If posting into a community, send that community id. Upload media first through /media/register, wait until completed, then send the returned asset ids in `mediaAssetIds`; do not send direct media URLs here.',
+      description: 'Create a new post. If the frontend user selects Everyone, omit `communityId` or send `communityId: null`; the post belongs on the public/home feed. If posting into a community, send that community id. Upload media first through /media/upload, then send the returned asset ids in `mediaAssetIds`; do not send direct media URLs here. /media/register remains available for direct Cloudinary uploads.',
       body: schemas.PostCreateBody,
       response: {
         201: {

@@ -72,16 +72,20 @@ export default class UserUseCase {
         }
         return v;
       };
+      const profile = parse(row.profile);
+      const counts = await this.getUserStats(userId);
+      const name = (profile && (profile.displayName || profile.username)) || row.email || null;
       return {
-        user: { id: row.user_id, email: row.email, role: row.role, created_at: row.user_created_at },
-        profile: parse(row.profile),
+        user: { id: row.user_id, name, email: row.email, role: row.role, created_at: row.user_created_at },
+        profile,
         skills: parse(row.skills) || [],
         portfolios: parse(row.portfolios) || [],
         certifications: parse(row.certifications) || [],
         education: parse(row.education) || [],
         experiences: parse(row.experiences) || [],
         followers: parse(row.followers) || [],
-        oauthAccounts: parse(row.oauth_accounts) || []
+        oauthAccounts: parse(row.oauth_accounts) || [],
+        counts
       };
     }
 

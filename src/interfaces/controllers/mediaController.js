@@ -86,6 +86,82 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
       }
     },
 
+    uploadMediaFile: async (req, reply) => {
+      try {
+        const actorId = req.user && req.user.id;
+        if (!actorId) {
+          return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        }
+        if (!cloudinary || typeof cloudinary.uploadFromStream !== 'function' || !assetAdapter) {
+          return reply.code(503).send({ success: false, error: { code: 'service_unavailable' } });
+        }
+
+        const mp = await req.file();
+        if (!mp) {
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed', message: 'file is required' } });
+        }
+
+        const fieldValue = (name) => {
+          const field = mp.fields && mp.fields[name];
+          if (!field) return null;
+          return typeof field.value === 'undefined' ? field : field.value;
+        };
+        const title = fieldValue('title') || mp.filename || null;
+        const pageId = fieldValue('pageId') || fieldValue('page_id') || null;
+        const rawKind = fieldValue('kind') || (mp.mimetype && mp.mimetype.startsWith('video/') ? 'video' : 'post_image');
+        const kind = rawKind === 'image' ? 'post_image' : rawKind;
+        const isVideo = kind === 'video' || (mp.mimetype || '').startsWith('video/');
+        const isDocument = kind === 'document' || (!isVideo && !(mp.mimetype || '').startsWith('image/'));
+        const folder = isVideo
+          ? (process.env.CLOUDINARY_FOLDER_VIDEOS || process.env.CLOUDINARY_FOLDER_POSTS || 'posts')
+          : isDocument
+            ? (process.env.CLOUDINARY_FOLDER_DOCS || 'documents')
+            : (process.env.CLOUDINARY_FOLDER_POSTS || 'posts');
+        const resourceType = isVideo ? 'video' : (isDocument ? 'raw' : 'image');
+
+        const result = await cloudinary.uploadFromStream(mp.file, {
+          folder,
+          resource_type: resourceType
+        });
+        const assetId = uuidv4();
+        const asset = await assetAdapter.create({
+          id: assetId,
+          userId: actorId,
+          pageId,
+          kind,
+          title,
+          provider: 'cloudinary',
+          providerPublicId: result.public_id,
+          url: result.secure_url || result.url,
+          mimeType: mp.mimetype || result.resource_type || result.format || null,
+          sizeBytes: result.bytes || null,
+          metadata: { ...result, title, pageId, userId: actorId, kind, originalFilename: mp.filename || null }
+        });
+
+        return reply.code(201).send({
+          success: true,
+          message: 'Media uploaded successfully',
+          data: {
+            assetId,
+            id: assetId,
+            url: result.secure_url || result.url,
+            publicId: result.public_id,
+            kind,
+            title,
+            mimeType: mp.mimetype || null,
+            sizeBytes: result.bytes || null,
+            asset
+          }
+        });
+      } catch (err) {
+        mediaLogger.error('uploadMediaFile error', { message: err.message, stack: err.stack });
+        if (err.message === 'cloudinary_not_configured') {
+          return reply.code(503).send({ success: false, error: { code: 'cloudinary_not_configured' } });
+        }
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
     uploadAvatarFile: async (req, reply) => {
       try {
         if (!mediaQueue) {

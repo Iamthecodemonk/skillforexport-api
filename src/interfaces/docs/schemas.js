@@ -1141,6 +1141,7 @@ export const FullProfileResponse = {
       type: 'object',
       properties: {
         id: { type: 'string' },
+        name: { type: ['string','null'] },
         email: { type: 'string' },
         role: { type: 'string' },
         created_at: { type: 'string' }
@@ -1153,7 +1154,16 @@ export const FullProfileResponse = {
     education: { type: 'array', items: { ...Education } }, // <--- Use spread
     experiences: { type: 'array', items: { ...Experience } }, // <--- Use spread
     followers: { type: 'array', items: { ...Follower } }, // <--- Use spread
-    oauthAccounts: { type: 'array', items: { ...OAuthAccount } } // <--- Use spread
+    oauthAccounts: { type: 'array', items: { ...OAuthAccount } }, // <--- Use spread
+    counts: {
+      type: 'object',
+      properties: {
+        pages: { type: 'number' },
+        communities: { type: 'number' },
+        posts: { type: 'number' },
+        comments: { type: 'number' }
+      }
+    }
   }
 };
 

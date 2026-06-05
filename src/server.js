@@ -599,6 +599,8 @@ export default async function startServer() {
               const questionUseCase = new QuestionUseCase({ questionRepository: questionRepo, answerRepository: answerRepo });
               const questionController = makeQuestionController({ useCase: questionUseCase, notificationRepository });
               Object.assign(controllers, questionController);
+              const feedController = makeFeedController({ postUseCase, questionUseCase });
+              Object.assign(controllers, feedController);
             } catch (qErr) {
               serverLogger.warn('Questions wiring failed', qErr && qErr.message);
             }

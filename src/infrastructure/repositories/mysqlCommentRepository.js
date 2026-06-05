@@ -94,6 +94,21 @@ export default class MysqlCommentRepository {
     return (rows || []).map(row => this.mapComment(row));
   }
 
+  async listByUser(userId, { limit = 50, offset = 0, actorId = null } = {}) {
+    const rows = await this.baseCommentQuery(actorId || userId)
+      .where('c.user_id', userId)
+      .orderBy('c.created_at', 'desc')
+      .limit(limit)
+      .offset(offset);
+    return (rows || []).map(row => this.mapComment(row));
+  }
+
+  async countByUser(userId) {
+    const row = await db('comments').where({ user_id: userId }).count({ cnt: 'id' }).first();
+    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+    return parseInt(cnt || 0, 10);
+  }
+
   async countByPost(postId) {
     const row = await db('comments').where({ post_id: postId }).count({ cnt: 'id' }).first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);

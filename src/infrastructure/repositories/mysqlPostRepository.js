@@ -197,6 +197,17 @@ export default class MysqlPostRepository {
     return (rows || []).map(row => this.mapPost(row));
   }
 
+  async listByUser(ownerUserId, { limit = 20, offset = 0, actorId = null } = {}) {
+    const q = this.basePostQuery(actorId || ownerUserId)
+      .where('p.user_id', ownerUserId)
+      .orderBy('p.created_at', 'desc')
+      .orderBy('p.id', 'desc')
+      .limit(limit)
+      .offset(offset);
+    const rows = await q;
+    return (rows || []).map(row => this.mapPost(row));
+  }
+
   async countAll({ communityId = null, publicOnly = false, search = null } = {}) {
     const q = db('posts as p')
       .leftJoin('users as u', 'u.id', 'p.user_id')
@@ -205,6 +216,12 @@ export default class MysqlPostRepository {
       .count({ cnt: 'p.id' });
     applyPostFilters(q, { communityId, publicOnly, search });
     const row = await q.first();
+    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+    return parseInt(cnt || 0, 10);
+  }
+
+  async countByUser(userId) {
+    const row = await db('posts').where({ user_id: userId }).count({ cnt: 'id' }).first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);
   }

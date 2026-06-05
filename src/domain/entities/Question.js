@@ -17,12 +17,14 @@ export default class Question {
     updatedAt = null,
     updated_at = null,
     asker = null,
+    user = null,
     community = null,
     totalAnswers = 0,
     total_answers = 0,
     totalAnswerers = 0,
     total_answerers = 0,
-    answers = []
+    answers = [],
+    type = 'QUESTION'
   } = {}) {
     this.id = id;
     this.userId = userId || user_id;
@@ -35,10 +37,12 @@ export default class Question {
     this.createdAt = createdAt instanceof Date ? createdAt : ((createdAt || created_at) ? new Date(createdAt || created_at) : null);
     this.updatedAt = updatedAt instanceof Date ? updatedAt : ((updatedAt || updated_at) ? new Date(updatedAt || updated_at) : null);
     this.asker = asker;
+    this.user = user || asker;
     this.community = community;
     this.totalAnswers = parseInt(totalAnswers || total_answers || 0, 10);
     this.totalAnswerers = parseInt(totalAnswerers || total_answerers || 0, 10);
     this.answers = answers;
+    this.type = type || 'QUESTION';
   }
 
   toRecord() {
@@ -69,10 +73,12 @@ export default class Question {
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       asker: this.asker,
+      user: this.user,
       community: this.community,
       totalAnswers: this.totalAnswers,
       totalAnswerers: this.totalAnswerers,
-      answers: this.answers
+      answers: this.answers,
+      type: this.type
     };
   }
 }

@@ -2,6 +2,10 @@ import { v4 as uuidv4 } from 'uuid';
 import db from '../../infrastructure/knexConfig.js';
 import { buildPaginatedResponse, parsePagination } from '../paginationResponse.js';
 import logger from '../../utils/logger.js';
+import MysqlPostRepository from '../../infrastructure/repositories/mysqlPostRepository.js';
+import MysqlCommentRepository from '../../infrastructure/repositories/mysqlCommentRepository.js';
+import MysqlQuestionRepository from '../../infrastructure/repositories/mysqlQuestionRepository.js';
+import MysqlAnswerRepository from '../../infrastructure/repositories/mysqlAnswerRepository.js';
 
 const compatLogger = logger.child('COMPAT_CONTROLLER');
 
@@ -16,6 +20,10 @@ async function paginateTable(req, reply, table, where = {}, orderColumn = 'creat
   const [rows, countRow] = await Promise.all([query, countQuery]);
   const total = parseInt((countRow && (countRow.cnt || Object.values(countRow)[0])) || 0, 10);
   return reply.send(buildPaginatedResponse(req, { data: rows || [], page, perPage, total }));
+}
+
+async function sendPaginated(req, reply, { data, page, perPage, total }) {
+  return reply.send(buildPaginatedResponse(req, { data, page, perPage, total }));
 }
 
 async function toggleSavedItem({ userId, targetId, targetType }) {
@@ -37,6 +45,10 @@ async function createGenericReport({ userId, targetId, targetType, reason = null
 }
 
 export function makeCompatController() {
+  const postRepository = new MysqlPostRepository();
+  const commentRepository = new MysqlCommentRepository();
+  const questionRepository = new MysqlQuestionRepository();
+  const answerRepository = new MysqlAnswerRepository();
   const states = [
     'Abia',
     'Adamawa',
@@ -209,11 +221,63 @@ export function makeCompatController() {
       return reply.send({ success: true, data: { id: req.params.id } });
     },
 
-    listUserPosts: async (req, reply) => paginateTable(req, reply, 'posts', { user_id: actorId(req) }),
-    listUserComments: async (req, reply) => paginateTable(req, reply, 'comments', { user_id: actorId(req) }),
-    listUserQuestions: async (req, reply) => paginateTable(req, reply, 'questions', { user_id: actorId(req) }),
-    listUserAnswers: async (req, reply) => paginateTable(req, reply, 'answers', { user_id: actorId(req) }),
-    listSavedPosts: async (req, reply) => paginateTable(req, reply, 'post_saves', { user_id: actorId(req) }),
+    listUserPosts: async (req, reply) => {
+      const userId = actorId(req);
+      if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
+      const [data, total] = await Promise.all([
+        postRepository.listByUser(userId, { limit, offset, actorId: userId }),
+        postRepository.countByUser(userId)
+      ]);
+      return sendPaginated(req, reply, { data, page, perPage, total });
+    },
+    listUserComments: async (req, reply) => {
+      const userId = actorId(req);
+      if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
+      const rows = await commentRepository.listByUser(userId, { limit, offset, actorId: userId });
+      const data = await Promise.all(rows.map(async (comment) => ({
+        ...comment,
+        commentable: await postRepository.findById(comment.post_id, { userId })
+      })));
+      const total = await commentRepository.countByUser(userId);
+      return sendPaginated(req, reply, { data, page, perPage, total });
+    },
+    listUserQuestions: async (req, reply) => {
+      const userId = actorId(req);
+      if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
+      const [data, total] = await Promise.all([
+        questionRepository.listByUser(userId, { limit, offset }),
+        questionRepository.countByUser(userId)
+      ]);
+      return sendPaginated(req, reply, { data, page, perPage, total });
+    },
+    listUserAnswers: async (req, reply) => {
+      const userId = actorId(req);
+      if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
+      const rows = await answerRepository.listByUser(userId, { limit, offset, actorId: userId });
+      const data = await Promise.all(rows.map(async (answer) => ({
+        ...answer,
+        question: await questionRepository.findById(answer.question_id)
+      })));
+      const total = await answerRepository.countByUser(userId);
+      return sendPaginated(req, reply, { data, page, perPage, total });
+    },
+    listSavedPosts: async (req, reply) => {
+      const userId = actorId(req);
+      if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
+      const saves = await db('post_saves').where({ user_id: userId }).orderBy('created_at', 'desc').limit(limit).offset(offset);
+      const data = await Promise.all((saves || []).map(async (save) => {
+        const feed = await postRepository.findById(save.post_id, { userId });
+        return feed ? { ...feed, saved_at: save.created_at, save_id: save.id } : null;
+      }));
+      const countRow = await db('post_saves').where({ user_id: userId }).count({ cnt: 'id' }).first();
+      const total = parseInt((countRow && (countRow.cnt || Object.values(countRow)[0])) || 0, 10);
+      return sendPaginated(req, reply, { data: data.filter(Boolean), page, perPage, total });
+    },
     listSavedQuestions: async (req, reply) => paginateTable(req, reply, 'saved_items', { user_id: actorId(req), target_type: 'question' }),
     listPostScores: async (req, reply) => paginateTable(req, reply, 'post_reactions', { user_id: actorId(req) }),
     listCommentScores: async (req, reply) => paginateTable(req, reply, 'comment_reactions', { user_id: actorId(req) }),

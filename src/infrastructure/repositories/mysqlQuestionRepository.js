@@ -1,7 +1,11 @@
 import db from '../knexConfig.js';
 import { v4 as uuidv4 } from 'uuid';
 
-const applyQuestionFilters = (q, { communityId = null, publicOnly = false, search = null } = {}) => {
+const applyQuestionFilters = (q, { communityId = null, publicOnly = false, search = null, userId = null } = {}) => {
+  if (userId) {
+    q.where('q.user_id', userId);
+  }
+
   if (communityId) {
     q.where('q.community_id', communityId);
   } else if (publicOnly) {
@@ -159,6 +163,14 @@ export default class MysqlQuestionRepository {
     const row = await q.first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);
+  }
+
+  async listByUser(userId, { limit = 20, offset = 0, sortField = null, sortDirection = null } = {}) {
+    return this.list({ limit, offset, userId, sortField, sortDirection });
+  }
+
+  async countByUser(userId) {
+    return this.countAll({ userId });
   }
 
   async update(id, patch) {

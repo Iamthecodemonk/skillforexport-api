@@ -36,9 +36,13 @@ export class QuestionRepositoryImpl extends QuestionRepository {
     return row ? new Question(row) : null;
   }
 
-  async list({ limit = 20, offset = 0 } = {}) {
-    const rows = await this.adapter.list({ limit, offset });
+  async list(options = {}) {
+    const rows = await this.adapter.list(options);
     return (rows || []).map(r => new Question(r));
+  }
+
+  async countAll(options = {}) {
+    return typeof this.adapter.countAll === 'function' ? this.adapter.countAll(options) : 0;
   }
 
   async update(id, patch) {

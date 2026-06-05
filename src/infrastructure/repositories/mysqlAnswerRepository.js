@@ -84,6 +84,16 @@ export default class MysqlAnswerRepository {
     return (rows || []).map(row => this.mapAnswer(row));
   }
 
+  async listByUser(userId, { limit = 50, offset = 0, actorId = null } = {}) {
+    const rows = await this.baseAnswerQuery(actorId || userId)
+      .where('a.user_id', userId)
+      .orderBy('a.created_at', 'desc')
+      .limit(limit)
+      .offset(offset);
+
+    return (rows || []).map(row => this.mapAnswer(row));
+  }
+
   async countByQuestion(questionId) {
     const row = await db('answers').where({ question_id: questionId }).count({ cnt: 'id' }).first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
@@ -92,6 +102,12 @@ export default class MysqlAnswerRepository {
 
   async countDistinctAnswerersByQuestion(questionId) {
     const row = await db('answers').where({ question_id: questionId }).countDistinct({ cnt: 'user_id' }).first();
+    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+    return parseInt(cnt || 0, 10);
+  }
+
+  async countByUser(userId) {
+    const row = await db('answers').where({ user_id: userId }).count({ cnt: 'id' }).first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);
   }

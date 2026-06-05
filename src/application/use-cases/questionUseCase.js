@@ -38,8 +38,8 @@ export default class QuestionUseCase {
     return q;
   }
 
-  async listQuestions({ limit = 20, offset = 0 } = {}) {
-    return this.questionRepository.list({ limit, offset });
+  async listQuestions({ limit = 20, offset = 0, communityId = null, publicOnly = false, search = null, sortField = null, sortDirection = null } = {}) {
+    return this.questionRepository.list({ limit, offset, communityId, publicOnly, search, sortField, sortDirection });
   }
 
   async updateQuestion({ id, userId, updates }) {

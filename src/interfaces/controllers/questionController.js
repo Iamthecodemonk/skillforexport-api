@@ -3,6 +3,14 @@ import { buildPaginatedResponse, parsePagination } from '../paginationResponse.j
 
 const questionLogger = logger.child('QUESTION_CONTROLLER');
 
+const firstDefined = (...values) => values.find(value => typeof value !== 'undefined' && value !== null && value !== '');
+
+const nestedQueryValue = (query, group, key) => {
+  if (!query) return undefined;
+  if (query[group] && typeof query[group] === 'object') return query[group][key];
+  return query[`${group}[${key}]`];
+};
+
 export function makeQuestionController({ useCase = null, notificationRepository = null }) {
   if (!useCase) {
     questionLogger.error('makeQuestionController requires a useCase');
@@ -28,10 +36,21 @@ export function makeQuestionController({ useCase = null, notificationRepository 
     listQuestions: async (req, reply) => {
       try {
         const { page, perPage, limit, offset } = parsePagination(req.query, 20);
-        const rows = await useCase.listQuestions({ limit, offset });
+        const query = req.query || {};
+        const communityId = firstDefined(
+          query.communityId,
+          query.community_id,
+          nestedQueryValue(query, 'filters', 'community_id'),
+          nestedQueryValue(query, 'filters', 'communityId')
+        ) || null;
+        const search = firstDefined(query.q, query.search, nestedQueryValue(query, 'filters', 'search')) || null;
+        const sortField = firstDefined(query.sortField, query.sort_field, nestedQueryValue(query, 'sort', 'field')) || null;
+        const sortDirection = firstDefined(query.sortDirection, query.sort_direction, nestedQueryValue(query, 'sort', 'direction')) || null;
+        const publicOnly = !communityId;
+        const rows = await useCase.listQuestions({ limit, offset, communityId, publicOnly, search, sortField, sortDirection });
         const data = rows.map(r => (r && r.toPlainObject) ? r.toPlainObject() : r);
         const total = useCase.questionRepository && typeof useCase.questionRepository.countAll === 'function'
-          ? await useCase.questionRepository.countAll()
+          ? await useCase.questionRepository.countAll({ communityId, publicOnly, search })
           : data.length;
         return reply.send(buildPaginatedResponse(req, { data, page, perPage, total }));
       } catch (err) {

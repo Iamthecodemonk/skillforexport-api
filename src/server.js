@@ -84,6 +84,7 @@ import MysqlQuestionRepository from './infrastructure/repositories/mysqlQuestion
 import MysqlAnswerRepository from './infrastructure/repositories/mysqlAnswerRepository.js';
 import QuestionUseCase from './application/use-cases/questionUseCase.js';
 import { makeQuestionController } from './interfaces/controllers/questionController.js';
+import { makeFeedController } from './interfaces/controllers/feedController.js';
 import { QuestionRepositoryImpl } from './domain/repositories/questionRepository.js';
 import { AnswerRepositoryImpl } from './domain/repositories/answerRepository.js';
 import MysqlJobsFreelancersRepository from './infrastructure/repositories/mysqlJobsFreelancersRepository.js';

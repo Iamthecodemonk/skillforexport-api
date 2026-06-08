@@ -44,6 +44,124 @@ async function createGenericReport({ userId, targetId, targetType, reason = null
   return payload;
 }
 
+function requireAdmin(req, reply) {
+  const actor = req.user || null;
+  if (!actor) {
+    reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+    return false;
+  }
+  if (actor.role !== 'admin') {
+    reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+    return false;
+  }
+  return true;
+}
+
+function normalizeReportType(value) {
+  return ({
+    posts: 'post',
+    comments: 'comment',
+    questions: 'question',
+    answers: 'answer',
+    pages: 'page',
+    jobs: 'job'
+  })[value] || value;
+}
+
+async function reportCountRows(targetType) {
+  const rows = [];
+  if (targetType === 'post') {
+    const specific = await db('post_reports').select({ target_id: 'post_id' }).count({ reports_count: 'id' }).groupBy('post_id');
+    rows.push(...specific);
+  }
+  if (targetType === 'comment') {
+    const specific = await db('comment_reports').select({ target_id: 'comment_id' }).count({ reports_count: 'id' }).groupBy('comment_id');
+    rows.push(...specific);
+  }
+  const generic = await db('generic_reports').where({ target_type: targetType }).select('target_id').count({ reports_count: 'id' }).groupBy('target_id');
+  rows.push(...generic);
+
+  const totals = new Map();
+  for (const row of rows) {
+    const id = row.target_id;
+    const count = parseInt(row.reports_count || 0, 10);
+    if (!id) continue;
+    totals.set(id, (totals.get(id) || 0) + count);
+  }
+  return [...totals.entries()]
+    .map(([targetId, reportsCount]) => ({ targetId, reportsCount }))
+    .sort((a, b) => b.reportsCount - a.reportsCount);
+}
+
+async function reportDetails(targetType, targetId) {
+  if (targetType === 'post') {
+    const rows = await db('post_reports as r')
+      .leftJoin('users as u', 'u.id', 'r.user_id')
+      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+      .where('r.post_id', targetId)
+      .select('r.*', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
+    const generic = await db('generic_reports as r')
+      .leftJoin('users as u', 'u.id', 'r.user_id')
+      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+      .where({ 'r.target_id': targetId, 'r.target_type': 'post' })
+      .select('r.*', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
+    return [...rows, ...generic].map(mapReportRow);
+  }
+  if (targetType === 'comment') {
+    const rows = await db('comment_reports as r')
+      .leftJoin('users as u', 'u.id', 'r.user_id')
+      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+      .where('r.comment_id', targetId)
+      .select('r.*', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
+    const generic = await db('generic_reports as r')
+      .leftJoin('users as u', 'u.id', 'r.user_id')
+      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+      .where({ 'r.target_id': targetId, 'r.target_type': 'comment' })
+      .select('r.*', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
+    return [...rows, ...generic].map(mapReportRow);
+  }
+  const rows = await db('generic_reports as r')
+    .leftJoin('users as u', 'u.id', 'r.user_id')
+    .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+    .where({ 'r.target_id': targetId, 'r.target_type': targetType })
+    .select('r.*', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
+  return rows.map(mapReportRow);
+}
+
+function mapReportRow(row) {
+  return {
+    id: row.id,
+    reason: row.reason || null,
+    details: row.details || null,
+    created_at: row.created_at,
+    reporter: {
+      id: row.user_id,
+      name: row.reporter_name || null,
+      email: row.reporter_email || null,
+      avatar: row.reporter_avatar || null,
+      avatarUrl: row.reporter_avatar || null
+    }
+  };
+}
+
+async function targetPayload({ targetType, targetId, repositories }) {
+  if (targetType === 'post') return repositories.postRepository.findById(targetId);
+  if (targetType === 'comment') {
+    const comment = await repositories.commentRepository.findById(targetId);
+    if (!comment) return null;
+    return { ...comment, commentable: await repositories.postRepository.findById(comment.post_id) };
+  }
+  if (targetType === 'question') return repositories.questionRepository.findById(targetId);
+  if (targetType === 'answer') {
+    const answer = await repositories.answerRepository.findById(targetId);
+    if (!answer) return null;
+    return { ...answer, question: await repositories.questionRepository.findById(answer.question_id) };
+  }
+  if (targetType === 'page') return db('pages').where({ id: targetId }).first();
+  if (targetType === 'job') return db('jobs').where({ id: targetId }).first();
+  return null;
+}
+
 export function makeCompatController() {
   const postRepository = new MysqlPostRepository();
   const commentRepository = new MysqlCommentRepository();
@@ -105,8 +223,8 @@ export function makeCompatController() {
         job_statuses: ['draft', 'pending_review', 'approved', 'active', 'closed', 'archived'],
         freelancerStatuses: ['draft', 'pending_review', 'available', 'certified', 'suspended'],
         freelancer_statuses: ['draft', 'pending_review', 'available', 'certified', 'suspended'],
-        reportTargetTypes: ['post', 'question', 'answer', 'comment'],
-        report_target_types: ['post', 'question', 'answer', 'comment'],
+        reportTargetTypes: ['post', 'question', 'answer', 'comment', 'page', 'job'],
+        report_target_types: ['post', 'question', 'answer', 'comment', 'page', 'job'],
         privacyLevels: { public: 1, followers: 2, private: 3 }
       }
     }),
@@ -326,6 +444,67 @@ export function makeCompatController() {
 
     reportQuestion: async (req, reply) => reply.code(201).send({ success: true, message: 'Question reported successfully', data: await createGenericReport({ userId: actorId(req), targetId: req.params.id, targetType: 'question', reason: (req.body || {}).reason || (req.body || {}).report_reason_id || null, details: (req.body || {}).details || (req.body || {}).additional_notes || null }) }),
     reportAnswer: async (req, reply) => reply.code(201).send({ success: true, message: 'Answer reported successfully', data: await createGenericReport({ userId: actorId(req), targetId: req.params.id, targetType: 'answer', reason: (req.body || {}).reason || (req.body || {}).report_reason_id || null, details: (req.body || {}).details || (req.body || {}).additional_notes || null }) }),
+    reportPage: async (req, reply) => {
+      const userId = actorId(req);
+      if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      const body = req.body || {};
+      const data = await createGenericReport({ userId, targetId: req.params.id, targetType: 'page', reason: body.reason || body.report_reason_id || null, details: body.details || body.additional_notes || null });
+      return reply.code(201).send({ success: true, message: 'Page reported successfully', data });
+    },
+    reportJob: async (req, reply) => {
+      const userId = actorId(req);
+      if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      const body = req.body || {};
+      const data = await createGenericReport({ userId, targetId: req.params.id, targetType: 'job', reason: body.reason || body.report_reason_id || null, details: body.details || body.additional_notes || null });
+      return reply.code(201).send({ success: true, message: 'Job reported successfully', data });
+    },
+    listReportedTargets: async (req, reply) => {
+      if (!requireAdmin(req, reply)) return;
+      const targetType = normalizeReportType((req.params && req.params.type) || (req.query && req.query.type));
+      const allowed = new Set(['post', 'comment', 'question', 'answer', 'page', 'job']);
+      if (!allowed.has(targetType)) return reply.code(422).send({ success: false, error: { code: 'invalid_report_type' } });
+      const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
+      const allRows = await reportCountRows(targetType);
+      const pageRows = allRows.slice(offset, offset + limit);
+      const repositories = { postRepository, commentRepository, questionRepository, answerRepository };
+      const data = (await Promise.all(pageRows.map(async (row) => {
+        const target = await targetPayload({ targetType, targetId: row.targetId, repositories });
+        if (!target) return null;
+        return {
+          targetType,
+          targetId: row.targetId,
+          reports_count: row.reportsCount,
+          reportsCount: row.reportsCount,
+          data: target,
+          target,
+          reports: await reportDetails(targetType, row.targetId)
+        };
+      }))).filter(Boolean);
+      return sendPaginated(req, reply, { data, page, perPage, total: allRows.length });
+    },
+    listAllReportedTargets: async (req, reply) => {
+      if (!requireAdmin(req, reply)) return;
+      const types = ['post', 'comment', 'question', 'answer', 'page', 'job'];
+      const repositories = { postRepository, commentRepository, questionRepository, answerRepository };
+      const data = {};
+      for (const targetType of types) {
+        const rows = await reportCountRows(targetType);
+        data[targetType === 'post' ? 'posts' : `${targetType}s`] = (await Promise.all(rows.map(async (row) => {
+          const target = await targetPayload({ targetType, targetId: row.targetId, repositories });
+          if (!target) return null;
+          return {
+            targetType,
+            targetId: row.targetId,
+            reports_count: row.reportsCount,
+            reportsCount: row.reportsCount,
+            data: target,
+            target,
+            reports: await reportDetails(targetType, row.targetId)
+          };
+        }))).filter(Boolean);
+      }
+      return reply.send({ success: true, message: 'Reported items fetched successfully', data });
+    },
     reportReasons: async (req, reply) => reply.send({ success: true, data: [
       { id: 'spam', name: 'Spam' },
       { id: 'abuse', name: 'Abuse or harassment' },

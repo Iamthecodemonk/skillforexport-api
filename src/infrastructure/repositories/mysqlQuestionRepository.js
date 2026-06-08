@@ -40,14 +40,14 @@ const applyQuestionOrdering = (q, { sortField = null, sortDirection = null } = {
 export default class MysqlQuestionRepository {
   toQuestionWithRelations(row) {
     if (!row) return null;
-    const { asker_email, asker_name, asker_avatar, community_name, community_description, ...question } = row;
-    const asker = typeof asker_email !== 'undefined' || typeof asker_name !== 'undefined'
+    const { user_email, user_name, user_avatar, community_name, community_description, ...question } = row;
+    const user = typeof user_email !== 'undefined' || typeof user_name !== 'undefined'
       ? {
           id: question.user_id,
-          name: asker_name || null,
-          email: asker_email || null,
-          avatar: asker_avatar || null,
-          avatarUrl: asker_avatar || null
+          name: user_name || null,
+          email: user_email || null,
+          avatar: user_avatar || null,
+          avatarUrl: user_avatar || null
         }
       : null;
     return {
@@ -61,8 +61,7 @@ export default class MysqlQuestionRepository {
       totalAnswers: parseInt(question.total_answers || 0, 10),
       totalAnswerers: parseInt(question.total_answerers || 0, 10),
       type: 'QUESTION',
-      asker,
-      user: asker,
+      user,
       community: question.community_id
         ? {
             id: question.community_id,
@@ -88,7 +87,7 @@ export default class MysqlQuestionRepository {
       created_at: now,
       updated_at: now
     });
-    return db('questions').where({ id }).first();
+    return this.findById(id);
   }
 
   async findById(id) {
@@ -107,8 +106,9 @@ export default class MysqlQuestionRepository {
       .where('q.id', id)
       .select(
         'q.*',
-        'u.email as asker_email',
-        'up.username as asker_name',
+        'u.email as user_email',
+        db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as user_name'),
+        'up.avatar as user_avatar',
         'c.name as community_name',
         'c.description as community_description',
         db.raw('COALESCE(ac.total_answers, 0) as total_answers'),
@@ -139,9 +139,9 @@ export default class MysqlQuestionRepository {
       .offset(offset)
       .select(
         'q.*',
-        'u.email as asker_email',
-        db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as asker_name'),
-        'up.avatar as asker_avatar',
+        'u.email as user_email',
+        db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as user_name'),
+        'up.avatar as user_avatar',
         'c.name as community_name',
         'c.description as community_description',
         db.raw('COALESCE(ac.total_answers, 0) as total_answers'),
@@ -176,7 +176,7 @@ export default class MysqlQuestionRepository {
   async update(id, patch) {
     const now = new Date();
     await db('questions').where({ id }).update({ ...patch, updated_at: now });
-    return db('questions').where({ id }).first();
+    return this.findById(id);
   }
 
   async delete(id) {

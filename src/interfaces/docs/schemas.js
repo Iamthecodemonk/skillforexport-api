@@ -447,12 +447,14 @@ export const QuestionResponse = {
     acceptedAnswerId: { type: ['string','null'] },
     createdAt: { type: 'string' },
     updatedAt: { type: 'string' },
-    asker: {
+    user: {
       type: ['object','null'],
       properties: {
         id: { type: 'string' },
         name: { type: ['string','null'] },
-        email: { type: ['string','null'] }
+        email: { type: ['string','null'] },
+        avatar: { type: ['string','null'] },
+        avatarUrl: { type: ['string','null'] }
       }
     },
     community: {
@@ -479,7 +481,7 @@ QuestionResponse.example = {
   acceptedAnswerId: null,
   createdAt: '2026-04-01T12:00:00Z',
   updatedAt: '2026-04-01T12:00:00Z',
-  asker: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com' },
+  user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null, avatarUrl: null },
   community: { id: 'community-uuid', name: 'Local Chess Club', description: 'We meet weekly to play chess' },
   totalAnswers: 1,
   totalAnswerers: 1,

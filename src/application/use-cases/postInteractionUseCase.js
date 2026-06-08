@@ -1,4 +1,6 @@
 import logger from '../../utils/logger.js';
+import { v4 as uuidv4 } from 'uuid';
+import db from '../../infrastructure/knexConfig.js';
 
 const piLogger = logger.child('POST_INTERACTION_USECASE');
 
@@ -23,12 +25,16 @@ export default class PostInteractionUseCase {
   async reportPost({ postId, userId, reason = null, details = null }) {
     if (!postId) throw new Error('post_required');
     if (!userId) throw new Error('user_required');
-    return this.postReportRepository.create({ post_id: postId, user_id: userId, reason, details });
+    const payload = { id: uuidv4(), user_id: userId, target_id: postId, target_type: 'post', reason, details, created_at: new Date() };
+    await db('generic_reports').insert(payload);
+    return payload;
   }
 
   async reportComment({ commentId, userId, reason = null, details = null }) {
     if (!commentId) throw new Error('comment_required');
     if (!userId) throw new Error('user_required');
-    return this.commentReportRepository.create({ comment_id: commentId, user_id: userId, reason, details });
+    const payload = { id: uuidv4(), user_id: userId, target_id: commentId, target_type: 'comment', reason, details, created_at: new Date() };
+    await db('generic_reports').insert(payload);
+    return payload;
   }
 }

@@ -145,7 +145,7 @@ export default class MysqlPostRepository {
         db.raw('EXISTS(SELECT 1 FROM followers f WHERE f.follower_id = ? AND f.following_id = p.user_id) as is_follow', [userId]),
         db.raw('EXISTS(SELECT 1 FROM post_reactions pr2 WHERE pr2.user_id = ? AND pr2.post_id = p.id) as is_liked', [userId]),
         db.raw('EXISTS(SELECT 1 FROM post_saves ps WHERE ps.user_id = ? AND ps.post_id = p.id) as is_saved', [userId]),
-        db.raw('EXISTS(SELECT 1 FROM post_reports r WHERE r.user_id = ? AND r.post_id = p.id) as is_report', [userId])
+        db.raw('EXISTS(SELECT 1 FROM generic_reports r WHERE r.user_id = ? AND r.target_id = p.id AND r.target_type = ?) as is_report', [userId, 'post'])
       );
     } else {
       q.select(
@@ -265,12 +265,14 @@ export default class MysqlPostRepository {
       if (commentIds.length > 0) {
         await trx('comment_reactions').whereIn('comment_id', commentIds).del();
         await trx('comment_reports').whereIn('comment_id', commentIds).del();
+        await trx('generic_reports').whereIn('target_id', commentIds).where('target_type', 'comment').del();
       }
       await trx('comments').whereIn('post_id', postIds).del();
       await trx('post_media').whereIn('post_id', postIds).del();
       await trx('post_reactions').whereIn('post_id', postIds).del();
       await trx('post_saves').whereIn('post_id', postIds).del();
       await trx('post_reports').whereIn('post_id', postIds).del();
+      await trx('generic_reports').whereIn('target_id', postIds).where('target_type', 'post').del();
       await trx('posts').whereIn('id', postIds).del();
     });
     return true;

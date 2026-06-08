@@ -89,14 +89,6 @@ function applyGenericReportTargetWhere(query, targetId, targetType) {
 
 async function reportCountRows(targetType) {
   const rows = [];
-  if (targetType === 'post') {
-    const specific = await db('post_reports').select({ target_id: 'post_id' }).count({ reports_count: 'id' }).groupBy('post_id');
-    rows.push(...specific);
-  }
-  if (targetType === 'comment') {
-    const specific = await db('comment_reports').select({ target_id: 'comment_id' }).count({ reports_count: 'id' }).groupBy('comment_id');
-    rows.push(...specific);
-  }
   const generic = await applyGenericReportTypeWhere(db('generic_reports'), targetType).select('target_id').count({ reports_count: 'id' }).groupBy('target_id');
   rows.push(...generic);
 
@@ -113,32 +105,6 @@ async function reportCountRows(targetType) {
 }
 
 async function reportDetails(targetType, targetId) {
-  if (targetType === 'post') {
-    const rows = await db('post_reports as r')
-      .leftJoin('users as u', 'u.id', 'r.user_id')
-      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
-      .where('r.post_id', targetId)
-      .select('r.*', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
-    const genericQuery = db('generic_reports as r')
-      .leftJoin('users as u', 'u.id', 'r.user_id')
-      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
-      .select('r.*', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
-    const generic = await applyGenericReportTargetWhere(genericQuery, targetId, 'post');
-    return [...rows, ...generic].map(mapReportRow);
-  }
-  if (targetType === 'comment') {
-    const rows = await db('comment_reports as r')
-      .leftJoin('users as u', 'u.id', 'r.user_id')
-      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
-      .where('r.comment_id', targetId)
-      .select('r.*', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
-    const genericQuery = db('generic_reports as r')
-      .leftJoin('users as u', 'u.id', 'r.user_id')
-      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
-      .select('r.*', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
-    const generic = await applyGenericReportTargetWhere(genericQuery, targetId, 'comment');
-    return [...rows, ...generic].map(mapReportRow);
-  }
   const query = db('generic_reports as r')
     .leftJoin('users as u', 'u.id', 'r.user_id')
     .leftJoin('user_profiles as up', 'up.user_id', 'u.id')

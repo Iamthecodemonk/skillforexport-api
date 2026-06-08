@@ -50,7 +50,7 @@ export default class MysqlCommentRepository {
     if (userId) {
       q.select(
         db.raw('EXISTS(SELECT 1 FROM comment_reactions cr2 WHERE cr2.user_id = ? AND cr2.comment_id = c.id) as is_liked', [userId]),
-        db.raw('EXISTS(SELECT 1 FROM comment_reports r WHERE r.user_id = ? AND r.comment_id = c.id) as is_report', [userId])
+        db.raw('EXISTS(SELECT 1 FROM generic_reports r WHERE r.user_id = ? AND r.target_id = c.id AND r.target_type = ?) as is_report', [userId, 'comment'])
       );
     } else {
       q.select(

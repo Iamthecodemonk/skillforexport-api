@@ -68,6 +68,25 @@ function normalizeReportType(value) {
   })[value] || value;
 }
 
+function applyGenericReportTypeWhere(query, targetType) {
+  return query.whereRaw(
+    'CAST(target_type AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci',
+    [targetType]
+  );
+}
+
+function applyGenericReportTargetWhere(query, targetId, targetType) {
+  return query
+    .whereRaw(
+      'CAST(r.target_id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci',
+      [targetId]
+    )
+    .whereRaw(
+      'CAST(r.target_type AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci',
+      [targetType]
+    );
+}
+
 async function reportCountRows(targetType) {
   const rows = [];
   if (targetType === 'post') {
@@ -78,7 +97,7 @@ async function reportCountRows(targetType) {
     const specific = await db('comment_reports').select({ target_id: 'comment_id' }).count({ reports_count: 'id' }).groupBy('comment_id');
     rows.push(...specific);
   }
-  const generic = await db('generic_reports').where({ target_type: targetType }).select('target_id').count({ reports_count: 'id' }).groupBy('target_id');
+  const generic = await applyGenericReportTypeWhere(db('generic_reports'), targetType).select('target_id').count({ reports_count: 'id' }).groupBy('target_id');
   rows.push(...generic);
 
   const totals = new Map();
@@ -100,11 +119,11 @@ async function reportDetails(targetType, targetId) {
       .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
       .where('r.post_id', targetId)
       .select('r.*', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
-    const generic = await db('generic_reports as r')
+    const genericQuery = db('generic_reports as r')
       .leftJoin('users as u', 'u.id', 'r.user_id')
       .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
-      .where({ 'r.target_id': targetId, 'r.target_type': 'post' })
       .select('r.*', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
+    const generic = await applyGenericReportTargetWhere(genericQuery, targetId, 'post');
     return [...rows, ...generic].map(mapReportRow);
   }
   if (targetType === 'comment') {
@@ -113,18 +132,18 @@ async function reportDetails(targetType, targetId) {
       .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
       .where('r.comment_id', targetId)
       .select('r.*', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
-    const generic = await db('generic_reports as r')
+    const genericQuery = db('generic_reports as r')
       .leftJoin('users as u', 'u.id', 'r.user_id')
       .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
-      .where({ 'r.target_id': targetId, 'r.target_type': 'comment' })
       .select('r.*', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
+    const generic = await applyGenericReportTargetWhere(genericQuery, targetId, 'comment');
     return [...rows, ...generic].map(mapReportRow);
   }
-  const rows = await db('generic_reports as r')
+  const query = db('generic_reports as r')
     .leftJoin('users as u', 'u.id', 'r.user_id')
     .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
-    .where({ 'r.target_id': targetId, 'r.target_type': targetType })
     .select('r.*', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
+  const rows = await applyGenericReportTargetWhere(query, targetId, targetType);
   return rows.map(mapReportRow);
 }
 

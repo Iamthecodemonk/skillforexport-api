@@ -25,6 +25,10 @@ const applyQuestionFilters = (q, { communityId = null, publicOnly = false, searc
   }
 };
 
+const applyQuestionModerationFilter = (q, includeHidden = false) => {
+  if (!includeHidden) q.whereNotIn('q.moderation_status', ['suspended', 'deleted']);
+};
+
 const applyQuestionOrdering = (q, { sortField = null, sortDirection = null } = {}) => {
   const sortableColumns = {
     created_at: 'q.created_at',
@@ -82,6 +86,7 @@ export default class MysqlQuestionRepository {
       title: record.title,
       body: record.body,
       visibility: record.visibility || 'public',
+      moderation_status: record.moderation_status || record.moderationStatus || 'approved',
       is_closed: typeof record.is_closed !== 'undefined' ? record.is_closed : 0,
       accepted_answer_id: record.accepted_answer_id || record.acceptedAnswerId || null,
       created_at: now,
@@ -90,7 +95,7 @@ export default class MysqlQuestionRepository {
     return this.findById(id);
   }
 
-  async findById(id) {
+  async findById(id, { includeHidden = false } = {}) {
     const answerCounts = db('answers')
       .select('question_id')
       .count({ total_answers: 'id' })
@@ -98,7 +103,7 @@ export default class MysqlQuestionRepository {
       .groupBy('question_id')
       .as('ac');
 
-    const row = await db('questions as q')
+    const q = db('questions as q')
       .leftJoin('users as u', 'u.id', 'q.user_id')
       .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
       .leftJoin('communities as c', 'c.id', 'q.community_id')
@@ -113,8 +118,9 @@ export default class MysqlQuestionRepository {
         'c.description as community_description',
         db.raw('COALESCE(ac.total_answers, 0) as total_answers'),
         db.raw('COALESCE(ac.total_answerers, 0) as total_answerers')
-      )
-      .first();
+      );
+    applyQuestionModerationFilter(q, includeHidden);
+    const row = await q.first();
 
     return this.toQuestionWithRelations(row);
   }
@@ -148,6 +154,7 @@ export default class MysqlQuestionRepository {
         db.raw('COALESCE(ac.total_answerers, 0) as total_answerers')
       );
     applyQuestionFilters(q, options);
+    applyQuestionModerationFilter(q, options.includeHidden);
     applyQuestionOrdering(q, options);
     const rows = await q;
     return rows.map(row => this.toQuestionWithRelations(row));
@@ -160,6 +167,7 @@ export default class MysqlQuestionRepository {
       .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
       .countDistinct({ cnt: 'q.id' });
     applyQuestionFilters(q, filters);
+    applyQuestionModerationFilter(q, filters.includeHidden);
     const row = await q.first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);
@@ -176,7 +184,7 @@ export default class MysqlQuestionRepository {
   async update(id, patch) {
     const now = new Date();
     await db('questions').where({ id }).update({ ...patch, updated_at: now });
-    return this.findById(id);
+    return this.findById(id, { includeHidden: true });
   }
 
   async delete(id) {

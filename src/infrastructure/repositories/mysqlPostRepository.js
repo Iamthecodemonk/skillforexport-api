@@ -48,6 +48,10 @@ const applyPostOrdering = (q, { sortField = null, sortDirection = null } = {}) =
   if (field !== 'p.id') q.orderBy('p.id', direction);
 };
 
+const applyPostModerationFilter = (q, includeHidden = false) => {
+  if (!includeHidden) q.whereNotIn('p.moderation_status', ['suspended', 'deleted']);
+};
+
 export default class MysqlPostRepository {
   async create(post) {
     const id = post.id || uuidv4();
@@ -96,6 +100,8 @@ export default class MysqlPostRepository {
       parent_post_id: row.parent_post_id,
       originalPostId: row.parent_post_id || null,
       visibility: row.visibility,
+      moderation_status: row.moderation_status || 'approved',
+      moderationStatus: row.moderation_status || 'approved',
       title: row.title,
       content: row.content,
       created_at: row.created_at,
@@ -130,7 +136,7 @@ export default class MysqlPostRepository {
         'c.description as community_description',
         'c.is_active as community_is_active',
         'c.default_post_visibility as community_default_post_visibility',
-        db.raw('(SELECT COUNT(*) FROM comments cm WHERE cm.post_id = p.id) as comment_count'),
+        db.raw("(SELECT COUNT(*) FROM comments cm WHERE cm.post_id = p.id AND COALESCE(cm.moderation_status, 'approved') NOT IN ('suspended','deleted')) as comment_count"),
         db.raw('(SELECT COUNT(*) FROM post_reactions pr WHERE pr.post_id = p.id) as score'),
         db.raw(`IFNULL((
           SELECT JSON_ARRAYAGG(JSON_OBJECT('id', pm.id, 'url', pm.url, 'media_type', pm.media_type, 'thumbnail_url', pm.thumbnail_url, 'display_order', pm.display_order, 'created_at', pm.created_at))
@@ -159,16 +165,17 @@ export default class MysqlPostRepository {
     return q;
   }
 
-  async findById(id, { userId = null } = {}) {
-    const row = await this.basePostQuery(userId)
-      .where('p.id', id)
-      .first();
+  async findById(id, { userId = null, includeHidden = false } = {}) {
+    const q = this.basePostQuery(userId).where('p.id', id);
+    applyPostModerationFilter(q, includeHidden);
+    const row = await q.first();
     return this.mapPost(row);
   }
 
-  async list({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, communityId = null, publicOnly = false, search = null, sortField = null, sortDirection = null } = {}) {
+  async list({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, communityId = null, publicOnly = false, search = null, sortField = null, sortDirection = null, includeHidden = false } = {}) {
     const q = this.basePostQuery(userId).limit(limit);
     applyPostFilters(q, { communityId, publicOnly, search });
+    applyPostModerationFilter(q, includeHidden);
     applyPostOrdering(q, { sortField, sortDirection });
     if (lastCreatedAt) {
       // keyset pagination: created_at < lastCreatedAt OR (created_at = lastCreatedAt AND id < lastId)
@@ -183,8 +190,9 @@ export default class MysqlPostRepository {
     return (rows || []).map(row => this.mapPost(row));
   }
 
-  async listByPage(pageId, { limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null } = {}) {
+  async listByPage(pageId, { limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, includeHidden = false } = {}) {
     const q = this.basePostQuery(userId).where('p.page_id', pageId).orderBy('p.created_at', 'desc').orderBy('p.id', 'desc').limit(limit);
+    applyPostModerationFilter(q, includeHidden);
     if (lastCreatedAt) {
       q.andWhere(function () {
         this.where('p.created_at', '<', lastCreatedAt);
@@ -197,24 +205,26 @@ export default class MysqlPostRepository {
     return (rows || []).map(row => this.mapPost(row));
   }
 
-  async listByUser(ownerUserId, { limit = 20, offset = 0, actorId = null } = {}) {
+  async listByUser(ownerUserId, { limit = 20, offset = 0, actorId = null, includeHidden = false } = {}) {
     const q = this.basePostQuery(actorId || ownerUserId)
       .where('p.user_id', ownerUserId)
       .orderBy('p.created_at', 'desc')
       .orderBy('p.id', 'desc')
       .limit(limit)
       .offset(offset);
+    applyPostModerationFilter(q, includeHidden);
     const rows = await q;
     return (rows || []).map(row => this.mapPost(row));
   }
 
-  async countAll({ communityId = null, publicOnly = false, search = null } = {}) {
+  async countAll({ communityId = null, publicOnly = false, search = null, includeHidden = false } = {}) {
     const q = db('posts as p')
       .leftJoin('users as u', 'u.id', 'p.user_id')
       .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
       .leftJoin('communities as c', 'c.id', 'p.community_id')
       .count({ cnt: 'p.id' });
     applyPostFilters(q, { communityId, publicOnly, search });
+    applyPostModerationFilter(q, includeHidden);
     const row = await q.first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);

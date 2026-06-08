@@ -16,6 +16,8 @@ export default class MysqlCommentRepository {
       parent_comment_id: row.parent_comment_id || null,
       parentCommentId: row.parent_comment_id || null,
       content: row.content,
+      moderation_status: row.moderation_status || 'approved',
+      moderationStatus: row.moderation_status || 'approved',
       score,
       is_liked: isLiked,
       isLiked,
@@ -62,6 +64,11 @@ export default class MysqlCommentRepository {
     return q;
   }
 
+  applyModerationFilter(q, includeHidden = false) {
+    if (!includeHidden) q.whereNotIn('c.moderation_status', ['suspended', 'deleted']);
+    return q;
+  }
+
   async create(comment) {
     const id = comment.id || uuidv4();
     const now = new Date();
@@ -80,37 +87,43 @@ export default class MysqlCommentRepository {
     return this.findById(id, { userId });
   }
 
-  async findById(id, { userId = null } = {}) {
-    const row = await this.baseCommentQuery(userId).where('c.id', id).first();
+  async findById(id, { userId = null, includeHidden = false } = {}) {
+    const q = this.baseCommentQuery(userId).where('c.id', id);
+    this.applyModerationFilter(q, includeHidden);
+    const row = await q.first();
     return this.mapComment(row);
   }
 
-  async listByPost(postId, { limit = 50, offset = 0, userId = null } = {}) {
-    const rows = await this.baseCommentQuery(userId)
+  async listByPost(postId, { limit = 50, offset = 0, userId = null, includeHidden = false } = {}) {
+    const q = this.baseCommentQuery(userId)
       .where('c.post_id', postId)
       .orderBy('c.created_at', 'asc')
       .limit(limit)
       .offset(offset);
+    this.applyModerationFilter(q, includeHidden);
+    const rows = await q;
     return (rows || []).map(row => this.mapComment(row));
   }
 
-  async listByUser(userId, { limit = 50, offset = 0, actorId = null } = {}) {
-    const rows = await this.baseCommentQuery(actorId || userId)
+  async listByUser(userId, { limit = 50, offset = 0, actorId = null, includeHidden = false } = {}) {
+    const q = this.baseCommentQuery(actorId || userId)
       .where('c.user_id', userId)
       .orderBy('c.created_at', 'desc')
       .limit(limit)
       .offset(offset);
+    this.applyModerationFilter(q, includeHidden);
+    const rows = await q;
     return (rows || []).map(row => this.mapComment(row));
   }
 
   async countByUser(userId) {
-    const row = await db('comments').where({ user_id: userId }).count({ cnt: 'id' }).first();
+    const row = await db('comments').where({ user_id: userId }).whereNotIn('moderation_status', ['suspended', 'deleted']).count({ cnt: 'id' }).first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);
   }
 
   async countByPost(postId) {
-    const row = await db('comments').where({ post_id: postId }).count({ cnt: 'id' }).first();
+    const row = await db('comments').where({ post_id: postId }).whereNotIn('moderation_status', ['suspended', 'deleted']).count({ cnt: 'id' }).first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);
   }
@@ -119,6 +132,8 @@ export default class MysqlCommentRepository {
     const now = new Date();
     const payload = {};
     if (typeof updates.content !== 'undefined') payload.content = updates.content;
+    if (typeof updates.moderation_status !== 'undefined') payload.moderation_status = updates.moderation_status;
+    if (typeof updates.moderationStatus !== 'undefined') payload.moderation_status = updates.moderationStatus;
     if (Object.keys(payload).length === 0) return null;
     payload.updated_at = now;
     await db('comments').where({ id }).update(payload);

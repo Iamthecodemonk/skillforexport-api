@@ -130,21 +130,79 @@ function mapReportRow(row) {
 }
 
 async function targetPayload({ targetType, targetId, repositories }) {
-  if (targetType === 'post') return repositories.postRepository.findById(targetId);
+  if (targetType === 'post') return repositories.postRepository.findById(targetId, { includeHidden: true });
   if (targetType === 'comment') {
-    const comment = await repositories.commentRepository.findById(targetId);
+    const comment = await repositories.commentRepository.findById(targetId, { includeHidden: true });
     if (!comment) return null;
-    return { ...comment, commentable: await repositories.postRepository.findById(comment.post_id) };
+    return { ...comment, commentable: await repositories.postRepository.findById(comment.post_id, { includeHidden: true }) };
   }
-  if (targetType === 'question') return repositories.questionRepository.findById(targetId);
+  if (targetType === 'question') return repositories.questionRepository.findById(targetId, { includeHidden: true });
   if (targetType === 'answer') {
-    const answer = await repositories.answerRepository.findById(targetId);
+    const answer = await repositories.answerRepository.findById(targetId, { includeHidden: true });
     if (!answer) return null;
-    return { ...answer, question: await repositories.questionRepository.findById(answer.question_id) };
+    return { ...answer, question: await repositories.questionRepository.findById(answer.question_id, { includeHidden: true }) };
   }
   if (targetType === 'page') return db('pages').where({ id: targetId }).first();
   if (targetType === 'job') return db('jobs').where({ id: targetId }).first();
   return null;
+}
+
+function moderationStatusForAction(action) {
+  const normalized = String(action || '').toLowerCase();
+  if (normalized === 'approve') return 'approved';
+  if (normalized === 'suspend') return 'suspended';
+  if (normalized === 'unsuspend') return 'approved';
+  if (normalized === 'delete') return 'deleted';
+  return null;
+}
+
+function moderationMessage(targetType, action) {
+  return ({
+    approve: `${targetType} approved successfully`,
+    suspend: `${targetType} suspended successfully`,
+    unsuspend: `${targetType} unsuspended successfully`,
+    delete: `${targetType} deleted successfully`
+  })[String(action || '').toLowerCase()] || `${targetType} moderated successfully`;
+}
+
+async function updateModerationTarget({ targetType, targetId, action, actorId }) {
+  const status = moderationStatusForAction(action);
+  if (!status) throw new Error('invalid_moderation_action');
+  const updatedAt = now();
+
+  if (targetType === 'post') {
+    await db('posts').where({ id: targetId }).update({ moderation_status: status, updated_at: updatedAt });
+    return db('posts').where({ id: targetId }).first();
+  }
+  if (targetType === 'comment') {
+    await db('comments').where({ id: targetId }).update({ moderation_status: status, updated_at: updatedAt });
+    return db('comments').where({ id: targetId }).first();
+  }
+  if (targetType === 'question') {
+    await db('questions').where({ id: targetId }).update({ moderation_status: status, updated_at: updatedAt });
+    return db('questions').where({ id: targetId }).first();
+  }
+  if (targetType === 'answer') {
+    await db('answers').where({ id: targetId }).update({ moderation_status: status, updated_at: updatedAt });
+    return db('answers').where({ id: targetId }).first();
+  }
+  if (targetType === 'page') {
+    const patch = { moderation_status: status, updated_at: updatedAt };
+    if (status === 'approved') {
+      patch.is_approved = 1;
+      patch.is_active = 1;
+      patch.approved_at = updatedAt;
+      patch.approved_by = actorId;
+    }
+    if (status === 'suspended' || status === 'deleted') patch.is_active = 0;
+    await db('pages').where({ id: targetId }).update(patch);
+    return db('pages').where({ id: targetId }).first();
+  }
+  if (targetType === 'job') {
+    await db('jobs').where({ id: targetId }).update({ status, updated_at: updatedAt });
+    return db('jobs').where({ id: targetId }).first();
+  }
+  throw new Error('invalid_report_type');
 }
 
 export function makeCompatController() {
@@ -489,6 +547,38 @@ export function makeCompatController() {
         }))).filter(Boolean);
       }
       return reply.send({ success: true, message: 'Reported items fetched successfully', data });
+    },
+    moderateReportedTarget: async (req, reply) => {
+      if (!requireAdmin(req, reply)) return;
+      const targetType = normalizeReportType((req.params && req.params.type) || (req.body && req.body.targetType));
+      const targetId = (req.params && req.params.id) || (req.body && (req.body.targetId || req.body.id));
+      const action = (req.params && req.params.action) || (req.body && req.body.action);
+      const allowed = new Set(['post', 'comment', 'question', 'answer', 'page', 'job']);
+      if (!allowed.has(targetType) || !targetId) {
+        return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+      }
+      try {
+        const updated = await updateModerationTarget({ targetType, targetId, action, actorId: actorId(req) });
+        if (!updated) return reply.code(404).send({ success: false, error: { code: 'target_not_found' } });
+        const repositories = { postRepository, commentRepository, questionRepository, answerRepository };
+        const target = await targetPayload({ targetType, targetId, repositories });
+        return reply.send({
+          success: true,
+          message: moderationMessage(targetType, action),
+          data: {
+            targetType,
+            targetId,
+            action,
+            status: moderationStatusForAction(action),
+            target: target || updated
+          }
+        });
+      } catch (err) {
+        if (err.message === 'invalid_moderation_action') {
+          return reply.code(422).send({ success: false, error: { code: 'invalid_moderation_action' } });
+        }
+        throw err;
+      }
     },
     reportReasons: async (req, reply) => reply.send({ success: true, data: [
       { id: 'spam', name: 'Spam' },

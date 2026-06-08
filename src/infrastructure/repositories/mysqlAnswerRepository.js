@@ -15,6 +15,8 @@ export default class MysqlAnswerRepository {
       parent_answer_id: row.parent_answer_id || null,
       parentAnswerId: row.parent_answer_id || null,
       content: row.content,
+      moderation_status: row.moderation_status || 'approved',
+      moderationStatus: row.moderation_status || 'approved',
       score,
       is_liked: isLiked,
       isLiked,
@@ -53,6 +55,11 @@ export default class MysqlAnswerRepository {
     return q;
   }
 
+  applyModerationFilter(q, includeHidden = false) {
+    if (!includeHidden) q.whereNotIn('a.moderation_status', ['suspended', 'deleted']);
+    return q;
+  }
+
   async create(record) {
     const id = record.id || uuidv4();
     const now = new Date();
@@ -69,47 +76,64 @@ export default class MysqlAnswerRepository {
     return this.findById(id, { userId });
   }
 
-  async findById(id, { userId = null } = {}) {
-    const row = await this.baseAnswerQuery(userId).where('a.id', id).first();
+  async findById(id, { userId = null, includeHidden = false } = {}) {
+    const q = this.baseAnswerQuery(userId).where('a.id', id);
+    this.applyModerationFilter(q, includeHidden);
+    const row = await q.first();
     return this.mapAnswer(row);
   }
 
-  async listByQuestion(questionId, { limit = 50, offset = 0, userId = null } = {}) {
-    const rows = await this.baseAnswerQuery(userId)
+  async listByQuestion(questionId, { limit = 50, offset = 0, userId = null, includeHidden = false } = {}) {
+    const q = this.baseAnswerQuery(userId)
       .where('a.question_id', questionId)
       .orderBy('a.created_at', 'asc')
       .limit(limit)
       .offset(offset);
+    this.applyModerationFilter(q, includeHidden);
+    const rows = await q;
 
     return (rows || []).map(row => this.mapAnswer(row));
   }
 
-  async listByUser(userId, { limit = 50, offset = 0, actorId = null } = {}) {
-    const rows = await this.baseAnswerQuery(actorId || userId)
+  async listByUser(userId, { limit = 50, offset = 0, actorId = null, includeHidden = false } = {}) {
+    const q = this.baseAnswerQuery(actorId || userId)
       .where('a.user_id', userId)
       .orderBy('a.created_at', 'desc')
       .limit(limit)
       .offset(offset);
+    this.applyModerationFilter(q, includeHidden);
+    const rows = await q;
 
     return (rows || []).map(row => this.mapAnswer(row));
   }
 
   async countByQuestion(questionId) {
-    const row = await db('answers').where({ question_id: questionId }).count({ cnt: 'id' }).first();
+    const row = await db('answers').where({ question_id: questionId }).whereNotIn('moderation_status', ['suspended', 'deleted']).count({ cnt: 'id' }).first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);
   }
 
   async countDistinctAnswerersByQuestion(questionId) {
-    const row = await db('answers').where({ question_id: questionId }).countDistinct({ cnt: 'user_id' }).first();
+    const row = await db('answers').where({ question_id: questionId }).whereNotIn('moderation_status', ['suspended', 'deleted']).countDistinct({ cnt: 'user_id' }).first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);
   }
 
   async countByUser(userId) {
-    const row = await db('answers').where({ user_id: userId }).count({ cnt: 'id' }).first();
+    const row = await db('answers').where({ user_id: userId }).whereNotIn('moderation_status', ['suspended', 'deleted']).count({ cnt: 'id' }).first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);
+  }
+
+  async update(id, updates = {}) {
+    const payload = {};
+    if (typeof updates.content !== 'undefined') payload.content = updates.content;
+    if (typeof updates.moderation_status !== 'undefined') payload.moderation_status = updates.moderation_status;
+    if (typeof updates.moderationStatus !== 'undefined') payload.moderation_status = updates.moderationStatus;
+    if (Object.keys(payload).length === 0) return this.findById(id, { includeHidden: true });
+    payload.updated_at = new Date();
+    await db('answers').where({ id }).update(payload);
+    return this.findById(id, { includeHidden: true });
   }
 
   async delete(id) {

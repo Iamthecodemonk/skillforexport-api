@@ -443,6 +443,8 @@ export const QuestionResponse = {
     title: { type: 'string' },
     body: { type: 'string' },
     visibility: { type: 'string' },
+    moderation_status: { type: 'string', enum: ['pending','approved','suspended','deleted'] },
+    moderationStatus: { type: 'string', enum: ['pending','approved','suspended','deleted'] },
     isClosed: { type: 'boolean' },
     acceptedAnswerId: { type: ['string','null'] },
     createdAt: { type: 'string' },
@@ -477,6 +479,8 @@ QuestionResponse.example = {
   title: 'How to...',
   body: 'Details...',
   visibility: 'public',
+  moderation_status: 'approved',
+  moderationStatus: 'approved',
   isClosed: false,
   acceptedAnswerId: null,
   createdAt: '2026-04-01T12:00:00Z',
@@ -504,8 +508,8 @@ export const QuestionListResponse = { type: 'array', items: QuestionResponse };
 export const AnswerCreateBody = { type: 'object', required: ['content'], properties: { content: { type: 'string' }, parentAnswerId: { type: ['string','null'] }, parent_answer_id: { type: ['string','null'] } } };
 AnswerCreateBody.example = { content: 'You can fix it by...' };
 
-export const AnswerResponse = { type: 'object', properties: { id: { type: 'string' }, question_id: { type: 'string' }, questionId: { type: 'string' }, user_id: { type: 'string' }, userId: { type: 'string' }, parent_answer_id: { type: ['string','null'] }, parentAnswerId: { type: ['string','null'] }, content: { type: 'string' }, score: { type: 'number' }, is_liked: { type: 'boolean' }, isLiked: { type: 'boolean' }, created_at: { type: 'string' }, createdAt: { type: 'string' }, updated_at: { type: 'string' }, updatedAt: { type: 'string' }, user: { type: ['object','null'], properties: { id: { type: 'string' }, name: { type: ['string','null'] }, email: { type: ['string','null'] }, avatar: { type: ['string','null'] }, avatarUrl: { type: ['string','null'] } } } } };
-AnswerResponse.example = { id: 'a-uuid', question_id: 'q-uuid', questionId: 'q-uuid', user_id: 'user-uuid', userId: 'user-uuid', parent_answer_id: null, parentAnswerId: null, content: 'This is how...', score: 3, is_liked: false, isLiked: false, created_at: '2026-04-01T13:00:00Z', createdAt: '2026-04-01T13:00:00Z', updated_at: '2026-04-01T13:00:00Z', updatedAt: '2026-04-01T13:00:00Z', user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null, avatarUrl: null } };
+export const AnswerResponse = { type: 'object', properties: { id: { type: 'string' }, question_id: { type: 'string' }, questionId: { type: 'string' }, user_id: { type: 'string' }, userId: { type: 'string' }, parent_answer_id: { type: ['string','null'] }, parentAnswerId: { type: ['string','null'] }, content: { type: 'string' }, moderation_status: { type: 'string', enum: ['pending','approved','suspended','deleted'] }, moderationStatus: { type: 'string', enum: ['pending','approved','suspended','deleted'] }, score: { type: 'number' }, is_liked: { type: 'boolean' }, isLiked: { type: 'boolean' }, created_at: { type: 'string' }, createdAt: { type: 'string' }, updated_at: { type: 'string' }, updatedAt: { type: 'string' }, user: { type: ['object','null'], properties: { id: { type: 'string' }, name: { type: ['string','null'] }, email: { type: ['string','null'] }, avatar: { type: ['string','null'] }, avatarUrl: { type: ['string','null'] } } } } };
+AnswerResponse.example = { id: 'a-uuid', question_id: 'q-uuid', questionId: 'q-uuid', user_id: 'user-uuid', userId: 'user-uuid', parent_answer_id: null, parentAnswerId: null, content: 'This is how...', moderation_status: 'approved', moderationStatus: 'approved', score: 3, is_liked: false, isLiked: false, created_at: '2026-04-01T13:00:00Z', createdAt: '2026-04-01T13:00:00Z', updated_at: '2026-04-01T13:00:00Z', updatedAt: '2026-04-01T13:00:00Z', user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null, avatarUrl: null } };
 
 
 export const PostResponse = {
@@ -518,6 +522,8 @@ export const PostResponse = {
     parent_post_id: { type: 'string', nullable: true },
     originalPostId: { type: 'string', nullable: true },
     visibility: { type: 'string' },
+    moderation_status: { type: 'string', enum: ['pending','approved','suspended','deleted'] },
+    moderationStatus: { type: 'string', enum: ['pending','approved','suspended','deleted'] },
     title: { type: 'string' },
     content: { type: 'string' },
     file_path: { type: 'array', items: { type: 'object', additionalProperties: true } },
@@ -563,6 +569,8 @@ PostResponse.example = {
   parent_post_id: null,
   originalPostId: null,
   visibility: 'public',
+  moderation_status: 'approved',
+  moderationStatus: 'approved',
   title: 'Hello world', 
   content: 'Hello world — this is a test post.', 
   file_path: [],
@@ -1320,9 +1328,9 @@ export const CommentCreateBody = {
 
 export const CommentResponse = {
   type: 'object',
-  properties: { id: { type: 'string' }, post_id: { type: 'string' }, postId: { type: 'string' }, user_id: { type: 'string' }, userId: { type: 'string' }, parent_comment_id: { type: ['string','null'] }, parentCommentId: { type: ['string','null'] }, content: { type: 'string' }, score: { type: 'number' }, is_liked: { type: 'boolean' }, isLiked: { type: 'boolean' }, is_report: { type: 'boolean' }, isReport: { type: 'boolean' }, created_at: { type: 'string' }, createdAt: { type: 'string' }, updated_at: { type: 'string' }, updatedAt: { type: 'string' }, user: { type: ['object','null'], properties: { id: { type: 'string' }, name: { type: ['string','null'] }, email: { type: ['string','null'] }, avatar: { type: ['string','null'] }, avatarUrl: { type: ['string','null'] } } } }
+  properties: { id: { type: 'string' }, post_id: { type: 'string' }, postId: { type: 'string' }, user_id: { type: 'string' }, userId: { type: 'string' }, parent_comment_id: { type: ['string','null'] }, parentCommentId: { type: ['string','null'] }, content: { type: 'string' }, moderation_status: { type: 'string', enum: ['pending','approved','suspended','deleted'] }, moderationStatus: { type: 'string', enum: ['pending','approved','suspended','deleted'] }, score: { type: 'number' }, is_liked: { type: 'boolean' }, isLiked: { type: 'boolean' }, is_report: { type: 'boolean' }, isReport: { type: 'boolean' }, created_at: { type: 'string' }, createdAt: { type: 'string' }, updated_at: { type: 'string' }, updatedAt: { type: 'string' }, user: { type: ['object','null'], properties: { id: { type: 'string' }, name: { type: ['string','null'] }, email: { type: ['string','null'] }, avatar: { type: ['string','null'] }, avatarUrl: { type: ['string','null'] } } } }
 };
-CommentResponse.example = { id: 'comment-uuid', post_id: 'post-uuid', postId: 'post-uuid', user_id: 'user-uuid', userId: 'user-uuid', parent_comment_id: null, parentCommentId: null, content: 'This is really helpful.', score: 2, is_liked: false, isLiked: false, is_report: false, isReport: false, created_at: '2026-04-10T12:30:00Z', createdAt: '2026-04-10T12:30:00Z', updated_at: '2026-04-10T12:30:00Z', updatedAt: '2026-04-10T12:30:00Z', user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null, avatarUrl: null } };
+CommentResponse.example = { id: 'comment-uuid', post_id: 'post-uuid', postId: 'post-uuid', user_id: 'user-uuid', userId: 'user-uuid', parent_comment_id: null, parentCommentId: null, content: 'This is really helpful.', moderation_status: 'approved', moderationStatus: 'approved', score: 2, is_liked: false, isLiked: false, is_report: false, isReport: false, created_at: '2026-04-10T12:30:00Z', createdAt: '2026-04-10T12:30:00Z', updated_at: '2026-04-10T12:30:00Z', updatedAt: '2026-04-10T12:30:00Z', user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null, avatarUrl: null } };
 
 export const PageCreateBody = {
   type: 'object',
@@ -1487,6 +1495,8 @@ export const PageResponse = {
     isVerified: { type: 'number' },
     isActive: { type: 'number' },
     isApproved: { type: 'number' },
+    moderation_status: { type: 'string', enum: ['pending','approved','suspended','deleted'] },
+    moderationStatus: { type: 'string', enum: ['pending','approved','suspended','deleted'] },
     approvalNotes: { type: ['string','null'] },
     approvedAt: { type: ['string','null'] },
     approvedBy: { type: ['string','null'] },
@@ -1508,7 +1518,7 @@ export const PageResponse = {
     updatedAt: { type: 'string' }
   }
 };
-PageResponse.example = { id: 'page-uuid', ownerId: 'user-uuid', page_type: 'student', type: 'student', pageType: 'student', categoryId: 'page-category-uuid', name: 'Sunday Godswill', slug: 'sunday-godswill', description: '<p>Student about text</p>', avatar: null, cover_image: null, coverImage: null, isVerified: 0, isActive: 1, isApproved: 1, approvalNotes: null, approvedAt: '2026-04-20T10:00:00Z', approvedBy: 'admin-uuid', metadata: { courseOfStudy: 'Computer Science', graduationDate: '2026-05-26', skills: ['C++', 'JavaScript'] }, followers_count: 12, posts_count: 3, category_pages_count: 25, createdAt: '2026-04-10T09:00:00Z', updatedAt: '2026-04-20T10:00:00Z' };
+PageResponse.example = { id: 'page-uuid', ownerId: 'user-uuid', page_type: 'student', type: 'student', pageType: 'student', categoryId: 'page-category-uuid', name: 'Sunday Godswill', slug: 'sunday-godswill', description: '<p>Student about text</p>', avatar: null, cover_image: null, coverImage: null, isVerified: 0, isActive: 1, isApproved: 1, moderation_status: 'approved', moderationStatus: 'approved', approvalNotes: null, approvedAt: '2026-04-20T10:00:00Z', approvedBy: 'admin-uuid', metadata: { courseOfStudy: 'Computer Science', graduationDate: '2026-05-26', skills: ['C++', 'JavaScript'] }, followers_count: 12, posts_count: 3, category_pages_count: 25, createdAt: '2026-04-10T09:00:00Z', updatedAt: '2026-04-20T10:00:00Z' };
 
 export const PageListResponse = { type: 'array', items: PageResponse };
 

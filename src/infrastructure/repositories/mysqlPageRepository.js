@@ -34,6 +34,8 @@ export default class MysqlPageRepository {
     page.isVerified = typeof page.isVerified !== 'undefined' ? page.isVerified : page.is_verified;
     page.isActive = typeof page.isActive !== 'undefined' ? page.isActive : page.is_active;
     page.isApproved = typeof page.isApproved !== 'undefined' ? page.isApproved : page.is_approved;
+    page.moderation_status = page.moderation_status || 'approved';
+    page.moderationStatus = page.moderation_status;
     page.approvalNotes = page.approvalNotes || page.approval_notes || null;
     page.approvedAt = page.approvedAt || page.approved_at || null;
     page.approvedBy = page.approvedBy || page.approved_by || null;
@@ -62,6 +64,7 @@ export default class MysqlPageRepository {
       is_verified: typeof page.is_verified !== 'undefined' ? page.is_verified : (page.isVerified || 0),
       is_active: typeof page.is_active !== 'undefined' ? page.is_active : (page.isActive || 1),
       is_approved: typeof page.is_approved !== 'undefined' ? page.is_approved : (page.isApproved || 0),
+      moderation_status: page.moderation_status || page.moderationStatus || 'approved',
       approval_notes: page.approval_notes || page.approvalNotes || null,
       approved_at: page.approved_at || page.approvedAt || null,
       approved_by: page.approved_by || page.approvedBy || null,
@@ -71,11 +74,18 @@ export default class MysqlPageRepository {
     };
     if (hasPageTypeColumn) payload.page_type = pageType;
     await db('pages').insert(payload);
-    return this.mapPage({ id, owner_id: page.owner_id || page.ownerId, category_id: page.category_id || page.categoryId || null, page_type: pageType, name: page.name, slug: page.slug, description: page.description || null, avatar: page.avatar || null, cover_image: page.cover_image || page.coverImage || null, is_verified: page.is_verified || page.isVerified || 0, is_active: page.is_active || page.isActive || 1, is_approved: page.is_approved || page.isApproved || 0, approval_notes: page.approval_notes || page.approvalNotes || null, approved_at: page.approved_at || page.approvedAt || null, approved_by: page.approved_by || page.approvedBy || null, metadata, created_at: now, updated_at: now });
+    return this.mapPage({ id, owner_id: page.owner_id || page.ownerId, category_id: page.category_id || page.categoryId || null, page_type: pageType, name: page.name, slug: page.slug, description: page.description || null, avatar: page.avatar || null, cover_image: page.cover_image || page.coverImage || null, is_verified: page.is_verified || page.isVerified || 0, is_active: page.is_active || page.isActive || 1, is_approved: page.is_approved || page.isApproved || 0, moderation_status: page.moderation_status || page.moderationStatus || 'approved', approval_notes: page.approval_notes || page.approvalNotes || null, approved_at: page.approved_at || page.approvedAt || null, approved_by: page.approved_by || page.approvedBy || null, metadata, created_at: now, updated_at: now });
   }
 
-  async findById(id) {
-    const row = await db('pages').where({ id }).first();
+  applyModerationFilter(q, includeHidden = false) {
+    if (!includeHidden) q.whereNotIn('moderation_status', ['suspended', 'deleted']);
+    return q;
+  }
+
+  async findById(id, { includeHidden = false } = {}) {
+    const q = db('pages').where({ id });
+    this.applyModerationFilter(q, includeHidden);
+    const row = await q.first();
     return this.mapPage(row);
   }
 
@@ -85,13 +95,17 @@ export default class MysqlPageRepository {
     return row || null;
   }
 
-  async list({ limit = 20, offset = 0 } = {}) {
-    const rows = await db('pages').orderBy('created_at', 'desc').limit(limit).offset(offset);
+  async list({ limit = 20, offset = 0, includeHidden = false } = {}) {
+    const q = db('pages').orderBy('created_at', 'desc').limit(limit).offset(offset);
+    this.applyModerationFilter(q, includeHidden);
+    const rows = await q;
     return (rows || []).map(row => this.mapPage(row));
   }
 
-  async listByOwner(ownerId, { limit = 20, offset = 0 } = {}) {
-    const rows = await db('pages').where({ owner_id: ownerId }).orderBy('created_at', 'desc').limit(limit).offset(offset);
+  async listByOwner(ownerId, { limit = 20, offset = 0, includeHidden = false } = {}) {
+    const q = db('pages').where({ owner_id: ownerId }).orderBy('created_at', 'desc').limit(limit).offset(offset);
+    this.applyModerationFilter(q, includeHidden);
+    const rows = await q;
     return (rows || []).map(row => this.mapPage(row));
   }
 
@@ -124,6 +138,8 @@ export default class MysqlPageRepository {
     if (typeof updates.cover_image !== 'undefined') payload.cover_image = updates.cover_image;
     if (typeof updates.is_active !== 'undefined') payload.is_active = updates.is_active;
     if (typeof updates.is_approved !== 'undefined') payload.is_approved = updates.is_approved;
+    if (typeof updates.moderation_status !== 'undefined') payload.moderation_status = updates.moderation_status;
+    if (typeof updates.moderationStatus !== 'undefined') payload.moderation_status = updates.moderationStatus;
     if (typeof updates.approval_notes !== 'undefined') payload.approval_notes = updates.approval_notes;
     if (typeof updates.approved_at !== 'undefined') payload.approved_at = updates.approved_at;
     if (typeof updates.approved_by !== 'undefined') payload.approved_by = updates.approved_by;
@@ -136,10 +152,10 @@ export default class MysqlPageRepository {
       const fallbackType = nextPageType || existing && (existing.type || existing.pageType) || 'business';
       payload.metadata = JSON.stringify({ ...baseMetadata, type: fallbackType, pageType: fallbackType });
     }
-    if (Object.keys(payload).length === 0) return this.findById(id);
+    if (Object.keys(payload).length === 0) return this.findById(id, { includeHidden: true });
     payload.updated_at = now;
     await db('pages').where({ id }).update(payload);
-    return this.findById(id);
+    return this.findById(id, { includeHidden: true });
   }
 
   async delete(id) {

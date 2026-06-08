@@ -1,13 +1,56 @@
 import crypto from 'crypto';
-import os from 'os';
-import fs from 'fs';
-import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import logger from '../../utils/logger.js';
+import db from '../../infrastructure/knexConfig.js';
 
 const mediaLogger = logger.child('MEDIA_CONTROLLER');
 
 export function makeMediaController({ cloudinary = null, mediaQueue = null, assetAdapter = null } = {}) {
+  const uploadFileToCloudinary = async ({ mp, actorId, pageId = null, kind, title = null, folder = null }) => {
+    const isVideo = kind === 'video' || (mp.mimetype || '').startsWith('video/');
+    const isDocument = kind === 'document' || (!isVideo && !(mp.mimetype || '').startsWith('image/'));
+    const uploadFolder = folder || (isVideo
+      ? (process.env.CLOUDINARY_FOLDER_VIDEOS || process.env.CLOUDINARY_FOLDER_POSTS || 'posts')
+      : isDocument
+        ? (process.env.CLOUDINARY_FOLDER_DOCS || 'documents')
+        : (process.env.CLOUDINARY_FOLDER_POSTS || 'posts'));
+    const resourceType = isVideo ? 'video' : (isDocument ? 'raw' : 'image');
+    const result = await cloudinary.uploadFromStream(mp.file, {
+      folder: uploadFolder,
+      resource_type: resourceType
+    });
+    const assetId = uuidv4();
+    const asset = await assetAdapter.create({
+      id: assetId,
+      userId: actorId,
+      pageId,
+      kind,
+      title: title || mp.filename || null,
+      provider: 'cloudinary',
+      providerPublicId: result.public_id,
+      url: result.secure_url || result.url,
+      mimeType: mp.mimetype || result.resource_type || result.format || null,
+      sizeBytes: result.bytes || null,
+      metadata: { ...result, title: title || mp.filename || null, pageId, userId: actorId, kind, originalFilename: mp.filename || null }
+    });
+
+    return {
+      assetId,
+      id: assetId,
+      url: result.secure_url || result.url,
+      publicId: result.public_id,
+      kind,
+      title: title || mp.filename || null,
+      mimeType: mp.mimetype || null,
+      sizeBytes: result.bytes || null,
+      asset
+    };
+  };
+
+  const profileToPlain = (profile) => profile && typeof profile.toPlainObject === 'function'
+    ? profile.toPlainObject()
+    : profile;
+
   return {
     getCloudinarySignature: async (req, reply) => {
       try {
@@ -164,123 +207,174 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
 
     uploadAvatarFile: async (req, reply) => {
       try {
-        if (!mediaQueue) {
+        const actorId = req.user && req.user.id;
+        const actorRole = req.user && req.user.role;
+        const userId = (req.params && req.params.id) || actorId;
+        const kind = (req.query && req.query.kind) === 'banner' ? 'banner' : 'avatar';
+        const field = kind === 'banner' ? 'banner' : 'avatar';
+        const replace = (req.query && (req.query.replace === 'true' || req.query.replace === true)) || false;
+
+        if (!actorId) {
+          return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        }
+        if (userId !== actorId && actorRole !== 'admin') {
+          return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+        }
+        if (!cloudinary || typeof cloudinary.uploadFromStream !== 'function' || !assetAdapter) {
           return reply.code(503).send({ success: false, error: { code: 'service_unavailable' } });
         }
 
-        const userId = (req.user && req.user.id) || (req.params && req.params.id);
-        // Allow clients to provide an optional kind query param (e.g. ?kind=post_image)
-        const kind = (req.query && req.query.kind) || 'avatar';
-        // Prevent re-upload if avatar already exists
-        if ((kind === 'avatar' || kind === 'banner') && req.server && req.server.profileRepository) {
-          const replace = (req.query && (req.query.replace === 'true' || req.query.replace === true)) || false;
-          const existingProfile = await req.server.profileRepository.findByUserId(userId);
-          if (existingProfile) {
-            if (kind === 'avatar' && existingProfile.avatar && !replace) {
-              return reply.code(409).send({ success: false, error: { code: 'avatar_already_set' } });
-            }
-            if (kind === 'banner' && existingProfile.banner && !replace) {
-              return reply.code(409).send({ success: false, error: { code: 'banner_already_set' } });
-            }
+        const profileRepository = req.server && req.server.profileRepository;
+        let profile = profileRepository && await profileRepository.findByUserId(userId);
+        const plainProfile = profileToPlain(profile);
+        if (plainProfile && plainProfile[field] && !replace) {
+          return reply.code(409).send({ success: false, error: { code: `${field}_already_set` } });
+        }
+
+        const mp = await req.file();
+        if (!mp) {
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed', message: 'file is required' } });
+        }
+
+        const upload = await uploadFileToCloudinary({
+          mp,
+          actorId,
+          kind,
+          folder: kind === 'banner' ? (process.env.CLOUDINARY_FOLDER_BANNERS || 'banners') : (process.env.CLOUDINARY_FOLDER_AVATARS || 'avatars')
+        });
+
+        if (profileRepository) {
+          if (profile) {
+            profile = await profileRepository.update(profile.id, { [field]: upload.url });
+          } else {
+            profile = await profileRepository.create({
+              id: uuidv4(),
+              user_id: userId,
+              [field]: upload.url,
+              created_at: new Date()
+            });
           }
         }
 
-        // Accept a single file field named 'file'
-        const mp = await req.file();
-        if (!mp) {
-          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
-        }
-
-        const ext = path.extname(mp.filename || '') || '.jpg';
-        const tmpDir = process.env.UPLOAD_TMP_DIR || os.tmpdir();
-        const tmpName = `${uuidv4()}${ext}`;
-        const tmpPath = path.join(tmpDir, tmpName);
-
-        // Stream file to temporary location
-        const writeStream = fs.createWriteStream(tmpPath);
-        await new Promise((resolve, reject) => {
-          mp.file.pipe(writeStream);
-          mp.file.on('error', (err) => reject(err));
-          writeStream.on('error', (err) => reject(err));
-          writeStream.on('finish', resolve);
+        return reply.code(201).send({
+          success: true,
+          message: `${field === 'banner' ? 'Banner' : 'Avatar'} uploaded successfully`,
+          data: {
+            ...upload,
+            [field]: upload.url,
+            profile: profileToPlain(profile)
+          }
         });
-
-        const job = await mediaQueue.add('avatar-file', { userId, tmpFilePath: tmpPath, kind, assetId: uuidv4() }, { attempts: 3, backoff: { type: 'exponential', delay: 2000 } });
-        return reply.code(202).send({ success: true, data: { jobId: job.id } });
       } catch (err) {
         mediaLogger.error('uploadAvatarFile error', { message: err.message, stack: err.stack });
+        if (err.message === 'cloudinary_not_configured') {
+          return reply.code(503).send({ success: false, error: { code: 'cloudinary_not_configured' } });
+        }
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
     },
 
     uploadPageAvatarFile: async (req, reply) => {
       try {
-        if (!mediaQueue) {
+        const actorId = req.user && req.user.id;
+        const actorRole = req.user && req.user.role;
+        if (!actorId) {
+          return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        }
+        if (!cloudinary || typeof cloudinary.uploadFromStream !== 'function' || !assetAdapter) {
           return reply.code(503).send({ success: false, error: { code: 'service_unavailable' } });
         }
 
         const pageId = req.params && req.params.id;
         if (!pageId) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
-
-        // Accept a single file field named 'file'
-        const mp = await req.file();
-        if (!mp) {
-          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        const page = await db('pages').where({ id: pageId }).first();
+        if (!page) return reply.code(404).send({ success: false, error: { code: 'page_not_found' } });
+        if (page.owner_id !== actorId && actorRole !== 'admin') {
+          return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
         }
 
-        const ext = path.extname(mp.filename || '') || '.jpg';
-        const tmpDir = process.env.UPLOAD_TMP_DIR || os.tmpdir();
-        const tmpName = `${uuidv4()}${ext}`;
-        const tmpPath = path.join(tmpDir, tmpName);
+        const mp = await req.file();
+        if (!mp) {
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed', message: 'file is required' } });
+        }
 
-        // Stream file to temporary location
-        const writeStream = fs.createWriteStream(tmpPath);
-        await new Promise((resolve, reject) => {
-          mp.file.pipe(writeStream);
-          mp.file.on('error', (err) => reject(err));
-          writeStream.on('error', (err) => reject(err));
-          writeStream.on('finish', resolve);
+        const upload = await uploadFileToCloudinary({
+          mp,
+          actorId,
+          pageId,
+          kind: 'avatar',
+          folder: process.env.CLOUDINARY_FOLDER_PAGE_AVATARS || 'pages'
         });
 
-        const job = await mediaQueue.add('avatar-file', { pageId, tmpFilePath: tmpPath, kind: 'avatar', assetId: uuidv4() }, { attempts: 3, backoff: { type: 'exponential', delay: 2000 } });
-        return reply.code(202).send({ success: true, data: { jobId: job.id } });
+        await db('pages').where({ id: pageId }).update({ avatar: upload.url, updated_at: new Date() });
+        const updatedPage = await db('pages').where({ id: pageId }).first();
+        return reply.code(201).send({
+          success: true,
+          message: 'Page avatar uploaded successfully',
+          data: {
+            ...upload,
+            avatar: upload.url,
+            page: updatedPage
+          }
+        });
       } catch (err) {
         mediaLogger.error('uploadPageAvatarFile error', { message: err.message, stack: err.stack });
+        if (err.message === 'cloudinary_not_configured') {
+          return reply.code(503).send({ success: false, error: { code: 'cloudinary_not_configured' } });
+        }
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
     },
 
     uploadPageCoverFile: async (req, reply) => {
       try {
-        if (!mediaQueue) {
+        const actorId = req.user && req.user.id;
+        const actorRole = req.user && req.user.role;
+        if (!actorId) {
+          return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        }
+        if (!cloudinary || typeof cloudinary.uploadFromStream !== 'function' || !assetAdapter) {
           return reply.code(503).send({ success: false, error: { code: 'service_unavailable' } });
         }
 
         const pageId = req.params && req.params.id;
         if (!pageId) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        const page = await db('pages').where({ id: pageId }).first();
+        if (!page) return reply.code(404).send({ success: false, error: { code: 'page_not_found' } });
+        if (page.owner_id !== actorId && actorRole !== 'admin') {
+          return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+        }
 
         const mp = await req.file();
         if (!mp) {
-          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed', message: 'file is required' } });
         }
 
-        const ext = path.extname(mp.filename || '') || '.jpg';
-        const tmpDir = process.env.UPLOAD_TMP_DIR || os.tmpdir();
-        const tmpName = `${uuidv4()}${ext}`;
-        const tmpPath = path.join(tmpDir, tmpName);
-
-        const writeStream = fs.createWriteStream(tmpPath);
-        await new Promise((resolve, reject) => {
-          mp.file.pipe(writeStream);
-          mp.file.on('error', (err) => reject(err));
-          writeStream.on('error', (err) => reject(err));
-          writeStream.on('finish', resolve);
+        const upload = await uploadFileToCloudinary({
+          mp,
+          actorId,
+          pageId,
+          kind: 'banner',
+          folder: process.env.CLOUDINARY_FOLDER_PAGE_COVERS || 'pages'
         });
 
-        const job = await mediaQueue.add('banner-file', { pageId, tmpFilePath: tmpPath, kind: 'banner', assetId: uuidv4() }, { attempts: 3, backoff: { type: 'exponential', delay: 2000 } });
-        return reply.code(202).send({ success: true, data: { jobId: job.id } });
+        await db('pages').where({ id: pageId }).update({ cover_image: upload.url, updated_at: new Date() });
+        const updatedPage = await db('pages').where({ id: pageId }).first();
+        return reply.code(201).send({
+          success: true,
+          message: 'Page cover uploaded successfully',
+          data: {
+            ...upload,
+            coverImage: upload.url,
+            cover_image: upload.url,
+            page: updatedPage
+          }
+        });
       } catch (err) {
         mediaLogger.error('uploadPageCoverFile error', { message: err.message, stack: err.stack });
+        if (err.message === 'cloudinary_not_configured') {
+          return reply.code(503).send({ success: false, error: { code: 'cloudinary_not_configured' } });
+        }
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
     },

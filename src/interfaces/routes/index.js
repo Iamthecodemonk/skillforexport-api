@@ -1170,7 +1170,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'uploadUserAvatarFile',
       tags: ['Media', 'Users'],
-      description: 'Upload avatar file (multipart) - server accepts file and enqueues background validation and Cloudinary upload. Use kind=banner to upload a banner. If image already exists, pass ?replace=true or clear it first using PUT /users/:id/profile with { avatar: null } or { banner: null }.',
+      description: 'Upload avatar/banner file through the backend to the platform Cloudinary account. Send multipart field `file`. Returns assetId, url, publicId, and the updated profile immediately. Use ?kind=banner for banner uploads. No frontend Cloudinary credentials, /media/signature, or /media/register are required.',
       parameters: [
         { name: 'kind', in: 'query', schema: { type: 'string' }, description: 'Optional kind (avatar, banner, post_image, advert_image, document) to control validation and folder' },
         { name: 'replace', in: 'query', schema: { type: 'boolean' }, description: 'When true, replace existing avatar' }
@@ -1187,10 +1187,50 @@ export default async function registerRoutes(fastify, deps) {
         }
       },
       response: {
-        202: schemas.JobAcceptedResponse,
-        422: { type: 'object' },
+        201: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+            data: {
+              type: 'object',
+              properties: {
+                assetId: { type: 'string' },
+                id: { type: 'string' },
+                url: { type: 'string' },
+                publicId: { type: 'string' },
+                kind: { type: 'string' },
+                title: { type: ['string', 'null'] },
+                mimeType: { type: ['string', 'null'] },
+                sizeBytes: { type: ['number', 'null'] },
+                avatar: { type: ['string', 'null'] },
+                banner: { type: ['string', 'null'] },
+                profile: { type: ['object', 'null'], additionalProperties: true }
+              }
+            }
+          },
+          example: {
+            success: true,
+            message: 'Avatar uploaded successfully',
+            data: {
+              assetId: 'asset-uuid',
+              id: 'asset-uuid',
+              url: 'https://res.cloudinary.com/demo/image/upload/avatars/avatar.jpg',
+              publicId: 'avatars/avatar',
+              kind: 'avatar',
+              title: 'avatar.jpg',
+              mimeType: 'image/jpeg',
+              sizeBytes: 120345,
+              avatar: 'https://res.cloudinary.com/demo/image/upload/avatars/avatar.jpg',
+              profile: { userId: 'user-uuid', avatar: 'https://res.cloudinary.com/demo/image/upload/avatars/avatar.jpg' }
+            }
+          }
+        },
+        401: schemas.AuthErrorResponse,
+        403: schemas.GenericErrorResponse,
+        422: schemas.GenericErrorResponse,
         409: schemas.GenericErrorResponse,
-        503: { type: 'object' }
+        503: schemas.GenericErrorResponse
       }
     }
   }, handler('uploadAvatarFile'));
@@ -2368,7 +2408,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'uploadPageAvatarFile',
       tags: ['Media', 'Pages'],
-      description: 'Upload a page avatar file (multipart). Enqueues background job and returns jobId.',
+      description: 'Upload a page avatar file through the backend to the platform Cloudinary account. Send multipart field `file`. Returns assetId, url, publicId, and the updated page immediately. No frontend Cloudinary credentials, /media/signature, or /media/register are required.',
       requestBody: {
         content: {
           'multipart/form-data': {
@@ -2381,40 +2421,43 @@ export default async function registerRoutes(fastify, deps) {
         }
       },
       response: {
-        202:
-        {
+        201: {
           type: 'object',
           properties: {
-            success: {
-              type: 'boolean'
-            },
+            success: { type: 'boolean' },
+            message: { type: 'string' },
             data: {
               type: 'object',
               properties: {
-                jobId: {
-                  type: 'string'
-                }
+                assetId: { type: 'string' },
+                id: { type: 'string' },
+                url: { type: 'string' },
+                publicId: { type: 'string' },
+                kind: { type: 'string' },
+                avatar: { type: 'string' },
+                page: { type: 'object', additionalProperties: true }
               }
             }
           },
-          examples: [
-            {
-              summary: 'Job queued',
-              value: {
-                success: true,
-                data: {
-                  jobId: 'job_abc123'
-                }
-              }
+          example: {
+            success: true,
+            message: 'Page avatar uploaded successfully',
+            data: {
+              assetId: 'asset-uuid',
+              id: 'asset-uuid',
+              url: 'https://res.cloudinary.com/demo/image/upload/pages/avatar.jpg',
+              publicId: 'pages/avatar',
+              kind: 'avatar',
+              avatar: 'https://res.cloudinary.com/demo/image/upload/pages/avatar.jpg',
+              page: { id: 'page-uuid', avatar: 'https://res.cloudinary.com/demo/image/upload/pages/avatar.jpg' }
             }
-          ]
+          }
         },
-        422: {
-          type: 'object'
-        },
-        503: {
-          type: 'object'
-        }
+        401: schemas.AuthErrorResponse,
+        403: schemas.GenericErrorResponse,
+        404: schemas.GenericErrorResponse,
+        422: schemas.GenericErrorResponse,
+        503: schemas.GenericErrorResponse
       }
     }
   }, handler('uploadPageAvatarFile'));
@@ -2425,7 +2468,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'uploadPageCoverFile',
       tags: ['Media', 'Pages'],
-      description: 'Upload a page cover/banner file (multipart). Enqueues background job and returns jobId.',
+      description: 'Upload a page cover/banner file through the backend to the platform Cloudinary account. Send multipart field `file`. Returns assetId, url, publicId, and the updated page immediately. No frontend Cloudinary credentials, /media/signature, or /media/register are required.',
       requestBody: {
         content: {
           'multipart/form-data': {
@@ -2437,7 +2480,47 @@ export default async function registerRoutes(fastify, deps) {
           }
         }
       },
-      response: { 202: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { jobId: { type: 'string' } } } }, examples: [{ summary: 'Job queued', value: { success: true, data: { jobId: 'job_def456' } } }] }, 422: { type: 'object' }, 503: { type: 'object' } }
+      response: {
+        201: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+            data: {
+              type: 'object',
+              properties: {
+                assetId: { type: 'string' },
+                id: { type: 'string' },
+                url: { type: 'string' },
+                publicId: { type: 'string' },
+                kind: { type: 'string' },
+                coverImage: { type: 'string' },
+                cover_image: { type: 'string' },
+                page: { type: 'object', additionalProperties: true }
+              }
+            }
+          },
+          example: {
+            success: true,
+            message: 'Page cover uploaded successfully',
+            data: {
+              assetId: 'asset-uuid',
+              id: 'asset-uuid',
+              url: 'https://res.cloudinary.com/demo/image/upload/pages/cover.jpg',
+              publicId: 'pages/cover',
+              kind: 'banner',
+              coverImage: 'https://res.cloudinary.com/demo/image/upload/pages/cover.jpg',
+              cover_image: 'https://res.cloudinary.com/demo/image/upload/pages/cover.jpg',
+              page: { id: 'page-uuid', cover_image: 'https://res.cloudinary.com/demo/image/upload/pages/cover.jpg' }
+            }
+          }
+        },
+        401: schemas.AuthErrorResponse,
+        403: schemas.GenericErrorResponse,
+        404: schemas.GenericErrorResponse,
+        422: schemas.GenericErrorResponse,
+        503: schemas.GenericErrorResponse
+      }
     }
   }, handler('uploadPageCoverFile'));
 

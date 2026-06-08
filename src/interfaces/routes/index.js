@@ -79,6 +79,118 @@ export default async function registerRoutes(fastify, deps) {
       total: { type: 'number' }
     }
   };
+  const reportDetailSchema = {
+    type: 'object',
+    properties: {
+      id: { type: 'string', description: 'Report id' },
+      targetType: { type: 'string', enum: ['post', 'comment', 'question', 'answer', 'page', 'job'] },
+      targetId: { type: 'string', description: 'Id of the reported post/comment/question/answer/page/job' },
+      reason: { type: ['string', 'null'] },
+      details: { type: ['string', 'null'] },
+      created_at: { type: ['string', 'null'] },
+      reporter: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: ['string', 'null'] },
+          email: { type: ['string', 'null'] },
+          avatar: { type: ['string', 'null'] },
+          avatarUrl: { type: ['string', 'null'] }
+        }
+      }
+    },
+    example: {
+      id: 'report-uuid',
+      targetType: 'post',
+      targetId: 'post-uuid',
+      reason: 'Spam',
+      details: 'Repeated promotional content.',
+      created_at: '2026-06-08T10:30:00.000Z',
+      reporter: { id: 'user-uuid', name: 'Jane Doe', email: 'jane@example.com', avatar: null, avatarUrl: null }
+    }
+  };
+  const reportTargetDataSchema = {
+    oneOf: [
+      schemas.PostResponse,
+      schemas.CommentResponse,
+      schemas.QuestionResponse,
+      schemas.AnswerResponse,
+      schemas.PageResponse,
+      schemas.JobResponse
+    ],
+    description: 'Full reported object. For posts this includes title, content, media_path, file_path, user, community, comment_count, score, and flags.'
+  };
+  const reportedTargetSchema = {
+    type: 'object',
+    properties: {
+      targetType: { type: 'string', enum: ['post', 'comment', 'question', 'answer', 'page', 'job'] },
+      targetId: { type: 'string' },
+      reports_count: { type: 'number', description: 'Total reports for this target' },
+      reportsCount: { type: 'number', description: 'Camel-case alias of reports_count' },
+      data: reportTargetDataSchema,
+      target: reportTargetDataSchema,
+      reports: { type: 'array', items: reportDetailSchema }
+    },
+    example: {
+      targetType: 'post',
+      targetId: 'post-uuid',
+      reports_count: 3,
+      reportsCount: 3,
+      data: schemas.PostResponse.example,
+      target: schemas.PostResponse.example,
+      reports: [reportDetailSchema.example]
+    }
+  };
+  const reportPaginatedResponse = {
+    type: 'object',
+    properties: {
+      current_page: { type: 'number', example: 1 },
+      data: { type: 'array', items: reportedTargetSchema },
+      first_page_url: { type: 'string', nullable: true, example: null },
+      from: { type: 'number', nullable: true, example: 1 },
+      last_page: { type: 'number', example: 1 },
+      last_page_url: { type: 'string', nullable: true, example: null },
+      next_page_url: { type: 'string', nullable: true, example: null },
+      path: { type: 'string', nullable: true, example: '/api/admin/reports/posts' },
+      per_page: { type: 'number', example: 20 },
+      prev_page_url: { type: 'string', nullable: true, example: null },
+      to: { type: 'number', nullable: true, example: 1 },
+      total: { type: 'number', example: 1 }
+    },
+    example: {
+      current_page: 1,
+      data: [reportedTargetSchema.example],
+      first_page_url: null,
+      from: 1,
+      last_page: 1,
+      last_page_url: null,
+      next_page_url: null,
+      path: '/api/admin/reports/posts',
+      per_page: 20,
+      prev_page_url: null,
+      to: 1,
+      total: 1
+    }
+  };
+  const groupedReportsResponse = dataResponse({
+    type: 'object',
+    properties: {
+      posts: { type: 'array', items: reportedTargetSchema },
+      comments: { type: 'array', items: reportedTargetSchema },
+      questions: { type: 'array', items: reportedTargetSchema },
+      answers: { type: 'array', items: reportedTargetSchema },
+      pages: { type: 'array', items: reportedTargetSchema },
+      jobs: { type: 'array', items: reportedTargetSchema }
+    },
+    example: {
+      posts: [reportedTargetSchema.example],
+      comments: [],
+      questions: [],
+      answers: [],
+      pages: [],
+      jobs: []
+    }
+  });
   const legacyBody = {
     type: 'object',
     additionalProperties: true
@@ -914,14 +1026,14 @@ export default async function registerRoutes(fastify, deps) {
   fastify.put('/report', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyGenericReport', tags: ['Reports'], description: 'Legacy generic report endpoint. Use `id` and `q` (`p`, `q`, `a`, `c`, `page`, or `job`) to report an item.', body: { ...genericReportBody, required: ['id', 'q'], properties: { ...genericReportBody.properties, q: { type: 'string', enum: ['p', 'q', 'a', 'c', 'post', 'question', 'answer', 'comment', 'page', 'job'] }, report_reason_id: { type: 'string' }, additional_notes: { type: 'string' } } }, response: { 200: genericSuccess, 422: schemas.GenericErrorResponse } } }, handler('genericReport'));
   fastify.post('/pages/:id/report', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'reportPage', tags: ['Pages', 'Reports'], description: 'Report a page for moderation.', params: idParam(), body: genericReportBody, response: { 201: genericSuccess, 401: schemas.AuthErrorResponse, 422: schemas.GenericErrorResponse } } }, handler('reportPage'));
   fastify.post('/jobs/:id/report', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'reportJob', tags: ['Jobs', 'Reports'], description: 'Report a job for moderation.', params: idParam(), body: genericReportBody, response: { 201: genericSuccess, 401: schemas.AuthErrorResponse, 422: schemas.GenericErrorResponse } } }, handler('reportJob'));
-  fastify.get('/admin/reports', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListAllReportedTargets', tags: ['Admin', 'Reports'], description: 'Admin grouped report dashboard. Returns reported posts, comments, questions, answers, pages, and jobs. Each item includes reports_count, reports, and the full reported object as both data and target.', response: { 200: genericSuccess, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse } } }, handler('listAllReportedTargets'));
-  fastify.get('/admin/reports/:type', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedTargetsByType', tags: ['Admin', 'Reports'], description: 'Admin list of reported items for one type. Type can be post/posts, comment/comments, question/questions, answer/answers, page/pages, or job/jobs. Each item includes reports_count, reports, and the full reported object as both data and target.', params: { type: 'object', required: ['type'], properties: { type: { type: 'string', enum: ['post', 'posts', 'comment', 'comments', 'question', 'questions', 'answer', 'answers', 'page', 'pages', 'job', 'jobs'] } } }, querystring: { type: 'object', properties: listQueryBase }, response: { 200: genericPaginatedResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } } }, handler('listReportedTargets'));
-  fastify.get('/admin/reports/posts', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedPosts', tags: ['Admin', 'Reports'], description: 'Admin list of reported posts with reports_count, report details, and the full post as data/target including title, content, media_path, file_path, user, and community.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: genericPaginatedResponse } } }, async (req, reply) => { req.params = { type: 'post' }; return handler('listReportedTargets')(req, reply); });
-  fastify.get('/admin/reports/comments', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedComments', tags: ['Admin', 'Reports'], description: 'Admin list of reported comments with reports_count.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: genericPaginatedResponse } } }, async (req, reply) => { req.params = { type: 'comment' }; return handler('listReportedTargets')(req, reply); });
-  fastify.get('/admin/reports/questions', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedQuestions', tags: ['Admin', 'Reports'], description: 'Admin list of reported questions with reports_count.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: genericPaginatedResponse } } }, async (req, reply) => { req.params = { type: 'question' }; return handler('listReportedTargets')(req, reply); });
-  fastify.get('/admin/reports/answers', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedAnswers', tags: ['Admin', 'Reports'], description: 'Admin list of reported answers with reports_count.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: genericPaginatedResponse } } }, async (req, reply) => { req.params = { type: 'answer' }; return handler('listReportedTargets')(req, reply); });
-  fastify.get('/admin/reports/pages', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedPages', tags: ['Admin', 'Reports'], description: 'Admin list of reported pages with reports_count.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: genericPaginatedResponse } } }, async (req, reply) => { req.params = { type: 'page' }; return handler('listReportedTargets')(req, reply); });
-  fastify.get('/admin/reports/jobs', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedJobs', tags: ['Admin', 'Reports'], description: 'Admin list of reported jobs with reports_count.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: genericPaginatedResponse } } }, async (req, reply) => { req.params = { type: 'job' }; return handler('listReportedTargets')(req, reply); });
+  fastify.get('/admin/reports', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListAllReportedTargets', tags: ['Admin', 'Reports'], description: 'Admin grouped report dashboard. Returns reported posts, comments, questions, answers, pages, and jobs. Each item includes reports_count, reports, and the full reported object as both data and target.', response: { 200: groupedReportsResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse } } }, handler('listAllReportedTargets'));
+  fastify.get('/admin/reports/:type', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedTargetsByType', tags: ['Admin', 'Reports'], description: 'Admin list of reported items for one type. Type can be post/posts, comment/comments, question/questions, answer/answers, page/pages, or job/jobs. Each item includes reports_count, reports, and the full reported object as both data and target.', params: { type: 'object', required: ['type'], properties: { type: { type: 'string', enum: ['post', 'posts', 'comment', 'comments', 'question', 'questions', 'answer', 'answers', 'page', 'pages', 'job', 'jobs'] } } }, querystring: { type: 'object', properties: listQueryBase }, response: { 200: reportPaginatedResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } } }, handler('listReportedTargets'));
+  fastify.get('/admin/reports/posts', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedPosts', tags: ['Admin', 'Reports'], description: 'Admin list of reported posts with reports_count, report details, and the full post as data/target including title, content, media_path, file_path, user, and community.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: reportPaginatedResponse } } }, async (req, reply) => { req.params = { type: 'post' }; return handler('listReportedTargets')(req, reply); });
+  fastify.get('/admin/reports/comments', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedComments', tags: ['Admin', 'Reports'], description: 'Admin list of reported comments with reports_count. Each row includes the full comment in data/target and the related post as commentable when available.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: reportPaginatedResponse } } }, async (req, reply) => { req.params = { type: 'comment' }; return handler('listReportedTargets')(req, reply); });
+  fastify.get('/admin/reports/questions', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedQuestions', tags: ['Admin', 'Reports'], description: 'Admin list of reported questions with reports_count. Each row includes the full question in data/target.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: reportPaginatedResponse } } }, async (req, reply) => { req.params = { type: 'question' }; return handler('listReportedTargets')(req, reply); });
+  fastify.get('/admin/reports/answers', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedAnswers', tags: ['Admin', 'Reports'], description: 'Admin list of reported answers with reports_count. Each row includes the full answer in data/target and the related question when available.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: reportPaginatedResponse } } }, async (req, reply) => { req.params = { type: 'answer' }; return handler('listReportedTargets')(req, reply); });
+  fastify.get('/admin/reports/pages', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedPages', tags: ['Admin', 'Reports'], description: 'Admin list of reported pages with reports_count. Each row includes the full page in data/target.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: reportPaginatedResponse } } }, async (req, reply) => { req.params = { type: 'page' }; return handler('listReportedTargets')(req, reply); });
+  fastify.get('/admin/reports/jobs', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedJobs', tags: ['Admin', 'Reports'], description: 'Admin list of reported jobs with reports_count. Each row includes the full job in data/target.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: reportPaginatedResponse } } }, async (req, reply) => { req.params = { type: 'job' }; return handler('listReportedTargets')(req, reply); });
   fastify.get('/report-reasons', { schema: { operationId: 'legacyListReportReasons', tags: ['Reports'], description: 'Legacy report reasons endpoint', response: { 200: dataResponse({ type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' } } } }) } } }, handler('reportReasons'));
   fastify.get('/education', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyListEducation', tags: ['Education'], description: 'Legacy education resource list', querystring: { type: 'object', properties: listQueryBase }, response: { 200: genericPaginatedResponse } } }, handler('listEducationRoot'));
   fastify.post('/education', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyCreateEducation', tags: ['Education'], description: 'Legacy education create', body: { ...schemas.Education, required: [] }, response: { 201: dataResponse(schemas.Education), 422: schemas.GenericErrorResponse } } }, handler('createEducationRoot'));

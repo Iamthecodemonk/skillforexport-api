@@ -329,6 +329,7 @@ export default async function startServer() {
   let profileRepo = null;
   let userAdapter = null;
   let userRepo = null;
+  let userSettingsRepo = null;
   try {
     // Prepare user and profile repos early so auth can create profiles from registration data
     profileAdapter = new MysqlUserProfileRepository();
@@ -345,7 +346,7 @@ export default async function startServer() {
     const authExperienceAdapter = new MysqlUserExperienceRepository();
     const authEducationRepo = new UserEducationRepositoryImpl({ adapter: authEducationAdapter });
     const authExperienceRepo = new UserExperienceRepositoryImpl({ adapter: authExperienceAdapter });
-    const userSettingsRepo = new MysqlUserSettingsRepository();
+    userSettingsRepo = new MysqlUserSettingsRepository();
     const passwordResetAdapter = new MysqlPasswordResetRepository();
     authUseCase = new AuthUseCase({ userRepository: userRepo, profileRepository: profileRepo, educationRepository: authEducationRepo, experienceRepository: authExperienceRepo, settingsRepository: userSettingsRepo, emailQueue: emailQueue, jwtSecret: process.env.JWT_SECRET, jwtExpiresIn: process.env.JWT_EXPIRES_IN, passwordResetRepository: passwordResetAdapter });
     authController = makeAuthController({ useCase: authUseCase });
@@ -483,6 +484,7 @@ export default async function startServer() {
         const postUseCase = new PostUseCase({ postRepository: postRepo, notificationRepository });
         const postController = makePostController({ useCase: postUseCase });
         Object.assign(controllers, postController);
+        let commentAdapter = null;
         // Post interactions wiring (save/report)
         try {
           const postSaveAdapter = new MysqlPostSaveRepository();
@@ -496,7 +498,7 @@ export default async function startServer() {
         }
         // Comments wiring
         try {
-          const commentAdapter = new MysqlCommentRepository();
+          commentAdapter = new MysqlCommentRepository();
           const commentUseCase = new CommentUseCase({ commentRepository: commentAdapter });
           const commentController = makeCommentController({ useCase: commentUseCase, notificationRepository, postRepository: postAdapter });
           Object.assign(controllers, commentController);

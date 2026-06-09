@@ -11,6 +11,6 @@ export default class UserSkill {
   }
 
   toPlainObject() {
-    return { id: this.id, userId: this.userId, skill: this.skill, level: this.level };
+    return { id: this.id, userId: this.userId, skill: this.skill, name: this.skill, level: this.level };
   }
 }

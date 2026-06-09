@@ -308,11 +308,25 @@ export function makeCompatController() {
     updateSettings: async (req, reply) => {
       const userId = actorId(req);
       if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      const body = req.body || {};
+      const normalized = {
+        ...body,
+        feature_and_announcement: typeof body.feature_and_announcement !== 'undefined' ? body.feature_and_announcement : body.featureAndAnnouncement,
+        featureAndAnnouncement: typeof body.featureAndAnnouncement !== 'undefined' ? body.featureAndAnnouncement : body.feature_and_announcement,
+        inbox: typeof body.inbox !== 'undefined' ? body.inbox : body.invox,
+        research: body.research,
+        recommended: body.recommended,
+        alerts: body.alerts,
+        profile: body.profile
+      };
+      for (const key of Object.keys(normalized)) {
+        if (typeof normalized[key] === 'undefined') delete normalized[key];
+      }
       await db('user_settings')
-        .insert({ id: uuidv4(), user_id: userId, settings: JSON.stringify(req.body || {}), created_at: now(), updated_at: now() })
+        .insert({ id: uuidv4(), user_id: userId, settings: JSON.stringify(normalized), created_at: now(), updated_at: now() })
         .onConflict('user_id')
-        .merge({ settings: JSON.stringify(req.body || {}), updated_at: now() });
-      return reply.send({ success: true, message: 'Settings updated successfully', data: { user_id: userId, ...(req.body || {}) } });
+        .merge({ settings: JSON.stringify(normalized), updated_at: now() });
+      return reply.send({ success: true, message: 'Settings updated successfully', data: { user_id: userId, ...normalized } });
     },
 
     disableAccount: async (req, reply) => {

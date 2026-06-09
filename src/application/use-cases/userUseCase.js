@@ -8,8 +8,33 @@ import Follower from '../../domain/entities/Follower.js';
 import UserOauthAccount from '../../domain/entities/UserOauthAccount.js';
 import UserLoginHistory from '../../domain/entities/UserLoginHistory.js';
 
+const toBool = (value, fallback = false) => {
+  if (typeof value === 'boolean') return value;
+  if (value === 1 || value === '1' || value === 'true') return true;
+  if (value === 0 || value === '0' || value === 'false') return false;
+  return fallback;
+};
+
+const profileSettingsShape = (settingsRow = null) => {
+  const settings = settingsRow && settingsRow.settings ? settingsRow.settings : {};
+  const notifications = settings.notifications || settings.notificationPreferences || {};
+  return {
+    id: settingsRow && settingsRow.id || null,
+    user_id: settingsRow && settingsRow.user_id || null,
+    feature_and_announcement: toBool(settings.feature_and_announcement ?? settings.featureAndAnnouncement ?? notifications.featureAndAnnouncement, true),
+    featureAndAnnouncement: toBool(settings.feature_and_announcement ?? settings.featureAndAnnouncement ?? notifications.featureAndAnnouncement, true),
+    inbox: toBool(settings.inbox ?? notifications.inbox, true),
+    research: toBool(settings.research ?? notifications.research, false),
+    recommended: toBool(settings.recommended ?? notifications.recommended, true),
+    alerts: toBool(settings.alerts ?? notifications.alerts, true),
+    profile: toBool(settings.profile ?? notifications.profile, true),
+    created_at: settingsRow && settingsRow.created_at || null,
+    updated_at: settingsRow && settingsRow.updated_at || null
+  };
+};
+
 export default class UserUseCase {
-  constructor({ userRepository, profileRepository, skillRepository, portfolioRepository, followerRepository, oauthRepository, loginHistoryRepository, certificationRepository = null, educationRepository = null, experienceRepository = null }) {
+  constructor({ userRepository, profileRepository, skillRepository, portfolioRepository, followerRepository, oauthRepository, loginHistoryRepository, certificationRepository = null, educationRepository = null, experienceRepository = null, settingsRepository = null }) {
     this.userRepository = userRepository;
     this.profileRepository = profileRepository;
     this.skillRepository = skillRepository;
@@ -20,6 +45,7 @@ export default class UserUseCase {
     this.certificationRepository = certificationRepository;
     this.educationRepository = educationRepository;
     this.experienceRepository = experienceRepository;
+    this.settingsRepository = settingsRepository;
   }
 
   async getUser(id) {
@@ -74,10 +100,16 @@ export default class UserUseCase {
       };
       const profile = parse(row.profile);
       const counts = await this.getUserStats(userId);
+      const rawSettings = this.settingsRepository && typeof this.settingsRepository.get === 'function'
+        ? await this.settingsRepository.get(userId)
+        : null;
+      const setting = profileSettingsShape(rawSettings);
       const name = (profile && (profile.displayName || profile.username)) || row.email || null;
       return {
         user: { id: row.user_id, name, email: row.email, role: row.role, created_at: row.user_created_at },
         profile,
+        setting,
+        settings: setting,
         skills: parse(row.skills) || [],
         portfolios: parse(row.portfolios) || [],
         certifications: parse(row.certifications) || [],
@@ -128,16 +160,19 @@ export default class UserUseCase {
   }
 
   async getUserStats(userId) {
-    // Returns counts: pages, communities, posts, comments
     const pages = await this.userRepository.countPages(userId);
     const communities = await this.userRepository.countCommunities(userId);
     const posts = await this.userRepository.countPosts(userId);
+    const questions = typeof this.userRepository.countQuestions === 'function' ? await this.userRepository.countQuestions(userId) : 0;
     const comments = await this.userRepository.countComments(userId);
+    const answers = typeof this.userRepository.countAnswers === 'function' ? await this.userRepository.countAnswers(userId) : 0;
     return {
       pages: parseInt(pages || 0, 10),
       communities: parseInt(communities || 0, 10),
       posts: parseInt(posts || 0, 10),
-      comments: parseInt(comments || 0, 10)
+      questions: parseInt(questions || 0, 10),
+      comments: parseInt(comments || 0, 10),
+      answers: parseInt(answers || 0, 10)
     };
   }
 
@@ -158,14 +193,21 @@ export default class UserUseCase {
       if (byName) throw new Error('username_taken');
     }
 
-    const profile = new UserProfile({ id: uuidv4(), user_id: userId, username: data.username, displayName: data.displayName || data.name, bio: data.bio, location: data.location, avatar: data.avatar, banner: data.banner, website: data.website, linkedin: data.linkedin, github: data.github, created_at: new Date() });
+    const profile = new UserProfile({ id: uuidv4(), user_id: userId, username: data.username, displayName: data.displayName || data.name, bio: data.bio, location: data.location, avatar: data.avatar, banner: data.banner, website: data.website, linkedin: data.linkedin, github: data.github, currentJobTitle: data.currentJobTitle || data.current_job_title, currentWorkspace: data.currentWorkspace || data.current_workspace, created_at: new Date() });
     return this.profileRepository.create(profile);
   }
 
   async updateProfile(userId, patch) {
     const existing = await this.profileRepository.findByUserId(userId);
     if (!existing) throw new Error('profile_not_found');
-    return this.profileRepository.update(existing.id, patch);
+    const normalizedPatch = { ...(patch || {}) };
+    if (Object.prototype.hasOwnProperty.call(normalizedPatch, 'displayName')) normalizedPatch.display_name = normalizedPatch.displayName;
+    if (Object.prototype.hasOwnProperty.call(normalizedPatch, 'currentJobTitle')) normalizedPatch.current_job_title = normalizedPatch.currentJobTitle;
+    if (Object.prototype.hasOwnProperty.call(normalizedPatch, 'currentWorkspace')) normalizedPatch.current_workspace = normalizedPatch.currentWorkspace;
+    delete normalizedPatch.displayName;
+    delete normalizedPatch.currentJobTitle;
+    delete normalizedPatch.currentWorkspace;
+    return this.profileRepository.update(existing.id, normalizedPatch);
   }
 
   async updateUserDisplayName(userId, actor, { name = null, displayName = null } = {}) {
@@ -223,7 +265,25 @@ export default class UserUseCase {
   }
 
   async listSkills(userId) {
-    return this.skillRepository.listByUserId(userId);
+    const direct = this.skillRepository && typeof this.skillRepository.listByUserId === 'function'
+      ? await this.skillRepository.listByUserId(userId)
+      : [];
+    if (direct && direct.length > 0) return direct;
+
+    const full = await this.getFullProfile(userId);
+    const rawSkills = full && Array.isArray(full.skills) ? full.skills : [];
+    return rawSkills.map((item, index) => {
+      if (item && typeof item.toPlainObject === 'function') return item;
+      if (item && typeof item === 'object') {
+        return new UserSkill({
+          id: item.id || `profile-skill-${index}`,
+          user_id: item.user_id || item.userId || userId,
+          skill: item.skill || item.name || item.title || item.value || null,
+          level: item.level || null
+        });
+      }
+      return new UserSkill({ id: `profile-skill-${index}`, user_id: userId, skill: String(item), level: null });
+    }).filter((item) => item && item.skill);
   }
 
   async addSkill(userId, { skill, level }) {

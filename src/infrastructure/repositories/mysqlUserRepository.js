@@ -191,7 +191,11 @@ export default class MysqlUserRepository {
           'banner', up.banner,
           'website', up.website,
           'linkedin', up.linkedin,
-          'github', up.github
+          'github', up.github,
+          'currentJobTitle', up.current_job_title,
+          'current_job_title', up.current_job_title,
+          'currentWorkspace', up.current_workspace,
+          'current_workspace', up.current_workspace
         ) as profile,
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', s.id, 'skill', s.skill, 'level', s.level)) FROM user_skills s WHERE s.user_id = u.id), JSON_ARRAY()) as skills,
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', p.id, 'title', p.title, 'description', p.description, 'link', p.link, 'pictures', IFNULL(p.pictures, JSON_ARRAY()))) FROM user_portfolios p WHERE p.user_id = u.id), JSON_ARRAY()) as portfolios,
@@ -442,8 +446,18 @@ export default class MysqlUserRepository {
     return numberFromRow(row);
   }
 
+  async countQuestions(userId) {
+    const row = await db('questions').where({ user_id: userId }).count({ cnt: 'id' }).first();
+    return numberFromRow(row);
+  }
+
   async countComments(userId) {
     const row = await db('comments').where({ user_id: userId }).count({ cnt: 'id' }).first();
+    return numberFromRow(row);
+  }
+
+  async countAnswers(userId) {
+    const row = await db('answers').where({ user_id: userId }).count({ cnt: 'id' }).first();
     return numberFromRow(row);
   }
 }

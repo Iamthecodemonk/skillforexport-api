@@ -454,7 +454,8 @@ export default async function startServer() {
         loginHistoryRepository: loginHistoryRepo,
         certificationRepository: certRepo,
         educationRepository: eduRepo,
-        experienceRepository: expRepo
+        experienceRepository: expRepo,
+        settingsRepository: userSettingsRepo
       });
       const userController = makeUserController({
         useCase: userUseCase,

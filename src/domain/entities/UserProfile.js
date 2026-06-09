@@ -1,5 +1,5 @@
 export default class UserProfile {
-  constructor({ id = null, user_id = null, username = null, display_name = null, displayName = null, bio = null, location = null, avatar = null, banner = null, website = null, linkedin = null, github = null, created_at = null } = {}) {
+  constructor({ id = null, user_id = null, username = null, display_name = null, displayName = null, bio = null, location = null, avatar = null, banner = null, website = null, linkedin = null, github = null, current_job_title = null, currentJobTitle = null, current_workspace = null, currentWorkspace = null, created_at = null } = {}) {
     this.id = id;
     this.userId = user_id || null;
     this.username = username || null;
@@ -11,6 +11,8 @@ export default class UserProfile {
     this.website = website || null;
     this.linkedin = linkedin || null;
     this.github = github || null;
+    this.currentJobTitle = currentJobTitle || current_job_title || null;
+    this.currentWorkspace = currentWorkspace || current_workspace || null;
     this.createdAt = created_at ? new Date(created_at) : null;
   }
 
@@ -27,6 +29,8 @@ export default class UserProfile {
       website: this.website,
       linkedin: this.linkedin,
       github: this.github,
+      current_job_title: this.currentJobTitle,
+      current_workspace: this.currentWorkspace,
       created_at: this.createdAt
     };
   }
@@ -44,6 +48,10 @@ export default class UserProfile {
       website: this.website,
       linkedin: this.linkedin,
       github: this.github,
+      currentJobTitle: this.currentJobTitle,
+      current_job_title: this.currentJobTitle,
+      currentWorkspace: this.currentWorkspace,
+      current_workspace: this.currentWorkspace,
       createdAt: this.createdAt ? (this.createdAt instanceof Date ? this.createdAt.toISOString() : String(this.createdAt)) : null
     };
   }

@@ -989,7 +989,11 @@ export const UserProfileBody = {
     banner: { type: ['string','null'] },
     website: { type: 'string' },
     linkedin: { type: 'string' },
-    github: { type: 'string' }
+    github: { type: 'string' },
+    currentJobTitle: { type: 'string' },
+    current_job_title: { type: 'string' },
+    currentWorkspace: { type: 'string' },
+    current_workspace: { type: 'string' }
   },
   example: {
     username: 'codemonk',
@@ -998,7 +1002,9 @@ export const UserProfileBody = {
     location: 'Remote',
     website: 'https://example.com',
     linkedin: 'https://linkedin.com/in/tech',
-    github: 'https://github.com/tech'
+    github: 'https://github.com/tech',
+    currentJobTitle: 'Backend Engineer',
+    currentWorkspace: 'Skills4Export'
   }
 };
 
@@ -1016,6 +1022,10 @@ export const UserProfileResponse = {
     website: { type: 'string' },
     linkedin: { type: 'string' },
     github: { type: 'string' },
+    currentJobTitle: { type: ['string','null'] },
+    current_job_title: { type: ['string','null'] },
+    currentWorkspace: { type: ['string','null'] },
+    current_workspace: { type: ['string','null'] },
     createdAt: { type: 'string', format: 'date-time' }
   }
 };
@@ -1031,6 +1041,10 @@ UserProfileResponse.example = {
   website: 'https://example.com',
   linkedin: 'https://linkedin.com/in/tech',
   github: 'https://github.com/tech',
+  currentJobTitle: 'Backend Engineer',
+  current_job_title: 'Backend Engineer',
+  currentWorkspace: 'Skills4Export',
+  current_workspace: 'Skills4Export',
   createdAt: '2026-04-13T00:00:00Z'
 };
 
@@ -1039,11 +1053,13 @@ export const Skill = {
   type: 'object',
   properties: {
     id: { type: 'string' },
-    name: { type: 'string' },
+    skill: { type: 'string' },
+    name: { type: 'string', description: 'Alias some clients may use for skill.' },
+    userId: { type: 'string' },
     level: { type: 'string', enum: ['beginner', 'intermediate', 'expert'] }
   }
 };
-Skill.example = { id: 'skill-uuid', name: 'JavaScript', level: 'expert' };
+Skill.example = { id: 'skill-uuid', userId: 'user-uuid', skill: 'JavaScript', name: 'JavaScript', level: 'expert' };
 
 export const Portfolio = {
   type: 'object',
@@ -1165,13 +1181,36 @@ export const FullProfileResponse = {
     experiences: { type: 'array', items: { ...Experience } }, // <--- Use spread
     followers: { type: 'array', items: { ...Follower } }, // <--- Use spread
     oauthAccounts: { type: 'array', items: { ...OAuthAccount } }, // <--- Use spread
+    setting: {
+      type: 'object',
+      properties: {
+        id: { type: ['string','null'] },
+        user_id: { type: ['string','null'] },
+        feature_and_announcement: { type: 'boolean' },
+        featureAndAnnouncement: { type: 'boolean' },
+        inbox: { type: 'boolean' },
+        research: { type: 'boolean' },
+        recommended: { type: 'boolean' },
+        alerts: { type: 'boolean' },
+        profile: { type: 'boolean' },
+        created_at: { type: ['string','null'] },
+        updated_at: { type: ['string','null'] }
+      }
+    },
+    settings: {
+      type: 'object',
+      description: 'Alias of setting for newer clients.',
+      additionalProperties: true
+    },
     counts: {
       type: 'object',
       properties: {
         pages: { type: 'number' },
         communities: { type: 'number' },
         posts: { type: 'number' },
-        comments: { type: 'number' }
+        questions: { type: 'number' },
+        comments: { type: 'number' },
+        answers: { type: 'number' }
       }
     }
   }

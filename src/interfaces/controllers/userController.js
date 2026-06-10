@@ -221,7 +221,7 @@ export function makeUserController({ useCase = null, followerRepository = null, 
         const updated = await useCase.updateProfile(id, patch);
         // Invalidate cached profile for this user if Redis is available
         try {
-          const redis = req.server && req.server.redisClient;
+          const redis = req.server && (req.server.redisManager || req.server.redisClient);
           if (redis) {
             const cacheKey = `user:profile:${id}`;
             await redis.del(cacheKey);

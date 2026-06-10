@@ -205,7 +205,7 @@ async function updateModerationTarget({ targetType, targetId, action, actorId })
   throw new Error('invalid_report_type');
 }
 
-export function makeCompatController() {
+export function makeCompatController({ cloudinary = null } = {}) {
   const postRepository = new MysqlPostRepository();
   const commentRepository = new MysqlCommentRepository();
   const questionRepository = new MysqlQuestionRepository();
@@ -251,6 +251,76 @@ export function makeCompatController() {
   ];
   const experience = ['entry-level', 'junior', 'mid-level', 'senior', 'lead', '0-1 years', '1-2 years', '2-3 years', '3-5 years', '5+ years'];
   const jobTypes = ['full-time', 'part-time', 'contract', 'hybrid', 'remote'];
+
+  const parsePictureValue = (value) => {
+    if (Array.isArray(value)) return value.filter(Boolean);
+    if (!value) return [];
+    if (typeof value === 'object') {
+      const url = value.url || value.path || value.secure_url || value.uri;
+      return url ? [url] : [];
+    }
+    const raw = String(value).trim();
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return parsePictureValue(parsed);
+    } catch (_) {
+      return raw.split(',').map((item) => item.trim()).filter(Boolean);
+    }
+  };
+
+  const drainFile = async (file) => {
+    if (!file) return;
+    for await (const _chunk of file) {
+      // consume stream so multipart parsing can finish
+    }
+  };
+
+  const uploadProjectFile = async (part) => {
+    if (!cloudinary || typeof cloudinary.uploadFromStream !== 'function') {
+      await drainFile(part.file);
+      return part.filename || null;
+    }
+    const isVideo = (part.mimetype || '').startsWith('video/');
+    const isDocument = !isVideo && !(part.mimetype || '').startsWith('image/');
+    const result = await cloudinary.uploadFromStream(part.file, {
+      folder: isVideo
+        ? (process.env.CLOUDINARY_FOLDER_VIDEOS || process.env.CLOUDINARY_FOLDER_POSTS || 'posts')
+        : isDocument
+          ? (process.env.CLOUDINARY_FOLDER_DOCS || 'documents')
+          : (process.env.CLOUDINARY_FOLDER_POSTS || 'posts'),
+      resource_type: isVideo ? 'video' : (isDocument ? 'raw' : 'image')
+    });
+    return result.secure_url || result.url || null;
+  };
+
+  const parseProjectBody = async (req) => {
+    if (!req.isMultipart || !req.isMultipart()) {
+      const body = { ...(req.body || {}) };
+      return { ...body, pictures: parsePictureValue(body.pictures || body.image || body.file) };
+    }
+
+    const body = {};
+    const pictures = [];
+    for await (const part of req.parts()) {
+      if (part.type === 'file') {
+        const uploaded = await uploadProjectFile(part);
+        if (uploaded) pictures.push(uploaded);
+        continue;
+      }
+      const key = part.fieldname;
+      const value = part.value;
+      if (key === 'pictures' || key === 'pictures[]' || key === 'image' || key === 'file') {
+        pictures.push(...parsePictureValue(value));
+      } else if (typeof body[key] === 'undefined') {
+        body[key] = value;
+      } else {
+        body[key] = Array.isArray(body[key]) ? [...body[key], value] : [body[key], value];
+      }
+    }
+    body.pictures = pictures;
+    return body;
+  };
 
   return {
     listEnums: async (req, reply) => reply.send({
@@ -663,13 +733,14 @@ export function makeCompatController() {
     listProjectRoot: async (req, reply) => paginateTable(req, reply, 'user_portfolios', { user_id: actorId(req) }),
     createProjectRoot: async (req, reply) => {
       const userId = actorId(req);
-      const body = req.body || {};
+      const body = await parseProjectBody(req);
       const row = { id: uuidv4(), user_id: userId, title: body.title || null, description: body.description || null, link: body.link || body.url || null, pictures: JSON.stringify(body.pictures || []), created_at: now(), updated_at: now() };
       await db('user_portfolios').insert(row);
       return reply.code(201).send({ success: true, data: row });
     },
     updateProjectRoot: async (req, reply) => {
-      const patch = { ...req.body, updated_at: now() };
+      const body = await parseProjectBody(req);
+      const patch = { ...body, updated_at: now() };
       if (Array.isArray(patch.pictures)) patch.pictures = JSON.stringify(patch.pictures);
       await db('user_portfolios').where({ id: req.params.id, user_id: actorId(req) }).update(patch);
       const row = await db('user_portfolios').where({ id: req.params.id, user_id: actorId(req) }).first();

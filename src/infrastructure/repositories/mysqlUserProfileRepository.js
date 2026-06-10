@@ -18,7 +18,21 @@ const normalizePatch = (patch = {}) => {
     delete payload.currentWorkspace;
   }
   delete payload.userId;
-  return payload;
+  delete payload.user_id;
+  const allowed = new Set([
+    'username',
+    'display_name',
+    'bio',
+    'location',
+    'avatar',
+    'banner',
+    'website',
+    'linkedin',
+    'github',
+    'current_job_title',
+    'current_workspace'
+  ]);
+  return Object.fromEntries(Object.entries(payload).filter(([key]) => allowed.has(key)));
 };
 
 export default class MysqlUserProfileRepository {
@@ -52,7 +66,10 @@ export default class MysqlUserProfileRepository {
 
   async update(id, patch) {
     const now = new Date();
-    await db('user_profiles').where({ id }).update({ ...normalizePatch(patch), updated_at: now });
+    const payload = normalizePatch(patch);
+    if (Object.keys(payload).length) {
+      await db('user_profiles').where({ id }).update({ ...payload, updated_at: now });
+    }
     return db('user_profiles').where({ id }).first();
   }
 }

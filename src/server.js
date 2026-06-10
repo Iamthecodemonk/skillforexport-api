@@ -359,7 +359,7 @@ export default async function startServer() {
   }
 
   // register app routes
-  const controllers = { ...healthController, ...makeCompatController() };
+  const controllers = { ...healthController, ...makeCompatController({ cloudinary }) };
   let notificationRepository = null;
   try {
     notificationRepository = new MysqlNotificationRepository();

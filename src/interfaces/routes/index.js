@@ -991,7 +991,10 @@ export default async function registerRoutes(fastify, deps) {
   }, async (req, reply) => {
     const id = req.user && req.user.id;
     if (!id) return sendError(reply, 401, 'unauthorized', 'Unauthorized');
-    if ((req.body || {}).name || (req.body || {}).displayName) {
+    const body = req.body || {};
+    const profileKeys = ['username', 'displayName', 'display_name', 'bio', 'location', 'avatar', 'banner', 'website', 'linkedin', 'github', 'currentJobTitle', 'current_job_title', 'currentWorkspace', 'current_workspace'];
+    const hasProfilePatch = profileKeys.some((key) => Object.prototype.hasOwnProperty.call(body, key));
+    if ((body.name || body.displayName) && !hasProfilePatch) {
       req.params = { id };
       return handler('updateUser')(req, reply);
     }
@@ -1077,9 +1080,9 @@ export default async function registerRoutes(fastify, deps) {
   fastify.put('/certifications/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyUpdateCertification', tags: ['Certifications'], description: 'Legacy certification update', params: idParam(), body: { ...schemas.Certification, required: [] }, response: { 200: dataResponse(schemas.Certification), 404: schemas.GenericErrorResponse } } }, handler('updateCertificationRoot'));
   fastify.delete('/certifications/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyDeleteCertification', tags: ['Certifications'], description: 'Legacy certification delete', params: idParam(), response: { 200: schemas.IdSuccessResponse } } }, handler('deleteCertificationRoot'));
   fastify.get('/projects', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyListProjects', tags: ['Projects'], description: 'Legacy project resource list', querystring: { type: 'object', properties: listQueryBase }, response: { 200: genericPaginatedResponse } } }, handler('listProjectRoot'));
-  fastify.post('/projects', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyCreateProject', tags: ['Projects'], description: 'Legacy project create', body: { ...schemas.Portfolio, required: [] }, response: { 201: dataResponse(schemas.Portfolio), 422: schemas.GenericErrorResponse } } }, handler('createProjectRoot'));
-  fastify.put('/projects/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyUpdateProject', tags: ['Projects'], description: 'Legacy project update', params: idParam(), body: { ...schemas.Portfolio, required: [] }, response: { 200: dataResponse(schemas.Portfolio), 404: schemas.GenericErrorResponse } } }, handler('updateProjectRoot'));
-  fastify.post('/projects/:id/update', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyUpdateProjectFallback', tags: ['Projects'], description: 'Legacy project update fallback', params: idParam(), body: { ...schemas.Portfolio, required: [] }, response: { 200: dataResponse(schemas.Portfolio), 404: schemas.GenericErrorResponse } } }, handler('updateProjectRoot'));
+  fastify.post('/projects', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyCreateProject', tags: ['Projects'], description: 'Legacy project create. Accepts JSON or multipart/form-data with title, description, link/url, pictures and optional file/image fields.', response: { 201: dataResponse(schemas.Portfolio), 422: schemas.GenericErrorResponse } } }, handler('createProjectRoot'));
+  fastify.put('/projects/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyUpdateProject', tags: ['Projects'], description: 'Legacy project update. Accepts JSON or multipart/form-data.', params: idParam(), response: { 200: dataResponse(schemas.Portfolio), 404: schemas.GenericErrorResponse } } }, handler('updateProjectRoot'));
+  fastify.post('/projects/:id/update', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyUpdateProjectFallback', tags: ['Projects'], description: 'Legacy project update fallback. Accepts JSON or multipart/form-data.', params: idParam(), response: { 200: dataResponse(schemas.Portfolio), 404: schemas.GenericErrorResponse } } }, handler('updateProjectRoot'));
   fastify.delete('/projects/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyDeleteProject', tags: ['Projects'], description: 'Legacy project delete', params: idParam(), response: { 200: schemas.IdSuccessResponse } } }, handler('deleteProjectRoot'));
 
   fastify.post('/users/:id/profile', {

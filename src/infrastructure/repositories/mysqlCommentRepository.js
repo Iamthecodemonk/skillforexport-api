@@ -105,19 +105,22 @@ export default class MysqlCommentRepository {
     return (rows || []).map(row => this.mapComment(row));
   }
 
-  async listByUser(userId, { limit = 50, offset = 0, actorId = null, includeHidden = false } = {}) {
+  async listByUser(userId, { limit = 50, offset = 0, actorId = null, includeHidden = false, search = null } = {}) {
     const q = this.baseCommentQuery(actorId || userId)
       .where('c.user_id', userId)
       .orderBy('c.created_at', 'desc')
       .limit(limit)
       .offset(offset);
+    if (search) q.andWhere('c.content', 'like', `%${search}%`);
     this.applyModerationFilter(q, includeHidden);
     const rows = await q;
     return (rows || []).map(row => this.mapComment(row));
   }
 
-  async countByUser(userId) {
-    const row = await db('comments').where({ user_id: userId }).whereNotIn('moderation_status', ['suspended', 'deleted']).count({ cnt: 'id' }).first();
+  async countByUser(userId, { search = null } = {}) {
+    const query = db('comments').where({ user_id: userId }).whereNotIn('moderation_status', ['suspended', 'deleted']);
+    if (search) query.andWhere('content', 'like', `%${search}%`);
+    const row = await query.count({ cnt: 'id' }).first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);
   }

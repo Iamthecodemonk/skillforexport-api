@@ -173,12 +173,12 @@ export default class MysqlQuestionRepository {
     return parseInt(cnt || 0, 10);
   }
 
-  async listByUser(userId, { limit = 20, offset = 0, sortField = null, sortDirection = null } = {}) {
-    return this.list({ limit, offset, userId, sortField, sortDirection });
+  async listByUser(userId, { limit = 20, offset = 0, sortField = null, sortDirection = null, search = null } = {}) {
+    return this.list({ limit, offset, userId, sortField, sortDirection, search });
   }
 
-  async countByUser(userId) {
-    return this.countAll({ userId });
+  async countByUser(userId, { search = null } = {}) {
+    return this.countAll({ userId, search });
   }
 
   async update(id, patch) {

@@ -95,12 +95,13 @@ export default class MysqlAnswerRepository {
     return (rows || []).map(row => this.mapAnswer(row));
   }
 
-  async listByUser(userId, { limit = 50, offset = 0, actorId = null, includeHidden = false } = {}) {
+  async listByUser(userId, { limit = 50, offset = 0, actorId = null, includeHidden = false, search = null } = {}) {
     const q = this.baseAnswerQuery(actorId || userId)
       .where('a.user_id', userId)
       .orderBy('a.created_at', 'desc')
       .limit(limit)
       .offset(offset);
+    if (search) q.andWhere('a.content', 'like', `%${search}%`);
     this.applyModerationFilter(q, includeHidden);
     const rows = await q;
 
@@ -119,8 +120,10 @@ export default class MysqlAnswerRepository {
     return parseInt(cnt || 0, 10);
   }
 
-  async countByUser(userId) {
-    const row = await db('answers').where({ user_id: userId }).whereNotIn('moderation_status', ['suspended', 'deleted']).count({ cnt: 'id' }).first();
+  async countByUser(userId, { search = null } = {}) {
+    const query = db('answers').where({ user_id: userId }).whereNotIn('moderation_status', ['suspended', 'deleted']);
+    if (search) query.andWhere('content', 'like', `%${search}%`);
+    const row = await query.count({ cnt: 'id' }).first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);
   }

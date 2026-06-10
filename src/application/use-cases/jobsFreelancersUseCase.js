@@ -186,8 +186,29 @@ export default class JobsFreelancersUseCase {
         unique.push(clean);
       }
     }
-    if (body.sponsorshipAlert && !body.scholarshipType) throw new Error('validation_error');
-    return this.repository.upsertAlertPreferences(actor.id, { ...body, jobSearchTags: unique });
+    const scholarshipTypes = Array.isArray(body.scholarshipTypes)
+      ? body.scholarshipTypes
+      : Array.isArray(body.scholarship_types)
+        ? body.scholarship_types
+        : (body.scholarshipType || body.scholarship_type ? [body.scholarshipType || body.scholarship_type] : []);
+    const employmentTypes = Array.isArray(body.employmentTypes)
+      ? body.employmentTypes
+      : Array.isArray(body.employment_types)
+        ? body.employment_types
+        : (body.employmentType || body.employment_type ? [body.employmentType || body.employment_type] : []);
+    const experienceLevels = Array.isArray(body.experienceLevels)
+      ? body.experienceLevels
+      : Array.isArray(body.experience_levels)
+        ? body.experience_levels
+        : (body.experienceLevel || body.experience_level ? [body.experienceLevel || body.experience_level] : []);
+    if (body.sponsorshipAlert && !scholarshipTypes.length) throw new Error('validation_error');
+    return this.repository.upsertAlertPreferences(actor.id, {
+      ...body,
+      jobSearchTags: unique,
+      scholarshipTypes,
+      employmentTypes,
+      experienceLevels
+    });
   }
 
   async listFreelancers(params) {

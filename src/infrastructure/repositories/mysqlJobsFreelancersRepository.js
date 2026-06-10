@@ -281,14 +281,21 @@ export default class MysqlJobsFreelancersRepository {
   async upsertAlertPreferences(userId, input = {}) {
     const now = this.now();
     const existing = await db('alert_preferences').where({ user_id: userId }).first();
+    const scholarshipTypes = toArray(input.scholarshipTypes || input.scholarship_types || input.scholarshipType || input.scholarship_type);
+    const employmentTypes = toArray(input.employmentTypes || input.employment_types || input.employmentType || input.employment_type);
+    const experienceLevels = toArray(input.experienceLevels || input.experience_levels || input.experienceLevel || input.experience_level);
     const payload = {
       id: existing ? existing.id : uuidv4(),
       user_id: userId,
       contest_alert: toBool(input.contestAlert),
       sponsorship_alert: toBool(input.sponsorshipAlert),
-      scholarship_type: input.scholarshipType || null,
+      sales_alert: toBool(input.salesAlert),
+      scholarship_type: scholarshipTypes[0] || null,
+      scholarship_types: json(scholarshipTypes),
       job_alert: toBool(input.jobAlert),
       job_search_tags: json(input.jobSearchTags),
+      employment_types: json(employmentTypes),
+      experience_levels: json(experienceLevels),
       created_at: existing ? existing.created_at : now,
       updated_at: now
     };
@@ -303,9 +310,16 @@ export default class MysqlJobsFreelancersRepository {
     return {
       contestAlert: Boolean(row.contest_alert),
       sponsorshipAlert: Boolean(row.sponsorship_alert),
+      salesAlert: Boolean(row.sales_alert),
       scholarshipType: row.scholarship_type,
+      scholarshipTypes: parseJson(row.scholarship_types, row.scholarship_type ? [row.scholarship_type] : []),
+      scholarship_types: parseJson(row.scholarship_types, row.scholarship_type ? [row.scholarship_type] : []),
       jobAlert: Boolean(row.job_alert),
       jobSearchTags: parseJson(row.job_search_tags),
+      employmentTypes: parseJson(row.employment_types),
+      employment_types: parseJson(row.employment_types),
+      experienceLevels: parseJson(row.experience_levels),
+      experience_levels: parseJson(row.experience_levels),
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };

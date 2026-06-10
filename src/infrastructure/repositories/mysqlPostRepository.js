@@ -205,13 +205,19 @@ export default class MysqlPostRepository {
     return (rows || []).map(row => this.mapPost(row));
   }
 
-  async listByUser(ownerUserId, { limit = 20, offset = 0, actorId = null, includeHidden = false } = {}) {
+  async listByUser(ownerUserId, { limit = 20, offset = 0, actorId = null, includeHidden = false, search = null } = {}) {
     const q = this.basePostQuery(actorId || ownerUserId)
       .where('p.user_id', ownerUserId)
       .orderBy('p.created_at', 'desc')
       .orderBy('p.id', 'desc')
       .limit(limit)
       .offset(offset);
+    if (search) {
+      const like = `%${search}%`;
+      q.andWhere((builder) => {
+        builder.where('p.title', 'like', like).orWhere('p.content', 'like', like);
+      });
+    }
     applyPostModerationFilter(q, includeHidden);
     const rows = await q;
     return (rows || []).map(row => this.mapPost(row));
@@ -230,8 +236,15 @@ export default class MysqlPostRepository {
     return parseInt(cnt || 0, 10);
   }
 
-  async countByUser(userId) {
-    const row = await db('posts').where({ user_id: userId }).count({ cnt: 'id' }).first();
+  async countByUser(userId, { search = null } = {}) {
+    const query = db('posts').where({ user_id: userId });
+    if (search) {
+      const like = `%${search}%`;
+      query.andWhere((builder) => {
+        builder.where('title', 'like', like).orWhere('content', 'like', like);
+      });
+    }
+    const row = await query.count({ cnt: 'id' }).first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);
   }

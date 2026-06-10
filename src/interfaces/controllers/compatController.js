@@ -12,6 +12,12 @@ const compatLogger = logger.child('COMPAT_CONTROLLER');
 const actorId = (req) => req.user && req.user.id;
 const now = () => new Date();
 const csv = (value) => String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
+const queryText = (req) => {
+  const query = (req && req.query) || {};
+  const value = query.q || query.query || query.search || '';
+  return String(value || '').trim();
+};
+const likeText = (value) => `%${String(value || '').trim()}%`;
 
 async function paginateTable(req, reply, table, where = {}, orderColumn = 'created_at') {
   const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
@@ -470,9 +476,10 @@ export function makeCompatController({ cloudinary = null } = {}) {
       const userId = actorId(req);
       if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
       const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
+      const search = queryText(req);
       const [data, total] = await Promise.all([
-        postRepository.listByUser(userId, { limit, offset, actorId: userId }),
-        postRepository.countByUser(userId)
+        postRepository.listByUser(userId, { limit, offset, actorId: userId, search }),
+        postRepository.countByUser(userId, { search })
       ]);
       return sendPaginated(req, reply, { data, page, perPage, total });
     },
@@ -480,21 +487,23 @@ export function makeCompatController({ cloudinary = null } = {}) {
       const userId = actorId(req);
       if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
       const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
-      const rows = await commentRepository.listByUser(userId, { limit, offset, actorId: userId });
+      const search = queryText(req);
+      const rows = await commentRepository.listByUser(userId, { limit, offset, actorId: userId, search });
       const data = await Promise.all(rows.map(async (comment) => ({
         ...comment,
         commentable: await postRepository.findById(comment.post_id, { userId })
       })));
-      const total = await commentRepository.countByUser(userId);
+      const total = await commentRepository.countByUser(userId, { search });
       return sendPaginated(req, reply, { data, page, perPage, total });
     },
     listUserQuestions: async (req, reply) => {
       const userId = actorId(req);
       if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
       const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
+      const search = queryText(req);
       const [data, total] = await Promise.all([
-        questionRepository.listByUser(userId, { limit, offset }),
-        questionRepository.countByUser(userId)
+        questionRepository.listByUser(userId, { limit, offset, search }),
+        questionRepository.countByUser(userId, { search })
       ]);
       return sendPaginated(req, reply, { data, page, perPage, total });
     },
@@ -502,31 +511,100 @@ export function makeCompatController({ cloudinary = null } = {}) {
       const userId = actorId(req);
       if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
       const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
-      const rows = await answerRepository.listByUser(userId, { limit, offset, actorId: userId });
+      const search = queryText(req);
+      const rows = await answerRepository.listByUser(userId, { limit, offset, actorId: userId, search });
       const data = await Promise.all(rows.map(async (answer) => ({
         ...answer,
         question: await questionRepository.findById(answer.question_id)
       })));
-      const total = await answerRepository.countByUser(userId);
+      const total = await answerRepository.countByUser(userId, { search });
       return sendPaginated(req, reply, { data, page, perPage, total });
     },
     listSavedPosts: async (req, reply) => {
       const userId = actorId(req);
       if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
       const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
-      const saves = await db('post_saves').where({ user_id: userId }).orderBy('created_at', 'desc').limit(limit).offset(offset);
+      const search = queryText(req);
+      const savesQuery = db('post_saves as ps').where('ps.user_id', userId).orderBy('ps.created_at', 'desc').limit(limit).offset(offset).select('ps.*');
+      const countQuery = db('post_saves as ps').where('ps.user_id', userId).count({ cnt: 'ps.id' }).first();
+      if (search) {
+        savesQuery.leftJoin('posts as p', 'p.id', 'ps.post_id').andWhere((builder) => {
+          builder.where('p.title', 'like', likeText(search)).orWhere('p.content', 'like', likeText(search));
+        });
+        countQuery.leftJoin('posts as p', 'p.id', 'ps.post_id').andWhere((builder) => {
+          builder.where('p.title', 'like', likeText(search)).orWhere('p.content', 'like', likeText(search));
+        });
+      }
+      const saves = await savesQuery;
       const data = await Promise.all((saves || []).map(async (save) => {
         const feed = await postRepository.findById(save.post_id, { userId });
         return feed ? { ...feed, saved_at: save.created_at, save_id: save.id } : null;
       }));
-      const countRow = await db('post_saves').where({ user_id: userId }).count({ cnt: 'id' }).first();
+      const countRow = await countQuery;
       const total = parseInt((countRow && (countRow.cnt || Object.values(countRow)[0])) || 0, 10);
       return sendPaginated(req, reply, { data: data.filter(Boolean), page, perPage, total });
     },
-    listSavedQuestions: async (req, reply) => paginateTable(req, reply, 'saved_items', { user_id: actorId(req), target_type: 'question' }),
-    listPostScores: async (req, reply) => paginateTable(req, reply, 'post_reactions', { user_id: actorId(req) }),
-    listCommentScores: async (req, reply) => paginateTable(req, reply, 'comment_reactions', { user_id: actorId(req) }),
-    listAnswerScores: async (req, reply) => paginateTable(req, reply, 'answer_reactions', { user_id: actorId(req) }),
+    listSavedQuestions: async (req, reply) => {
+      const userId = actorId(req);
+      if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
+      const search = queryText(req);
+      const savesQuery = db('saved_items as si').where({ 'si.user_id': userId, 'si.target_type': 'question' }).orderBy('si.created_at', 'desc').limit(limit).offset(offset).select('si.*');
+      const countQuery = db('saved_items as si').where({ 'si.user_id': userId, 'si.target_type': 'question' }).count({ cnt: 'si.id' }).first();
+      if (search) {
+        savesQuery.leftJoin('questions as q', 'q.id', 'si.target_id').andWhere((builder) => {
+          builder.where('q.title', 'like', likeText(search)).orWhere('q.content', 'like', likeText(search));
+        });
+        countQuery.leftJoin('questions as q', 'q.id', 'si.target_id').andWhere((builder) => {
+          builder.where('q.title', 'like', likeText(search)).orWhere('q.content', 'like', likeText(search));
+        });
+      }
+      const saves = await savesQuery;
+      const data = await Promise.all((saves || []).map(async (save) => {
+        const question = await questionRepository.findById(save.target_id);
+        return question ? { ...question, saved_at: save.created_at, save_id: save.id } : null;
+      }));
+      const countRow = await countQuery;
+      const total = parseInt((countRow && (countRow.cnt || Object.values(countRow)[0])) || 0, 10);
+      return sendPaginated(req, reply, { data: data.filter(Boolean), page, perPage, total });
+    },
+    listPostScores: async (req, reply) => {
+      const userId = actorId(req);
+      if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      const search = queryText(req);
+      if (!search) return paginateTable(req, reply, 'post_reactions', { user_id: userId });
+      const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
+      const query = db('post_reactions as r').leftJoin('posts as p', 'p.id', 'r.post_id').where('r.user_id', userId).andWhere((builder) => {
+        builder.where('p.title', 'like', likeText(search)).orWhere('p.content', 'like', likeText(search));
+      }).select('r.*').orderBy('r.created_at', 'desc').limit(limit).offset(offset);
+      const countQuery = db('post_reactions as r').leftJoin('posts as p', 'p.id', 'r.post_id').where('r.user_id', userId).andWhere((builder) => {
+        builder.where('p.title', 'like', likeText(search)).orWhere('p.content', 'like', likeText(search));
+      }).count({ cnt: 'r.id' }).first();
+      const [data, countRow] = await Promise.all([query, countQuery]);
+      return sendPaginated(req, reply, { data, page, perPage, total: parseInt((countRow && (countRow.cnt || Object.values(countRow)[0])) || 0, 10) });
+    },
+    listCommentScores: async (req, reply) => {
+      const userId = actorId(req);
+      if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      const search = queryText(req);
+      if (!search) return paginateTable(req, reply, 'comment_reactions', { user_id: userId });
+      const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
+      const query = db('comment_reactions as r').leftJoin('comments as c', 'c.id', 'r.comment_id').where('r.user_id', userId).where('c.content', 'like', likeText(search)).select('r.*').orderBy('r.created_at', 'desc').limit(limit).offset(offset);
+      const countQuery = db('comment_reactions as r').leftJoin('comments as c', 'c.id', 'r.comment_id').where('r.user_id', userId).where('c.content', 'like', likeText(search)).count({ cnt: 'r.id' }).first();
+      const [data, countRow] = await Promise.all([query, countQuery]);
+      return sendPaginated(req, reply, { data, page, perPage, total: parseInt((countRow && (countRow.cnt || Object.values(countRow)[0])) || 0, 10) });
+    },
+    listAnswerScores: async (req, reply) => {
+      const userId = actorId(req);
+      if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      const search = queryText(req);
+      if (!search) return paginateTable(req, reply, 'answer_reactions', { user_id: userId });
+      const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
+      const query = db('answer_reactions as r').leftJoin('answers as a', 'a.id', 'r.answer_id').where('r.user_id', userId).where('a.content', 'like', likeText(search)).select('r.*').orderBy('r.created_at', 'desc').limit(limit).offset(offset);
+      const countQuery = db('answer_reactions as r').leftJoin('answers as a', 'a.id', 'r.answer_id').where('r.user_id', userId).where('a.content', 'like', likeText(search)).count({ cnt: 'r.id' }).first();
+      const [data, countRow] = await Promise.all([query, countQuery]);
+      return sendPaginated(req, reply, { data, page, perPage, total: parseInt((countRow && (countRow.cnt || Object.values(countRow)[0])) || 0, 10) });
+    },
 
     addLegacySkills: async (req, reply) => {
       const userId = actorId(req);

@@ -35,6 +35,14 @@ const normalizePatch = (patch = {}) => {
   return Object.fromEntries(Object.entries(payload).filter(([key]) => allowed.has(key)));
 };
 
+const normalizeCreate = (record = {}) => {
+  const source = record && typeof record.toRecord === 'function' ? record.toRecord() : record;
+  const payload = { ...normalizePatch(source) };
+  payload.id = source.id;
+  payload.user_id = source.user_id || source.userId;
+  return payload;
+};
+
 export default class MysqlUserProfileRepository {
   async findByUserId(userId) {
     if (!userId) return null;
@@ -48,7 +56,7 @@ export default class MysqlUserProfileRepository {
 
   async create(record) {
     const now = new Date();
-    const payload = { ...normalizePatch(record), created_at: now };
+    const payload = { ...normalizeCreate(record), created_at: now };
     try {
       repoLog.debug('Inserting user_profile', { payload });
       await db('user_profiles').insert(payload);

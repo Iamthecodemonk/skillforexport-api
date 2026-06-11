@@ -42,7 +42,7 @@ export function makeJobsFreelancersController({ useCase }) {
     },
     listAllJobs: async (req, reply) => {
       try {
-        const params = queryParams(req);
+        const params = queryParams(req, 100);
         const data = await useCase.listAllJobs(actor(req), params);
         const total = await useCase.countAllJobs(actor(req), params);
         return reply.send(buildPaginatedResponse(req, { data, page: params.page, perPage: params.perPage, total }));

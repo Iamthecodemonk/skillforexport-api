@@ -180,6 +180,7 @@ export default class MysqlUserRepository {
         u.id as user_id,
         u.email,
         u.role,
+        u.referral_code,
         u.created_at as user_created_at,
         JSON_OBJECT(
           'id', up.id,

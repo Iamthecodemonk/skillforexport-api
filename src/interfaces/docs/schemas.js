@@ -1163,6 +1163,17 @@ UserLoginHistory.example = { id: 'login-uuid', userId: 'user-uuid', loginMethod:
 export const FullProfileResponse = {
   type: 'object',
   properties: {
+    id: { type: 'string' },
+    uuid: { type: 'string' },
+    name: { type: ['string','null'] },
+    email: { type: 'string' },
+    is_admin: { type: 'boolean' },
+    profile_image: { type: ['string','null'] },
+    location: { type: ['string','null'] },
+    bio: { type: ['string','null'] },
+    current_job_title: { type: ['string','null'] },
+    current_workspace: { type: ['string','null'] },
+    notification_email: { type: ['string','null'] },
     user: {
       type: 'object',
       properties: {
@@ -1175,12 +1186,33 @@ export const FullProfileResponse = {
     },
     profile: { ...UserProfileResponse }, // <--- Use spread
     skills: { type: 'array', items: { ...Skill } }, // <--- Use spread
+    educations: { type: 'array', items: { ...Education } },
     portfolios: { type: 'array', items: { ...Portfolio } }, // <--- Use spread
+    projects: { type: 'array', items: { ...Portfolio } },
     certifications: { type: 'array', items: { ...Certification } }, // <--- Use spread
     education: { type: 'array', items: { ...Education } }, // <--- Use spread
     experiences: { type: 'array', items: { ...Experience } }, // <--- Use spread
+    activeExperiences: { type: 'array', items: { ...Experience } },
     followers: { type: 'array', items: { ...Follower } }, // <--- Use spread
+    following: {
+      type: 'object',
+      properties: {
+        users: { type: 'array', items: { type: 'object', additionalProperties: true } },
+        pages: { type: 'array', items: { type: 'object', additionalProperties: true } },
+        totals: { type: 'number' }
+      }
+    },
     oauthAccounts: { type: 'array', items: { ...OAuthAccount } }, // <--- Use spread
+    communities: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    privacy: {
+      type: 'object',
+      properties: {
+        picture: { type: 'number', enum: [1, 2, 3] },
+        country: { type: 'number', enum: [1, 2, 3] },
+        biography: { type: 'number', enum: [1, 2, 3] }
+      },
+      additionalProperties: true
+    },
     setting: {
       type: 'object',
       properties: {
@@ -1196,13 +1228,22 @@ export const FullProfileResponse = {
         recommended: { type: 'boolean' },
         alerts: { type: 'boolean' },
         profile: { type: 'boolean' },
+        privacy: {
+          type: 'object',
+          properties: {
+            picture: { type: 'number', enum: [1, 2, 3] },
+            country: { type: 'number', enum: [1, 2, 3] },
+            biography: { type: 'number', enum: [1, 2, 3] }
+          },
+          additionalProperties: true
+        },
         created_at: { type: ['string','null'] },
         updated_at: { type: ['string','null'] }
       }
     },
     settings: {
       type: 'object',
-      description: 'Alias of setting for newer clients.',
+      description: 'Alias of setting for newer clients. This is flat and does not contain another settings object.',
       additionalProperties: true
     },
     counts: {
@@ -1215,7 +1256,28 @@ export const FullProfileResponse = {
         comments: { type: 'number' },
         answers: { type: 'number' }
       }
-    }
+    },
+    scores: {
+      type: 'object',
+      properties: {
+        total: { type: 'number' },
+        byCommunity: { type: 'array', items: { type: 'object', additionalProperties: true } }
+      }
+    },
+    alerts: {
+      type: 'object',
+      properties: {
+        contest_alert: { type: 'boolean' },
+        sales_alert: { type: 'boolean' },
+        scholarship_types: { type: 'array', items: { type: 'string' } },
+        job_experience: { type: ['string','null'] },
+        job_tags: { type: 'array', items: { type: 'string' } },
+        job_types: { type: 'array', items: { type: 'string' } }
+      }
+    },
+    created_at: { type: ['string','null'] },
+    created_at_human: { type: ['string','null'] },
+    referral_code: { type: ['string','null'] }
   }
 };
 

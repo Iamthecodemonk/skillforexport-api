@@ -41,12 +41,18 @@ export default class JobsFreelancersUseCase {
 
   async listAllJobs(actor, params = {}) {
     this.assertAdmin(actor);
-    return this.repository.listJobs({ ...params, status: params.status || null, statuses: params.statuses || null });
+    const status = !params.status || params.status === 'all' || params.status === 'any'
+      ? null
+      : (params.status === 'pending' ? 'pending_review' : params.status);
+    return this.repository.listJobs({ ...params, status, statuses: params.statuses || null });
   }
 
   async countAllJobs(actor, params = {}) {
     this.assertAdmin(actor);
-    return this.repository.countJobs({ ...params, status: params.status || null, statuses: params.statuses || null });
+    const status = !params.status || params.status === 'all' || params.status === 'any'
+      ? null
+      : (params.status === 'pending' ? 'pending_review' : params.status);
+    return this.repository.countJobs({ ...params, status, statuses: params.statuses || null });
   }
 
   async getJob(idOrSlug, userId = null) {

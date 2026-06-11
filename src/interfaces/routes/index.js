@@ -344,7 +344,7 @@ export default async function registerRoutes(fastify, deps) {
   // ========== Jobs, Alerts, Freelancers ==========
   fastify.get('/admin/jobs', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'adminListJobs', tags: ['Admin', 'Jobs'], description: 'Admin list of all regular jobs, including pending, approved, suspended, deleted, closed, and archived jobs.', querystring: jobsQuery, response: { 200: schemas.JobPaginatedResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse } }
+    schema: { operationId: 'adminListJobs', tags: ['Admin', 'Jobs'], description: 'Admin list of all regular jobs, including pending, approved, suspended, deleted, closed, and archived jobs. Defaults to per_page=100. Omit status or send status=all for all jobs; status=pending is accepted as pending_review.', querystring: jobsQuery, response: { 200: schemas.JobPaginatedResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse } }
   }, handler('listAllJobs'));
   fastify.patch('/admin/jobs/:id/status', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,

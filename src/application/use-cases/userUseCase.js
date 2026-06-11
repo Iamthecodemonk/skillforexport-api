@@ -33,10 +33,23 @@ const profileSettingsShape = (settingsRow = null) => {
     alerts: toBool(settings.alerts ?? notifications.alerts, true),
     profile: toBool(settings.profile ?? notifications.profile, true),
     privacy,
-    settings,
     created_at: settingsRow && settingsRow.created_at || null,
     updated_at: settingsRow && settingsRow.updated_at || null
   };
+};
+
+const humanDate = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const diffSeconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (diffSeconds < 60) return 'just now';
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
 };
 
 export default class UserUseCase {
@@ -110,20 +123,62 @@ export default class UserUseCase {
         ? await this.settingsRepository.get(userId)
         : null;
       const setting = profileSettingsShape(rawSettings);
+      const privacy = rawSettings && rawSettings.privacy ? rawSettings.privacy : {};
       const name = (profile && (profile.displayName || profile.username)) || row.email || null;
+      const skills = parse(row.skills) || [];
+      const portfolios = parse(row.portfolios) || [];
+      const certifications = parse(row.certifications) || [];
+      const education = parse(row.education) || [];
+      const experiences = parse(row.experiences) || [];
+      const followers = parse(row.followers) || [];
+      const oauthAccounts = parse(row.oauth_accounts) || [];
+      const createdAt = row.user_created_at;
+      const rawAlertSettings = rawSettings && rawSettings.settings && typeof rawSettings.settings.alerts === 'object'
+        ? rawSettings.settings.alerts
+        : {};
+      const alerts = {
+        contest_alert: rawAlertSettings.contest_alert ?? false,
+        sales_alert: rawAlertSettings.sales_alert ?? false,
+        scholarship_types: Array.isArray(rawAlertSettings.scholarship_types) ? rawAlertSettings.scholarship_types : [],
+        job_experience: rawAlertSettings.job_experience ?? null,
+        job_tags: Array.isArray(rawAlertSettings.job_tags) ? rawAlertSettings.job_tags : [],
+        job_types: Array.isArray(rawAlertSettings.job_types) ? rawAlertSettings.job_types : []
+      };
       return {
-        user: { id: row.user_id, name, email: row.email, role: row.role, created_at: row.user_created_at },
-        profile,
+        id: row.user_id,
+        uuid: row.user_id,
+        name,
+        email: row.email,
+        is_admin: row.role === 'admin',
+        profile_image: profile && (profile.avatar || profile.profile_image || profile.profileImage) || null,
+        location: profile && profile.location || null,
+        bio: profile && profile.bio || null,
+        current_job_title: profile && (profile.current_job_title || profile.currentJobTitle) || null,
+        current_workspace: profile && (profile.current_workspace || profile.currentWorkspace) || null,
+        notification_email: rawSettings && rawSettings.notification_email || null,
+        counts,
+        followers,
+        following: { users: [], pages: [], totals: 0 },
+        skills,
+        educations: education,
+        education,
+        experiences,
+        activeExperiences: experiences.filter((item) => item && (item.is_current === 1 || item.is_current === true || item.isCurrent === true)),
+        certifications,
+        projects: portfolios,
+        portfolios,
+        communities: [],
         setting,
         settings: setting,
-        skills: parse(row.skills) || [],
-        portfolios: parse(row.portfolios) || [],
-        certifications: parse(row.certifications) || [],
-        education: parse(row.education) || [],
-        experiences: parse(row.experiences) || [],
-        followers: parse(row.followers) || [],
-        oauthAccounts: parse(row.oauth_accounts) || [],
-        counts
+        privacy,
+        scores: { total: 0, byCommunity: [] },
+        alerts,
+        created_at: createdAt,
+        created_at_human: humanDate(createdAt),
+        referral_code: row.referral_code || null,
+        user: { id: row.user_id, name, email: row.email, role: row.role, created_at: row.user_created_at },
+        profile,
+        oauthAccounts
       };
     }
 

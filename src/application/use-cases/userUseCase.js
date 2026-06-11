@@ -17,17 +17,23 @@ const toBool = (value, fallback = false) => {
 
 const profileSettingsShape = (settingsRow = null) => {
   const settings = settingsRow && settingsRow.settings ? settingsRow.settings : {};
+  const privacy = settingsRow && settingsRow.privacy ? settingsRow.privacy : {};
   const notifications = settings.notifications || settings.notificationPreferences || {};
   return {
     id: settingsRow && settingsRow.id || null,
     user_id: settingsRow && settingsRow.user_id || null,
     feature_and_announcement: toBool(settings.feature_and_announcement ?? settings.featureAndAnnouncement ?? notifications.featureAndAnnouncement, true),
     featureAndAnnouncement: toBool(settings.feature_and_announcement ?? settings.featureAndAnnouncement ?? notifications.featureAndAnnouncement, true),
+    mails: toBool(settings.mails ?? notifications.mails, true),
+    tips_and_reminders: toBool(settings.tips_and_reminders ?? settings.tipsAndReminders ?? notifications.tipsAndReminders, true),
+    tipsAndReminders: toBool(settings.tips_and_reminders ?? settings.tipsAndReminders ?? notifications.tipsAndReminders, true),
     inbox: toBool(settings.inbox ?? notifications.inbox, true),
     research: toBool(settings.research ?? notifications.research, false),
     recommended: toBool(settings.recommended ?? notifications.recommended, true),
     alerts: toBool(settings.alerts ?? notifications.alerts, true),
     profile: toBool(settings.profile ?? notifications.profile, true),
+    privacy,
+    settings,
     created_at: settingsRow && settingsRow.created_at || null,
     updated_at: settingsRow && settingsRow.updated_at || null
   };

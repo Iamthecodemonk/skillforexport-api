@@ -293,7 +293,53 @@ export default class AuthUseCase {
   }
 
   async ResendRegistrationOtp({ email }) {
-    return this.RequestRegistrationOtp({ email });
+    if (!email || !User.isValidEmail(email)) {
+      throw new Error('invalid_email_format');
+    }
+
+    const existing = await this.userRepository.findByEmail(email);
+    if (existing && existing.password) {
+      throw new Error('email_taken');
+    }
+
+    await this.userRepository.deleteOtpsByEmailPurpose(email, 'registration');
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const placeholderPassword = await bcrypt.hash(uuidv4(), 10);
+    const otp = {
+      id: uuidv4(),
+      userId: existing && existing.id ? existing.id : null,
+      email,
+      otpCode,
+      purpose: 'registration',
+      isUsed: false,
+      tempPasswordHash: placeholderPassword,
+      tempProfileFullName: null,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      createdAt: new Date(),
+    };
+
+    await this.userRepository.createOtp(otp);
+
+    if (this.emailQueue) {
+      try {
+        await this.emailQueue.add('otp', {
+          type: 'otp',
+          to: email,
+          otpCode,
+          expiresInMinutes: 10
+        }, {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 2000 },
+          removeOnComplete: true
+        });
+        authLogger.info('Registration OTP resent', { email });
+      } catch (queueErr) {
+        authLogger.warn('Failed to queue resent registration OTP email', { error: queueErr.message });
+      }
+    }
+
+    return { email, otpId: otp.id };
   }
 
   async VerifyRegistrationOtp({ email, otpCode }) {

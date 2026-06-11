@@ -14,10 +14,30 @@ const now = () => new Date();
 const csv = (value) => String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
 const queryText = (req) => {
   const query = (req && req.query) || {};
-  const value = query.q || query.query || query.search || '';
+  const nestedFilters = query.filters && typeof query.filters === 'object' ? query.filters : {};
+  const value = query.q || query.query || query.search || query['filters[search]'] || nestedFilters.search || '';
   return String(value || '').trim();
 };
 const likeText = (value) => `%${String(value || '').trim()}%`;
+const parseJsonObject = (value) => {
+  if (!value) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+};
+
+const invalidateUserProfileCache = async (req, userId) => {
+  try {
+    const redis = req.server && (req.server.redisManager || req.server.redisClient);
+    if (redis && typeof redis.del === 'function') await redis.del(`user:profile:${userId}`);
+  } catch (_) {
+    // cache invalidation should not fail the settings request
+  }
+};
 
 async function paginateTable(req, reply, table, where = {}, orderColumn = 'created_at') {
   const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
@@ -371,29 +391,66 @@ export function makeCompatController({ cloudinary = null } = {}) {
       }
     },
 
+    getPrivacy: async (req, reply) => {
+      const userId = actorId(req);
+      if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      const row = await db('user_settings').where({ user_id: userId }).first();
+      return reply.send({
+        success: true,
+        message: 'Privacy settings fetched successfully',
+        data: {
+          user_id: userId,
+          privacy: parseJsonObject(row && row.privacy),
+          ...(parseJsonObject(row && row.privacy))
+        }
+      });
+    },
+
     updatePrivacy: async (req, reply) => {
       const userId = actorId(req);
       if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      const existing = await db('user_settings').where({ user_id: userId }).first();
+      const nextPrivacy = { ...parseJsonObject(existing && existing.privacy), ...(req.body || {}) };
       await db('user_settings')
-        .insert({ id: uuidv4(), user_id: userId, privacy: JSON.stringify(req.body || {}), created_at: now(), updated_at: now() })
+        .insert({ id: uuidv4(), user_id: userId, privacy: JSON.stringify(nextPrivacy), created_at: now(), updated_at: now() })
         .onConflict('user_id')
-        .merge({ privacy: JSON.stringify(req.body || {}), updated_at: now() });
+        .merge({ privacy: JSON.stringify(nextPrivacy), updated_at: now() });
+      await invalidateUserProfileCache(req, userId);
       return reply.send({ success: true, message: 'Privacy settings updated successfully', data: [] });
+    },
+
+    getSettings: async (req, reply) => {
+      const userId = actorId(req);
+      if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      const row = await db('user_settings').where({ user_id: userId }).first();
+      const settings = parseJsonObject(row && row.settings);
+      return reply.send({
+        success: true,
+        message: 'Settings fetched successfully',
+        data: {
+          user_id: userId,
+          settings,
+          ...settings
+        }
+      });
     },
 
     updateSettings: async (req, reply) => {
       const userId = actorId(req);
       if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
       const body = req.body || {};
+      const existing = await db('user_settings').where({ user_id: userId }).first();
+      const currentSettings = parseJsonObject(existing && existing.settings);
       const normalized = {
+        ...currentSettings,
         ...body,
-        feature_and_announcement: typeof body.feature_and_announcement !== 'undefined' ? body.feature_and_announcement : body.featureAndAnnouncement,
-        featureAndAnnouncement: typeof body.featureAndAnnouncement !== 'undefined' ? body.featureAndAnnouncement : body.feature_and_announcement,
-        inbox: typeof body.inbox !== 'undefined' ? body.inbox : body.invox,
-        research: body.research,
-        recommended: body.recommended,
-        alerts: body.alerts,
-        profile: body.profile
+        feature_and_announcement: typeof body.feature_and_announcement !== 'undefined' ? body.feature_and_announcement : (typeof body.featureAndAnnouncement !== 'undefined' ? body.featureAndAnnouncement : currentSettings.feature_and_announcement),
+        featureAndAnnouncement: typeof body.featureAndAnnouncement !== 'undefined' ? body.featureAndAnnouncement : (typeof body.feature_and_announcement !== 'undefined' ? body.feature_and_announcement : currentSettings.featureAndAnnouncement),
+        inbox: typeof body.inbox !== 'undefined' ? body.inbox : (typeof body.invox !== 'undefined' ? body.invox : currentSettings.inbox),
+        research: typeof body.research !== 'undefined' ? body.research : currentSettings.research,
+        recommended: typeof body.recommended !== 'undefined' ? body.recommended : currentSettings.recommended,
+        alerts: typeof body.alerts !== 'undefined' ? body.alerts : currentSettings.alerts,
+        profile: typeof body.profile !== 'undefined' ? body.profile : currentSettings.profile
       };
       for (const key of Object.keys(normalized)) {
         if (typeof normalized[key] === 'undefined') delete normalized[key];
@@ -402,6 +459,7 @@ export function makeCompatController({ cloudinary = null } = {}) {
         .insert({ id: uuidv4(), user_id: userId, settings: JSON.stringify(normalized), created_at: now(), updated_at: now() })
         .onConflict('user_id')
         .merge({ settings: JSON.stringify(normalized), updated_at: now() });
+      await invalidateUserProfileCache(req, userId);
       return reply.send({ success: true, message: 'Settings updated successfully', data: { user_id: userId, ...normalized } });
     },
 

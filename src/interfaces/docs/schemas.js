@@ -1188,6 +1188,9 @@ export const FullProfileResponse = {
         user_id: { type: ['string','null'] },
         feature_and_announcement: { type: 'boolean' },
         featureAndAnnouncement: { type: 'boolean' },
+        mails: { type: 'boolean' },
+        tips_and_reminders: { type: 'boolean' },
+        tipsAndReminders: { type: 'boolean' },
         inbox: { type: 'boolean' },
         research: { type: 'boolean' },
         recommended: { type: 'boolean' },
@@ -1212,6 +1215,108 @@ export const FullProfileResponse = {
         comments: { type: 'number' },
         answers: { type: 'number' }
       }
+    }
+  }
+};
+
+export const UserPrivacyBody = {
+  type: 'object',
+  properties: {
+    picture: { type: 'number', enum: [1, 2, 3], description: '1=public, 2=followers only, 3=only me' },
+    country: { type: 'number', enum: [1, 2, 3], description: '1=public, 2=followers only, 3=only me' },
+    biography: { type: 'number', enum: [1, 2, 3], description: '1=public, 2=followers only, 3=only me' }
+  },
+  additionalProperties: true,
+  example: {
+    picture: 1,
+    country: 1,
+    biography: 2
+  }
+};
+
+export const UserPrivacyGetResponse = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean', example: true },
+    message: { type: 'string', example: 'Privacy settings fetched successfully' },
+    data: {
+      type: 'object',
+      properties: {
+        user_id: { type: 'string' },
+        privacy: UserPrivacyBody,
+        picture: { type: 'number', enum: [1, 2, 3] },
+        country: { type: 'number', enum: [1, 2, 3] },
+        biography: { type: 'number', enum: [1, 2, 3] }
+      },
+      additionalProperties: true
+    }
+  }
+};
+
+export const UserPrivacyUpdateResponse = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean', example: true },
+    message: { type: 'string', example: 'Privacy settings updated successfully' },
+    data: { type: 'array', items: {}, example: [] }
+  },
+  example: {
+    success: true,
+    message: 'Privacy settings updated successfully',
+    data: []
+  }
+};
+
+export const UserSettingsBody = {
+  type: 'object',
+  properties: {
+    feature_and_announcement: { type: 'boolean' },
+    mails: { type: 'boolean' },
+    tips_and_reminders: { type: 'boolean' },
+    inbox: { type: 'boolean' },
+    research: { type: 'boolean' },
+    recommended: { type: 'boolean' },
+    alerts: { type: 'boolean' }
+  },
+  additionalProperties: true,
+  example: {
+    feature_and_announcement: true,
+    mails: true,
+    tips_and_reminders: false,
+    inbox: true,
+    research: false,
+    recommended: true,
+    alerts: false
+  }
+};
+
+export const UserSettingsResponse = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean', example: true },
+    message: { type: 'string', example: 'Settings updated successfully' },
+    data: {
+      type: 'object',
+      properties: {
+        user_id: { type: 'string' },
+        feature_and_announcement: { type: 'boolean' },
+        mails: { type: 'boolean' },
+        tips_and_reminders: { type: 'boolean' },
+        inbox: { type: 'boolean' },
+        research: { type: 'boolean' },
+        recommended: { type: 'boolean' },
+        alerts: { type: 'boolean' }
+      },
+      additionalProperties: true
+    }
+  },
+  example: {
+    success: true,
+    message: 'Settings updated successfully',
+    data: {
+      user_id: 'user-id',
+      mails: true,
+      alerts: false
     }
   }
 };
@@ -1935,6 +2040,11 @@ export default {
   CommunityUpdateBody,
   CommunityPaginatedResponse,
   FullProfileResponse,
+  UserPrivacyBody,
+  UserPrivacyGetResponse,
+  UserPrivacyUpdateResponse,
+  UserSettingsBody,
+  UserSettingsResponse,
   GenericError,
   GenericErrorResponse,
   AuthErrorResponse,

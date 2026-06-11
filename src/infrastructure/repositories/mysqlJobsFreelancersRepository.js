@@ -1,5 +1,6 @@
 import db from '../knexConfig.js';
 import { v4 as uuidv4 } from 'uuid';
+import { formatDateForSql } from '../../utils/date.js';
 
 const json = (value, fallback = []) => {
   if (typeof value === 'undefined' || value === null) return JSON.stringify(fallback);
@@ -30,6 +31,8 @@ const toArray = (value) => {
   if (typeof value === 'string') return value.split(',').map(v => v.trim()).filter(Boolean);
   return [];
 };
+
+
 
 export default class MysqlJobsFreelancersRepository {
   now() {
@@ -171,7 +174,7 @@ export default class MysqlJobsFreelancersRepository {
       perks: json(input.perks),
       application_email: input.applicationEmail || input.senderEmail || input.sender_email || null,
       application_url: input.applicationUrl || null,
-      application_end_date: input.applicationEndDate || input.closing_date || null,
+      application_end_date: formatDateForSql(input.applicationEndDate || input.closing_date || null),
       status: input.status || 'pending_review',
       created_by_user_id: input.createdByUserId,
       created_at: now,
@@ -200,6 +203,7 @@ export default class MysqlJobsFreelancersRepository {
       else if (map[key]) payload[map[key]] = value;
       else if (['title','location','type','experience','description','summary','status'].includes(key)) payload[key] = value;
     }
+    if (payload.application_end_date) payload.application_end_date = formatDateForSql(payload.application_end_date);
     if (payload.title) payload.slug = await this.uniqueSlug('jobs', payload.title, id);
     payload.updated_at = this.now();
     await db('jobs').where({ id }).update(payload);
@@ -518,7 +522,7 @@ export default class MysqlJobsFreelancersRepository {
       max_fee: input.maxFee || null,
       currency: input.currency || 'NGN',
       fee_label: input.feeLabel || null,
-      application_end_date: input.applicationEndDate,
+      application_end_date: formatDateForSql(input.applicationEndDate),
       status: input.status || 'pending_review',
       verified: input.verified ? 1 : 0,
       created_at: now,
@@ -536,7 +540,7 @@ export default class MysqlJobsFreelancersRepository {
       else if (key === 'minFee') payload.min_fee = value;
       else if (key === 'maxFee') payload.max_fee = value;
       else if (key === 'feeLabel') payload.fee_label = value;
-      else if (key === 'applicationEndDate') payload.application_end_date = value;
+      else if (key === 'applicationEndDate') payload.application_end_date = formatDateForSql(value);
       else if (['title','location','type','description','qualifications','currency','status','verified'].includes(key)) payload[key] = value;
     }
     if (payload.title) payload.slug = await this.uniqueSlug('freelance_jobs', payload.title, id);

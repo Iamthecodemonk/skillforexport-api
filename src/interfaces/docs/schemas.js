@@ -977,6 +977,22 @@ MediaValidationErrorResponse.example = {
   } 
 };
 
+  export const PageImageResponse = {
+    type: 'object',
+    properties: {
+      assetId: { type: 'string' },
+      id: { type: 'string' },
+      url: { type: 'string' },
+      publicId: { type: 'string' },
+      kind: { type: 'string' },
+      title: { type: 'string' },
+      mimeType: { type: 'string' },
+      sizeBytes: { type: ['number','null'] },
+      asset: { type: ['object','null'], additionalProperties: true }
+    }
+  };
+  PageImageResponse.example = { assetId: 'asset-uuid-123', id: 'asset-uuid-123', url: 'https://res.cloudinary.com/.../image.jpg', publicId: 'folder/image', kind: 'page_image', title: 'Header image', mimeType: 'image/jpeg', sizeBytes: 102400, asset: null };
+
 export const UserProfileBody = {
   type: 'object',
   description: 'Profile fields to create or update. Do NOT provide `id` or `userId` — those are generated/derived by the server.',

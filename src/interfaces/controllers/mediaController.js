@@ -379,6 +379,72 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
       }
     },
 
+    uploadPageImageFile: async (req, reply) => {
+      try {
+        const actorId = req.user && req.user.id;
+        const actorRole = req.user && req.user.role;
+        if (!actorId) 
+          return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        if (!cloudinary || typeof cloudinary.uploadFromStream !== 'function' || !assetAdapter) {
+          return reply.code(503).send({ success: false, error: { code: 'service_unavailable' } });
+        }
+
+        const pageId = req.params && req.params.id;
+        if (!pageId) 
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        const page = await db('pages').where({ id: pageId }).first();
+        if (!page) 
+          return reply.code(404).send({ success: false, error: { code: 'page_not_found' } });
+        if (page.owner_id !== actorId && actorRole !== 'admin') return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+
+        const mp = await req.file();
+        if (!mp) 
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed', message: 'file is required' } });
+
+        const titleField = (mp.fields && mp.fields.title) ? (mp.fields.title.value || mp.fields.title) : null;
+        const title = titleField || mp.filename || null;
+
+        const folder = process.env.CLOUDINARY_FOLDER_PAGE_IMAGES || 'page_images';
+        const result = await cloudinary.uploadFromStream(mp.file, { folder });
+
+        const assetId = uuidv4();
+        const asset = await assetAdapter.create({
+          id: assetId,
+          userId: actorId,
+          pageId,
+          kind: 'page_image',
+          title,
+          provider: 'cloudinary',
+          providerPublicId: result.public_id,
+          url: result.secure_url || result.url,
+          mimeType: mp.mimetype || result.format || null,
+          sizeBytes: result.bytes || null,
+          metadata: { ...result, title, pageId, userId: actorId }
+        });
+
+        return reply.code(201).send({
+          success: true,
+          message: 'Page image uploaded successfully',
+          data: {
+            assetId,
+            id: assetId,
+            url: result.secure_url || result.url,
+            publicId: result.public_id,
+            kind: 'page_image',
+            title,
+            mimeType: mp.mimetype || null,
+            sizeBytes: result.bytes || null,
+            asset
+          }
+        });
+      } catch (err) {
+        mediaLogger.error('uploadPageImageFile error', { message: err.message, stack: err.stack });
+        if (err.message === 'cloudinary_not_configured') 
+          return reply.code(503).send({ success: false, error: { code: 'cloudinary_not_configured' } });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
     // Poll job status for a media job
     getJobStatus: async (req, reply) => {
       try {

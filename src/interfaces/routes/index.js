@@ -2703,6 +2703,33 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('uploadPageCoverFile'));
 
+  fastify.post('/pages/:id/images', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'uploadPageImage',
+      tags: ['Pages', 'Media'],
+      description: 'Upload an image for a page. Accepts multipart/form-data file and optional title field. Owner or admin only.',
+      requestBody: {
+        content: {
+          'multipart/form-data': {
+            schema: {
+              type: 'object',
+              properties: { file: { type: 'string', format: 'binary' }, title: { type: 'string' } },
+              required: ['file']
+            }
+          }
+        }
+      },
+      response: { 201: dataResponse(schemas.PageImageResponse),
+        401: schemas.AuthErrorResponse,
+        403: schemas.GenericErrorResponse,
+        404: schemas.GenericErrorResponse,
+        422: schemas.GenericErrorResponse,
+        503: { type: 'object' }
+      }
+    }
+  }, handler('uploadPageImageFile'));
+
   fastify.delete('/pages/:id', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {

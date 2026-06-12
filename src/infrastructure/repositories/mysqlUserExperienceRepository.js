@@ -24,7 +24,7 @@ export default class MysqlUserExperienceRepository {
   async create(exp) {
     const source = exp.toRecord ? exp.toRecord() : exp;
     const record = { ...source };
-    // Normalize date fields to YYYY-MM-DD
+    // Nor76malize date fields to YYYY-MM-DD
     if (typeof record.startDate !== 'undefined' || typeof record.start_date !== 'undefined') {
       record.start_date = formatDateForSql(record.startDate || record.start_date || null);
       delete record.startDate;

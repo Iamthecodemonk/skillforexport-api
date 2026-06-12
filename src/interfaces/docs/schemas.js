@@ -2034,6 +2034,7 @@ export default {
   PostListResponse,
   PostMediaAttachBody,
   PostMediaResponse,
+  PageImageResponse,
   // Questions & Answers
   QuestionCreateBody,
   QuestionResponse,

@@ -217,8 +217,16 @@ export function makeUserController({ useCase = null, followerRepository = null, 
     updateUserProfile: async (req, reply) => {
       try {
         const { id } = req.params; // user id
-        const patch = req.body ;
+        const patch = req.body || {};
+        const actor = req.user || null;
+        if (!actor) 
+          return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        // Only allow owners or admins to update a profile
+        if (actor.id !== id && actor.role !== 'admin') 
+          return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
         const updated = await useCase.updateProfile(id, patch);
+        if (!updated) 
+          return reply.code(404).send({ success: false, error: { code: 'profile_not_found' } });
         // Invalidate cached profile for this user if Redis is available
         try {
           const redis = req.server && (req.server.redisManager || req.server.redisClient);
@@ -229,7 +237,7 @@ export function makeUserController({ useCase = null, followerRepository = null, 
         } catch (e) {
           userLogger.warn('Failed to invalidate profile cache', { err: e.message });
         }
-        return reply.send({ success: true, message: 'Profile updated successfully', data: updated.toPlainObject() });
+        return reply.send({ success: true, message: 'Profile updated successfully', data: (typeof updated.toPlainObject === 'function' ? updated.toPlainObject() : updated) });
       } catch (err) {
         if (err.message === 'profile_not_found')
           return reply.code(404).send({

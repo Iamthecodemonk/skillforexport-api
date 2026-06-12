@@ -6,7 +6,18 @@ export default class MysqlUserExperienceRepository {
 
   async listByUserId(userId) {
     const rows = await db('user_experiences').where({ user_id: userId }).orderBy('start_date', 'desc');
-    return rows.map(r => new UserExperience({ id: r.id, userId: r.user_id, company: r.company, title: r.title, employmentType: r.employment_type, startDate: r.start_date, endDate: r.end_date, isCurrent: r.is_current, description: r.description, createdAt: r.created_at }));
+    return rows.map(r => new UserExperience({ 
+      id: r.id, 
+      userId: r.user_id, 
+      company: r.company, 
+      title: r.title, 
+      employmentType: r.employment_type, 
+      startDate: r.start_date, 
+      endDate: r.end_date, 
+      isCurrent: r.is_current, 
+      description: r.description, 
+      createdAt: r.created_at 
+    }));
   }
 
   async create(exp) {

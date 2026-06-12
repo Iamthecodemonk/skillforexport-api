@@ -1129,6 +1129,37 @@ export default async function registerRoutes(fastify, deps) {
       }
     }
   }, handler('createProfile'));
+  // Update user profile (edit) - follows v1 wrapped response contract
+  fastify.put('/users/:id/profile', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'updateUserProfile',
+      tags: ['Users'],
+      description: 'Update an existing user profile. Authenticated user required.',
+      body: schemas.UserProfileBody,
+      response: {
+        200: { 
+          type: 'object', 
+          properties: 
+          { 
+            success: 
+            { 
+              type: 'boolean' 
+            }, 
+            message: 
+            { 
+              type: 'string' 
+            }, 
+            data: 
+            schemas.UserProfileResponse 
+          } 
+        },
+        401: schemas.AuthErrorResponse,
+        404: schemas.GenericErrorResponse,
+        422: schemas.GenericErrorResponse
+      }
+    }
+  }, handler('updateUserProfile'));
   fastify.post('/users/:id/profile/avatar', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {

@@ -2720,7 +2720,8 @@ export default async function registerRoutes(fastify, deps) {
           }
         }
       },
-      response: { 201: dataResponse(schemas.PageImageResponse),
+      response: {
+        201: { ...dataResponse(schemas.PageImageResponse), example: { success: true, message: 'Image uploaded', data: schemas.PageImageResponse.example } },
         401: schemas.AuthErrorResponse,
         403: schemas.GenericErrorResponse,
         404: schemas.GenericErrorResponse,

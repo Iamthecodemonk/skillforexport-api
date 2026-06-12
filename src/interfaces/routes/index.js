@@ -2716,6 +2716,12 @@ export default async function registerRoutes(fastify, deps) {
               type: 'object',
               properties: { file: { type: 'string', format: 'binary' }, title: { type: 'string' } },
               required: ['file']
+            },
+            examples: {
+              upload: {
+                summary: 'Upload an image file with optional title',
+                value: { file: '<binary file>', title: 'Header image' }
+              }
             }
           }
         }

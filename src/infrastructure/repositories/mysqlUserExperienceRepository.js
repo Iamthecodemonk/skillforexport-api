@@ -1,5 +1,6 @@
 import db from '../knexConfig.js';
 import UserExperience from '../../domain/entities/UserExperience.js';
+import { formatDateForSql } from '../../utils/date.js';
 
 export default class MysqlUserExperienceRepository {
   constructor() {}
@@ -21,7 +22,17 @@ export default class MysqlUserExperienceRepository {
   }
 
   async create(exp) {
-    const record = exp.toRecord ? exp.toRecord() : exp;
+    const source = exp.toRecord ? exp.toRecord() : exp;
+    const record = { ...source };
+    // Normalize date fields to YYYY-MM-DD
+    if (typeof record.startDate !== 'undefined' || typeof record.start_date !== 'undefined') {
+      record.start_date = formatDateForSql(record.startDate || record.start_date || null);
+      delete record.startDate;
+    }
+    if (typeof record.endDate !== 'undefined' || typeof record.end_date !== 'undefined') {
+      record.end_date = formatDateForSql(record.endDate || record.end_date || null);
+      delete record.endDate;
+    }
     await db('user_experiences').insert(record);
     return exp;
   }

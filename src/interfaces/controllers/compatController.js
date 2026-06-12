@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import db from '../../infrastructure/knexConfig.js';
+import { formatDateForSql } from '../../utils/date.js';
 import { buildPaginatedResponse, parsePagination } from '../paginationResponse.js';
 import logger from '../../utils/logger.js';
 import MysqlPostRepository from '../../infrastructure/repositories/mysqlPostRepository.js';
@@ -816,12 +817,27 @@ export function makeCompatController({ cloudinary = null } = {}) {
     createEducationRoot: async (req, reply) => {
       const userId = actorId(req);
       const body = req.body || {};
-      const row = { id: uuidv4(), user_id: userId, school: body.school || body.name || null, degree: body.degree || body.course || null, field: body.field || null, start_date: body.startDate || body.start_date || null, end_date: body.endDate || body.end_date || null, created_at: now(), updated_at: now() };
+      const row = {
+        id: uuidv4(),
+        user_id: userId,
+        school: body.school || body.name || null,
+        degree: body.degree || body.course || null,
+        field: body.field || null,
+        start_date: formatDateForSql(body.startDate || body.start_date || null),
+        end_date: formatDateForSql(body.endDate || body.end_date || null),
+        created_at: now(),
+        updated_at: now()
+      };
       await db('user_education').insert(row);
       return reply.code(201).send({ success: true, data: row });
     },
     updateEducationRoot: async (req, reply) => {
-      await db('user_education').where({ id: req.params.id, user_id: actorId(req) }).update({ ...req.body, updated_at: now() });
+      const body = req.body || {};
+      const updates = { ...body };
+      if (typeof body.startDate !== 'undefined' || typeof body.start_date !== 'undefined') updates.start_date = formatDateForSql(body.startDate || body.start_date || null);
+      if (typeof body.endDate !== 'undefined' || typeof body.end_date !== 'undefined') updates.end_date = formatDateForSql(body.endDate || body.end_date || null);
+      updates.updated_at = now();
+      await db('user_education').where({ id: req.params.id, user_id: actorId(req) }).update(updates);
       const row = await db('user_education').where({ id: req.params.id, user_id: actorId(req) }).first();
       return reply.send({ success: true, data: row });
     },
@@ -834,12 +850,29 @@ export function makeCompatController({ cloudinary = null } = {}) {
     createExperienceRoot: async (req, reply) => {
       const userId = actorId(req);
       const body = req.body || {};
-      const row = { id: uuidv4(), user_id: userId, company: body.company || null, title: body.title || body.role || null, employment_type: body.employmentType || body.employment_type || null, start_date: body.startDate || body.start_date || null, end_date: body.endDate || body.end_date || null, is_current: body.isCurrent || body.is_current || 0, description: body.description || null, created_at: now(), updated_at: now() };
+      const row = {
+        id: uuidv4(),
+        user_id: userId,
+        company: body.company || null,
+        title: body.title || body.role || null,
+        employment_type: body.employmentType || body.employment_type || null,
+        start_date: formatDateForSql(body.startDate || body.start_date || null),
+        end_date: formatDateForSql(body.endDate || body.end_date || null),
+        is_current: body.isCurrent || body.is_current || 0,
+        description: body.description || null,
+        created_at: now(),
+        updated_at: now()
+      };
       await db('user_experiences').insert(row);
       return reply.code(201).send({ success: true, data: row });
     },
     updateExperienceRoot: async (req, reply) => {
-      await db('user_experiences').where({ id: req.params.id, user_id: actorId(req) }).update({ ...req.body, updated_at: now() });
+      const body = req.body || {};
+      const updates = { ...body };
+      if (typeof body.startDate !== 'undefined' || typeof body.start_date !== 'undefined') updates.start_date = formatDateForSql(body.startDate || body.start_date || null);
+      if (typeof body.endDate !== 'undefined' || typeof body.end_date !== 'undefined') updates.end_date = formatDateForSql(body.endDate || body.end_date || null);
+      updates.updated_at = now();
+      await db('user_experiences').where({ id: req.params.id, user_id: actorId(req) }).update(updates);
       const row = await db('user_experiences').where({ id: req.params.id, user_id: actorId(req) }).first();
       return reply.send({ success: true, data: row });
     },
@@ -852,7 +885,15 @@ export function makeCompatController({ cloudinary = null } = {}) {
     createCertificationRoot: async (req, reply) => {
       const userId = actorId(req);
       const body = req.body || {};
-      const row = { id: uuidv4(), user_id: userId, name: body.name || body.title || null, issuer: body.issuer || null, issue_date: body.issueDate || body.issue_date || body.date || null, created_at: now(), updated_at: now() };
+      const row = {
+        id: uuidv4(),
+        user_id: userId,
+        name: body.name || body.title || null,
+        issuer: body.issuer || null,
+        issue_date: formatDateForSql(body.issueDate || body.issue_date || body.date || null),
+        created_at: now(),
+        updated_at: now()
+      };
       await db('user_certifications').insert(row);
       return reply.code(201).send({ success: true, data: row });
     },

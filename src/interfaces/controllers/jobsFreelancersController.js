@@ -19,6 +19,17 @@ function queryParams(req, defaultPerPage = 20) {
   return { page, perPage, limit, offset, ...(req.query || {}) };
 }
 
+function adminQueryParams(req, defaultPerPage = 100) {
+  const params = queryParams(req, defaultPerPage);
+  if (req.query && (req.query.all === true || req.query.all === 'true')) {
+    params.page = 1;
+    params.perPage = 1000;
+    params.limit = 1000;
+    params.offset = 0;
+  }
+  return params;
+}
+
 function handleError(reply, err, notFoundCode = 'not_found') {
   if (err.message === 'unauthorized') return sendError(reply, 401, 'unauthorized', 'Unauthorized');
   if (err.message === 'forbidden') return sendError(reply, 403, 'forbidden', 'Forbidden');
@@ -42,7 +53,7 @@ export function makeJobsFreelancersController({ useCase }) {
     },
     listAllJobs: async (req, reply) => {
       try {
-        const params = queryParams(req, 100);
+        const params = adminQueryParams(req, 100);
         const data = await useCase.listAllJobs(actor(req), params);
         const total = await useCase.countAllJobs(actor(req), params);
         return reply.send(buildPaginatedResponse(req, { data, page: params.page, perPage: params.perPage, total }));

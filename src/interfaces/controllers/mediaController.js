@@ -449,8 +449,10 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
     getJobStatus: async (req, reply) => {
       try {
         const jobId = req.params && req.params.id;
-        if (!jobId) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
-        if (!mediaQueue) return reply.code(503).send({ success: false, error: { code: 'service_unavailable' } });
+        if (!jobId) 
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        if (!mediaQueue) 
+          return reply.code(503).send({ success: false, error: { code: 'service_unavailable' } });
 
         const job = await mediaQueue.getJob(jobId);
         if (!job) return reply.code(404).send({ success: false, error: { code: 'job_not_found' } });

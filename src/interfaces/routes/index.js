@@ -522,6 +522,22 @@ export default async function registerRoutes(fastify, deps) {
   });
 
   fastify.get('/feeds', { schema: { operationId: 'listFeeds', tags: ['Feeds'], description: 'Unified feed endpoint. Without a community filter, returns public posts plus public questions. With `communityId`, `community_id`, or `filters[community_id]`, returns that community feed with posts and questions from that community. Each item includes `type` (`POST` or `QUESTION`). Supports contract query keys `filters[search]`, `sort[field]`, and `sort[direction]`.', querystring: feedQuery, response: { 200: genericPaginatedResponse } } }, handler('listFeeds'));
+  fastify.get('/feed', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'listCompactFeed',
+      tags: ['Feeds'],
+      description: 'Authenticated compact aggregated feed for fast rendering. Returns post/question cards with author, up to three skills, media, page, community, counts, and viewerState in one response. Use mode=latest or mode=popular.',
+      querystring: {
+        type: 'object',
+        properties: {
+          ...feedQuery.properties,
+          mode: { type: 'string', enum: ['latest', 'popular'] }
+        }
+      },
+      response: { 200: genericPaginatedResponse, 401: schemas.AuthErrorResponse }
+    }
+  }, handler('listCompactFeed'));
   fastify.get('/enums', { schema: { operationId: 'legacyListEnums', tags: ['Meta'], description: 'Legacy enum bootstrap endpoint. Includes backward-compatible `experience`, `states`, and `job_types` keys plus current camelCase enum keys.', response: { 200: enumBootstrapResponse } } }, handler('listEnums'));
   fastify.get('/legal-documents', { schema: { operationId: 'listLegalDocuments', tags: ['Legal'], description: 'Return all published legal/static documents as one grouped payload for easy frontend bootstrap.', response: { 200: dataResponse(schemas.LegalDocumentsGroupedResponse) } } }, handler('listLegalDocuments'));
   fastify.get('/legal-documents/:slug', { schema: { operationId: 'getLegalDocument', tags: ['Legal'], description: 'Return one published legal/static document by slug.', params: idParam('slug'), response: { 200: dataResponse(schemas.LegalDocumentResponse), 404: schemas.GenericErrorResponse } } }, handler('getLegalDocument'));

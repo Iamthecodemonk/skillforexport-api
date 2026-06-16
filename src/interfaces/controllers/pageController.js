@@ -268,14 +268,33 @@ export function makePageController({ useCase = null, followersRepository = null,
 
     listPageCategories: async (req, reply) => {
       try {
+        const actorId = req.user && req.user.id;
+        if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const { page, perPage, limit, offset } = parsePagination(req.query, 50);
-        const rows = await useCase.ListPageCategories({ limit, offset });
+        const rows = await useCase.ListPageCategories({ limit, offset, ownerId: actorId });
         const total = await useCase.CountPageCategories();
         return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
       } catch (err) {
         if (err && err.message === 'not_implemented')
           return reply.code(501).send({ success: false, error: { code: 'not_implemented' } });
         pageLogger.error('listPageCategories error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    listAllPageCategories: async (req, reply) => {
+      try {
+        const actor = req.user || null;
+        if (!actor) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        if (actor.role !== 'admin') return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+        const { page, perPage, limit, offset } = parsePagination(req.query, 50);
+        const rows = await useCase.ListAllPageCategories({ limit, offset });
+        const total = await useCase.CountPageCategories();
+        return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
+      } catch (err) {
+        if (err && err.message === 'not_implemented')
+          return reply.code(501).send({ success: false, error: { code: 'not_implemented' } });
+        pageLogger.error('listAllPageCategories error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
     },

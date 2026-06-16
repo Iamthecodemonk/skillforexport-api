@@ -521,7 +521,17 @@ export default async function registerRoutes(fastify, deps) {
     return handler('updateAdvertSiteStatus')(req, reply);
   });
 
-  fastify.get('/feeds', { schema: { operationId: 'listFeeds', tags: ['Feeds'], description: 'Unified feed endpoint. Without a community filter, returns public posts plus public questions. With `communityId`, `community_id`, or `filters[community_id]`, returns that community feed with posts and questions from that community. Each item includes `type` (`POST` or `QUESTION`). Supports contract query keys `filters[search]`, `sort[field]`, and `sort[direction]`.', querystring: feedQuery, response: { 200: genericPaginatedResponse } } }, handler('listFeeds'));
+  fastify.get('/feeds', { 
+    schema: { 
+      operationId: 'listFeeds', 
+      tags: ['Feeds'], 
+      description: 'Unified feed endpoint. Without a community filter, returns public posts plus public questions. With `communityId`, `community_id`, or `filters[community_id]`, returns that community feed with posts and questions from that community. Each item includes `type` (`POST` or `QUESTION`). Supports contract query keys `filters[search]`, `sort[field]`, and `sort[direction]`.', 
+      querystring: feedQuery, 
+      response: { 
+        200: genericPaginatedResponse 
+      } 
+    } 
+  }, handler('listFeeds'));
   fastify.get('/feed', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
@@ -1154,21 +1164,21 @@ export default async function registerRoutes(fastify, deps) {
       description: 'Update an existing user profile. Authenticated user required.',
       body: schemas.UserProfileBody,
       response: {
-        200: { 
-          type: 'object', 
-          properties: 
-          { 
-            success: 
-            { 
-              type: 'boolean' 
-            }, 
-            message: 
-            { 
-              type: 'string' 
-            }, 
-            data: 
-            schemas.UserProfileResponse 
-          } 
+        200: {
+          type: 'object',
+          properties:
+          {
+            success:
+            {
+              type: 'boolean'
+            },
+            message:
+            {
+              type: 'string'
+            },
+            data:
+              schemas.UserProfileResponse
+          }
         },
         401: schemas.AuthErrorResponse,
         404: schemas.GenericErrorResponse,
@@ -2458,14 +2468,26 @@ export default async function registerRoutes(fastify, deps) {
   }, handler('getPage'));
 
   fastify.get('/page-categories', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {
       operationId: 'listPageCategories',
       tags: ['Pages', 'Categories'],
-      description: 'List all page categories with the total number of pages under each category.',
+      description: 'List page categories for the authenticated user. `max_pages_per_user` is the admin-configured limit, and `total_pages` is how many pages the current user has created in that category.',
       parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'perPage', in: 'query', schema: { type: 'number' } }, { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
-      response: { 200: schemas.PageCategoryPaginatedResponse }
+      response: { 200: schemas.PageCategoryPaginatedResponse, 401: schemas.AuthErrorResponse }
     }
   }, handler('listPageCategories'));
+
+  fastify.get('/page-categories/all', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'listAllPageCategories',
+      tags: ['Admin', 'Pages', 'Categories'],
+      description: 'Admin list of all page categories. `total_pages` is the global total pages created under each category across all users.',
+      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'perPage', in: 'query', schema: { type: 'number' } }, { name: 'limit', in: 'query', schema: { type: 'number' } }, { name: 'offset', in: 'query', schema: { type: 'number' } }],
+      response: { 200: schemas.PageCategoryPaginatedResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse }
+    }
+  }, handler('listAllPageCategories'));
 
   // pages by category id
   fastify.get('/page-categories/:id/pages', {

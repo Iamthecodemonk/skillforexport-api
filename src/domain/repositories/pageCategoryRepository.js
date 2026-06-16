@@ -13,6 +13,9 @@ export class PageCategoryRepository {
   async list(params = {}) {
     throw new Error('list() not implemented');
   }
+  async listForOwner(ownerId, params = {}) {
+    throw new Error('listForOwner() not implemented');
+  }
   async countAll() {
     throw new Error('countAll() not implemented');
   }
@@ -38,6 +41,10 @@ export class PageCategoryRepositoryImpl extends PageCategoryRepository {
   async list(params = {}) {
     if (typeof this.adapter.list === 'function') return this.adapter.list(params);
     return [];
+  }
+  async listForOwner(ownerId, params = {}) {
+    if (typeof this.adapter.listForOwner === 'function') return this.adapter.listForOwner(ownerId, params);
+    return this.list(params);
   }
   async countAll() {
     if (typeof this.adapter.countAll === 'function') return this.adapter.countAll();

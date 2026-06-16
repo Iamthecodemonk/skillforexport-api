@@ -257,7 +257,17 @@ export default class PageUseCase {
     return this.pageCategoryRepository.create(cat);
   }
 
-  async ListPageCategories({ limit = 50, offset = 0 } = {}) {
+  async ListPageCategories({ limit = 50, offset = 0, ownerId = null } = {}) {
+    if (!this.pageCategoryRepository || typeof this.pageCategoryRepository.list !== 'function') {
+      throw new Error('not_implemented');
+    }
+    if (ownerId && typeof this.pageCategoryRepository.listForOwner === 'function') {
+      return this.pageCategoryRepository.listForOwner(ownerId, { limit, offset });
+    }
+    return this.pageCategoryRepository.list({ limit, offset });
+  }
+
+  async ListAllPageCategories({ limit = 50, offset = 0 } = {}) {
     if (!this.pageCategoryRepository || typeof this.pageCategoryRepository.list !== 'function') {
       throw new Error('not_implemented');
     }

@@ -10,6 +10,16 @@ export default class MysqlPageCategoryRepository {
       .as('pc');
   }
 
+  withOwnerPageCounts(ownerId) {
+    return db('pages')
+      .select('category_id')
+      .count({ total_pages: 'id' })
+      .where('owner_id', ownerId)
+      .whereNotNull('category_id')
+      .groupBy('category_id')
+      .as('opc');
+  }
+
   normalize(row) {
     if (!row) return null;
     return {
@@ -41,6 +51,16 @@ export default class MysqlPageCategoryRepository {
     const rows = await db('page_categories as pcg')
       .leftJoin(this.withPageCounts(), 'pc.category_id', 'pcg.id')
       .select('pcg.*', db.raw('COALESCE(pc.total_pages, 0) as total_pages'))
+      .orderBy('pcg.name', 'asc')
+      .limit(limit)
+      .offset(offset);
+    return rows.map(row => this.normalize(row));
+  }
+
+  async listForOwner(ownerId, { limit = 50, offset = 0 } = {}) {
+    const rows = await db('page_categories as pcg')
+      .leftJoin(this.withOwnerPageCounts(ownerId), 'opc.category_id', 'pcg.id')
+      .select('pcg.*', db.raw('COALESCE(opc.total_pages, 0) as total_pages'))
       .orderBy('pcg.name', 'asc')
       .limit(limit)
       .offset(offset);

@@ -1775,10 +1775,10 @@ export const PageCategoryResponse = {
     validation_rules: { type: 'object', nullable: true },
     created_at: { type: 'string' },
     updated_at: { type: 'string' },
-    total_pages: { type: 'number', nullable: true, description: 'Total pages in this category' }
+    total_pages: { type: 'number', nullable: true, description: 'On GET /page-categories this is the authenticated user page count in the category. On GET /page-categories/all this is the global page count in the category.' }
   }
 };
-PageCategoryResponse.example = { id: 'page-category-uuid', name: 'Community', slug: 'community', description: 'Community pages', icon: 'users', is_active: 1, rules: { allowPosting: true }, max_pages_per_user: 5, requires_approval: 1, validation_rules: { slugPattern: '^[a-z0-9-]+$' }, created_at: '2026-04-01T12:00:00Z', updated_at: '2026-04-10T12:00:00Z', total_pages: 12 };
+PageCategoryResponse.example = { id: 'page-category-uuid', name: 'Student', slug: 'student', description: 'Student pages', icon: 'graduation-cap', is_active: 1, rules: { allowPosting: true }, max_pages_per_user: 1, requires_approval: 1, validation_rules: { slugPattern: '^[a-z0-9-]+$' }, created_at: '2026-04-01T12:00:00Z', updated_at: '2026-04-10T12:00:00Z', total_pages: 1 };
 
 export const CommunityCategoryCreateBody = {
   type: 'object',

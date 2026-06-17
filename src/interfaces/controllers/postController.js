@@ -131,7 +131,9 @@ export function makePostController({ useCase = null }) {
       try {
         const { id: postId } = req.params;
         const actorId = req.user && req.user.id;
-        const { communityId, comment } = req.body || {};
+        const body = req.body || {};
+        const communityId = firstDefined(body.communityId, body.community_id);
+        const { comment } = body;
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const shared = await useCase.SharePost({ postId, userId: actorId, communityId, comment });
         return reply.code(201).send({ success: true, data: shared });

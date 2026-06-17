@@ -144,7 +144,22 @@ export default class MysqlCommentRepository {
   }
 
   async delete(id) {
-    await db('comments').where({ id }).del();
+    await db.transaction(async (trx) => {
+      const commentIds = [id];
+      let frontier = [id];
+      while (frontier.length > 0) {
+        const children = await trx('comments').whereIn('parent_comment_id', frontier).pluck('id');
+        const freshChildren = children.filter(childId => !commentIds.includes(childId));
+        if (freshChildren.length === 0) break;
+        commentIds.push(...freshChildren);
+        frontier = freshChildren;
+      }
+
+      await trx('comment_reactions').whereIn('comment_id', commentIds).del();
+      await trx('comment_reports').whereIn('comment_id', commentIds).del();
+      await trx('generic_reports').whereIn('target_id', commentIds).where('target_type', 'comment').del();
+      await trx('comments').whereIn('id', commentIds).del();
+    });
     return true;
   }
 }

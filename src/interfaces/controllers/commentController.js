@@ -71,6 +71,23 @@ export function makeCommentController({ useCase = null, notificationRepository =
         if (err.message === 'post_required') return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
+    },
+
+    deleteComment: async (req, reply) => {
+      try {
+        const { id } = req.params;
+        const actorId = req.user && req.user.id;
+        const actorRole = req.user && req.user.role;
+        if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        await useCase.deleteComment({ id, userId: actorId, actorRole });
+        return reply.code(200).send({ success: true, message: 'Comment deleted successfully', data: { id } });
+      } catch (err) {
+        commentLogger.error('deleteComment error', { message: err.message });
+        if (err.message === 'comment_not_found') return reply.code(404).send({ success: false, error: { code: 'comment_not_found' } });
+        if (err.message === 'not_authorized') return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+        if (err.message === 'comment_required' || err.message === 'user_required') return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
     }
   };
 }

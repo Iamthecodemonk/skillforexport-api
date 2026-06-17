@@ -2028,6 +2028,7 @@ export default async function registerRoutes(fastify, deps) {
   fastify.delete('/post/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyDeletePost', tags: ['Posts'], description: 'Legacy alias for DELETE /posts/:id', params: idParam(), body: { type: 'object', properties: { userId: { type: 'string' } } }, response: { 200: schemas.EmptyArraySuccessResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } } }, handler('deletePost'));
   fastify.post('/post/:id/comment', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyCreatePostComment', tags: ['Posts', 'Comments'], description: 'Legacy alias for POST /posts/:id/comments', params: idParam(), body: schemas.CommentCreateBody, response: { 201: dataResponse(schemas.CommentResponse), 422: schemas.GenericErrorResponse } } }, handler('createComment'));
   fastify.get('/post/:id/comment', { schema: { operationId: 'legacyListPostComments', tags: ['Posts', 'Comments'], description: 'Legacy alias for GET /posts/:id/comments', params: idParam(), querystring: { type: 'object', properties: listQueryBase }, response: { 200: schemas.CommentPaginatedResponse } } }, handler('listComments'));
+  fastify.delete('/post/:postId/comment/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyDeletePostComment', tags: ['Comments'], description: 'Legacy alias for DELETE /comments/:id', params: twoIdParams('postId', 'id'), response: { 200: dataResponse({ type: 'object', properties: { id: { type: 'string' } } }), 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } } }, handler('deleteComment'));
   fastify.put('/post/:postId/comment/:id/like', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyToggleCommentLike', tags: ['Comments'], description: 'Legacy comment like alias', params: twoIdParams('postId', 'id'), body: schemas.ReactionBody, response: { 200: dataResponse(schemas.ReactionToggleResponse), 422: schemas.GenericErrorResponse } } }, handler('toggleCommentReaction'));
   fastify.put('/post/:postId/comment/:id/follow', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyFollowComment', tags: ['Comments'], description: 'Legacy comment follow compatibility no-op', params: twoIdParams('postId', 'id'), response: { 200: dataResponse({ type: 'object', properties: { following: { type: 'boolean' } } }) } } }, async (req, reply) => reply.send({ success: true, message: 'Followed successfully.', data: { following: true } }));
   fastify.post('/post/:id/repost', {
@@ -2187,6 +2188,22 @@ export default async function registerRoutes(fastify, deps) {
       response: { 200: schemas.CommentPaginatedResponse }
     }
   }, handler('listComments'));
+
+  fastify.delete('/comments/:id', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'deleteComment',
+      tags: ['Comments'],
+      description: 'Delete a comment. The comment owner or admin can delete. Replies, reactions, and reports attached to the comment are also removed.',
+      params: idParam(),
+      response: {
+        200: dataResponse({ type: 'object', properties: { id: { type: 'string' } } }),
+        401: schemas.AuthErrorResponse,
+        403: schemas.GenericErrorResponse,
+        404: schemas.GenericErrorResponse
+      }
+    }
+  }, handler('deleteComment'));
 
   // ========== Reactions ==========
   fastify.post('/posts/:id/reactions', {

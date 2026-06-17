@@ -52,6 +52,24 @@ PREPARE add_employment_types_stmt FROM @add_employment_types_sql;
 EXECUTE add_employment_types_stmt;
 DEALLOCATE PREPARE add_employment_types_stmt;
 
+SET @has_job_types := (
+  SELECT COUNT(*)
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'alert_preferences'
+    AND COLUMN_NAME = 'job_types'
+);
+
+SET @add_job_types_sql := IF(
+  @has_job_types = 0,
+  'ALTER TABLE alert_preferences ADD COLUMN job_types JSON NULL AFTER job_search_tags',
+  'SELECT ''alert_preferences.job_types already exists'' AS message'
+);
+
+PREPARE add_job_types_stmt FROM @add_job_types_sql;
+EXECUTE add_job_types_stmt;
+DEALLOCATE PREPARE add_job_types_stmt;
+
 SET @has_experience_levels := (
   SELECT COUNT(*)
   FROM INFORMATION_SCHEMA.COLUMNS

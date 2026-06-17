@@ -32,6 +32,13 @@ const toArray = (value) => {
   return [];
 };
 
+export const SCHOLARSHIP_TYPE_OPTIONS = [
+  { value: 'academic_scholarship', label: 'Academic scholarship' },
+  { value: 'it_tech_scholarship', label: 'IT/Tech scholarship' },
+  { value: 'artisan_skills_scholarship', label: 'Artisan skills scholarship' },
+  { value: 'soft_skills_scholarship', label: 'Soft skills scholarship' }
+];
+
 
 
 export default class MysqlJobsFreelancersRepository {
@@ -288,6 +295,7 @@ export default class MysqlJobsFreelancersRepository {
     const scholarshipTypes = toArray(input.scholarshipTypes || input.scholarship_types || input.scholarshipType || input.scholarship_type);
     const employmentTypes = toArray(input.employmentTypes || input.employment_types || input.employmentType || input.employment_type);
     const experienceLevels = toArray(input.experienceLevels || input.experience_levels || input.experienceLevel || input.experience_level);
+    const jobTypes = toArray(input.jobTypes || input.job_types || input.jobType || input.job_type);
     const payload = {
       id: existing ? existing.id : uuidv4(),
       user_id: userId,
@@ -298,6 +306,7 @@ export default class MysqlJobsFreelancersRepository {
       scholarship_types: json(scholarshipTypes),
       job_alert: toBool(input.jobAlert),
       job_search_tags: json(input.jobSearchTags),
+      job_types: json(jobTypes),
       employment_types: json(employmentTypes),
       experience_levels: json(experienceLevels),
       created_at: existing ? existing.created_at : now,
@@ -311,19 +320,31 @@ export default class MysqlJobsFreelancersRepository {
   async getAlertPreferences(userId) {
     const row = await db('alert_preferences').where({ user_id: userId }).first();
     if (!row) return null;
+    const scholarshipTypes = parseJson(row.scholarship_types, row.scholarship_type ? [row.scholarship_type] : []);
+    const jobTypes = parseJson(row.job_types);
+    const experienceLevels = parseJson(row.experience_levels);
     return {
       contestAlert: Boolean(row.contest_alert),
       sponsorshipAlert: Boolean(row.sponsorship_alert),
       salesAlert: Boolean(row.sales_alert),
-      scholarshipType: row.scholarship_type,
-      scholarshipTypes: parseJson(row.scholarship_types, row.scholarship_type ? [row.scholarship_type] : []),
-      scholarship_types: parseJson(row.scholarship_types, row.scholarship_type ? [row.scholarship_type] : []),
+      scholarshipType: row.scholarship_type || scholarshipTypes[0] || null,
+      scholarship_type: row.scholarship_type || scholarshipTypes[0] || null,
+      scholarshipTypes,
+      scholarship_types: scholarshipTypes,
+      scholarshipTypeOptions: SCHOLARSHIP_TYPE_OPTIONS,
+      scholarship_type_options: SCHOLARSHIP_TYPE_OPTIONS,
       jobAlert: Boolean(row.job_alert),
       jobSearchTags: parseJson(row.job_search_tags),
+      jobType: jobTypes[0] || null,
+      job_type: jobTypes[0] || null,
+      jobTypes,
+      job_types: jobTypes,
       employmentTypes: parseJson(row.employment_types),
       employment_types: parseJson(row.employment_types),
-      experienceLevels: parseJson(row.experience_levels),
-      experience_levels: parseJson(row.experience_levels),
+      experienceLevel: experienceLevels[0] || null,
+      experience_level: experienceLevels[0] || null,
+      experienceLevels,
+      experience_levels: experienceLevels,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };

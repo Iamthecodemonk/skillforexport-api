@@ -26,4 +26,14 @@ export default class CommentUseCase {
     if (!postId) throw new Error('post_required');
     return this.commentRepository.listByPost(postId, { limit, offset, userId });
   }
+
+  async deleteComment({ id, userId, actorRole = null }) {
+    if (!id) throw new Error('comment_required');
+    if (!userId) throw new Error('user_required');
+    const existing = await this.commentRepository.findById(id, { includeHidden: true });
+    if (!existing) throw new Error('comment_not_found');
+    if (existing.user_id !== userId && actorRole !== 'admin') throw new Error('not_authorized');
+    await this.commentRepository.delete(id);
+    return { id };
+  }
 }

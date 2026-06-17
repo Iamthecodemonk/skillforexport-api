@@ -79,6 +79,10 @@ const compactPost = (row) => ({
     name: row.community_name || null
   } : null,
   media: mapMedia(row.media),
+  is_liked: boolValue(row.is_scored),
+  isLiked: boolValue(row.is_scored),
+  is_saved: boolValue(row.is_saved),
+  isSaved: boolValue(row.is_saved),
   viewerState: {
     isFollowing: boolValue(row.is_following),
     isScored: boolValue(row.is_scored),
@@ -176,6 +180,58 @@ async function listCompactPosts({ actorId, limit, communityId = null, publicOnly
   }
 
   return q;
+}
+
+export async function getCompactPostItem({ postId, actorId = null } = {}) {
+  if (!postId) return null;
+  const q = db('posts as p')
+    .leftJoin('users as u', 'u.id', 'p.user_id')
+    .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+    .leftJoin('communities as c', 'c.id', 'p.community_id')
+    .leftJoin('pages as pg', 'pg.id', 'p.page_id')
+    .select(
+      'p.id',
+      'p.user_id',
+      'p.community_id',
+      'p.page_id',
+      'p.title',
+      'p.content',
+      'p.created_at',
+      'p.updated_at',
+      db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as author_name'),
+      'up.username as author_username',
+      'up.avatar as author_avatar',
+      'c.name as community_name',
+      'pg.name as page_name',
+      'pg.avatar as page_avatar',
+      db.raw(`IFNULL((
+        SELECT GROUP_CONCAT(us.skill ORDER BY us.created_at DESC SEPARATOR '||')
+        FROM user_skills us
+        WHERE us.user_id = p.user_id
+      ), '') as author_skills`),
+      db.raw("(SELECT COUNT(*) FROM comments cm WHERE cm.post_id = p.id AND COALESCE(cm.moderation_status, 'approved') NOT IN ('suspended','deleted')) as comments_count"),
+      db.raw('(SELECT COUNT(*) FROM post_reactions pr WHERE pr.post_id = p.id) as score'),
+      db.raw(`IFNULL((
+        SELECT JSON_ARRAYAGG(JSON_OBJECT('id', pm.id, 'type', pm.media_type, 'url', pm.url, 'thumbnailUrl', pm.thumbnail_url, 'displayOrder', pm.display_order))
+        FROM post_media pm
+        WHERE pm.post_id = p.id
+      ), JSON_ARRAY()) as media`)
+    )
+    .where('p.id', postId)
+    .whereNotIn('p.moderation_status', ['suspended', 'deleted']);
+
+  if (actorId) {
+    q.select(
+      db.raw('EXISTS(SELECT 1 FROM followers f WHERE f.follower_id = ? AND f.following_id = p.user_id) as is_following', [actorId]),
+      db.raw('EXISTS(SELECT 1 FROM post_reactions pr2 WHERE pr2.user_id = ? AND pr2.post_id = p.id) as is_scored', [actorId]),
+      db.raw('EXISTS(SELECT 1 FROM post_saves ps WHERE ps.user_id = ? AND ps.post_id = p.id) as is_saved', [actorId])
+    );
+  } else {
+    q.select(db.raw('false as is_following'), db.raw('false as is_scored'), db.raw('false as is_saved'));
+  }
+
+  const row = await q.first();
+  return row ? compactPost(row) : null;
 }
 
 async function listCompactQuestions({ actorId, limit, communityId = null, publicOnly = true, search = null } = {}) {

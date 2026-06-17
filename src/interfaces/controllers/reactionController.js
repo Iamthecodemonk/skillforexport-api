@@ -1,4 +1,5 @@
 import logger from '../../utils/logger.js';
+import { getCompactPostItem } from './feedController.js';
 
 const reactionLogger = logger.child('REACTION_CONTROLLER');
 
@@ -15,6 +16,16 @@ export function makeReactionController({ useCase = null, notificationRepository 
         if (!actorId) 
           return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const res = await useCase.togglePostReaction({ postId, userId: actorId, type });
+        const item = await getCompactPostItem({ postId, actorId });
+        const isLiked = !!(item && item.viewerState && item.viewerState.isScored);
+        const payload = {
+          ...res,
+          score: res.count,
+          is_liked: isLiked,
+          isLiked,
+          item,
+          post: item
+        };
         if (notificationRepository && postRepository && res && res.result && res.result.action !== 'removed') {
           try {
             const post = await postRepository.findById(postId, { userId: actorId });
@@ -31,7 +42,7 @@ export function makeReactionController({ useCase = null, notificationRepository 
             reactionLogger.warn('post reaction notification failed', { message: notifyErr.message });
           }
         }
-        return reply.send({ success: true, message: 'Post reaction updated successfully', data: res });
+        return reply.send({ success: true, message: 'Post reaction updated successfully', data: payload });
       } catch (err) {
         reactionLogger.error('togglePostReaction error', { message: err.message });
         if (err.message === 'post_required' || err.message === 'user_required') return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });

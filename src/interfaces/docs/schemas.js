@@ -744,15 +744,37 @@ export const AlertPreferencesResponse = {
   properties: {
     contestAlert: { type: 'boolean' },
     sponsorshipAlert: { type: 'boolean' },
+    salesAlert: { type: 'boolean' },
     scholarshipType: { type: ['string','null'] },
+    scholarship_type: { type: ['string','null'] },
+    scholarshipTypes: { type: 'array', items: { type: 'string' } },
+    scholarship_types: { type: 'array', items: { type: 'string' } },
+    scholarshipTypeOptions: {
+      type: 'array',
+      items: { type: 'object', properties: { value: { type: 'string' }, label: { type: 'string' } } }
+    },
+    scholarship_type_options: {
+      type: 'array',
+      items: { type: 'object', properties: { value: { type: 'string' }, label: { type: 'string' } } }
+    },
     jobAlert: { type: 'boolean' },
     jobSearchTags: { type: 'array', items: { type: 'string' } },
+    jobType: { type: ['string','null'] },
+    job_type: { type: ['string','null'] },
+    jobTypes: { type: 'array', items: { type: 'string' } },
+    job_types: { type: 'array', items: { type: 'string' } },
+    employmentTypes: { type: 'array', items: { type: 'string' } },
+    employment_types: { type: 'array', items: { type: 'string' } },
+    experienceLevel: { type: ['string','null'] },
+    experience_level: { type: ['string','null'] },
+    experienceLevels: { type: 'array', items: { type: 'string' } },
+    experience_levels: { type: 'array', items: { type: 'string' } },
     createdAt: { type: 'string' },
     updatedAt: { type: 'string' }
   }
 };
-AlertPreferencesResponse.example = { contestAlert: true, sponsorshipAlert: false, scholarshipType: null, jobAlert: true, jobSearchTags: ['Frontend developer'], createdAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
-export const AlertPreferencesBody = { type: 'object', properties: { contestAlert: { type: 'boolean' }, sponsorshipAlert: { type: 'boolean' }, scholarshipType: { type: ['string','null'] }, jobAlert: { type: 'boolean' }, jobSearchTags: { type: 'array', items: { type: 'string' }, maxItems: 10 } }, example: { contestAlert: true, sponsorshipAlert: false, scholarshipType: null, jobAlert: true, jobSearchTags: ['Product designer','Frontend developer'] } };
+AlertPreferencesResponse.example = { contestAlert: true, sponsorshipAlert: true, salesAlert: false, scholarshipType: 'academic_scholarship', scholarship_type: 'academic_scholarship', scholarshipTypes: ['academic_scholarship', 'it_tech_scholarship'], scholarship_types: ['academic_scholarship', 'it_tech_scholarship'], scholarshipTypeOptions: [{ value: 'academic_scholarship', label: 'Academic scholarship' }, { value: 'it_tech_scholarship', label: 'IT/Tech scholarship' }, { value: 'artisan_skills_scholarship', label: 'Artisan skills scholarship' }, { value: 'soft_skills_scholarship', label: 'Soft skills scholarship' }], scholarship_type_options: [{ value: 'academic_scholarship', label: 'Academic scholarship' }, { value: 'it_tech_scholarship', label: 'IT/Tech scholarship' }, { value: 'artisan_skills_scholarship', label: 'Artisan skills scholarship' }, { value: 'soft_skills_scholarship', label: 'Soft skills scholarship' }], jobAlert: true, jobSearchTags: ['Frontend developer'], jobType: 'full-time', job_type: 'full-time', jobTypes: ['full-time', 'remote'], job_types: ['full-time', 'remote'], employmentTypes: ['full-time'], employment_types: ['full-time'], experienceLevel: 'entry', experience_level: 'entry', experienceLevels: ['entry', 'mid'], experience_levels: ['entry', 'mid'], createdAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
+export const AlertPreferencesBody = { type: 'object', properties: { contestAlert: { type: 'boolean' }, sponsorshipAlert: { type: 'boolean' }, salesAlert: { type: 'boolean' }, scholarshipType: { type: ['string','null'] }, scholarship_type: { type: ['string','null'] }, scholarshipTypes: { type: 'array', items: { type: 'string' } }, scholarship_types: { type: 'array', items: { type: 'string' } }, jobAlert: { type: 'boolean' }, jobSearchTags: { type: 'array', items: { type: 'string' }, maxItems: 10 }, jobType: { type: ['string','null'] }, job_type: { type: ['string','null'] }, jobTypes: { type: 'array', items: { type: 'string' } }, job_types: { type: 'array', items: { type: 'string' } }, employmentType: { type: ['string','null'] }, employment_type: { type: ['string','null'] }, employmentTypes: { type: 'array', items: { type: 'string' } }, employment_types: { type: 'array', items: { type: 'string' } }, experienceLevel: { type: ['string','null'] }, experience_level: { type: ['string','null'] }, experienceLevels: { type: 'array', items: { type: 'string' } }, experience_levels: { type: 'array', items: { type: 'string' } } }, example: { contestAlert: true, sponsorshipAlert: true, salesAlert: false, scholarshipTypes: ['academic_scholarship', 'it_tech_scholarship'], jobAlert: true, jobSearchTags: ['Product designer','Frontend developer'], jobTypes: ['full-time', 'remote'], employmentTypes: ['full-time'], experienceLevels: ['entry', 'mid'] } };
 
 export const FreelancerProfileResponse = {
   type: 'object',
@@ -1874,7 +1896,24 @@ export const ReactionBody = {
 
 export const ReactionToggleResponse = {
   type: 'object',
-  properties: { result: { type: 'object' }, count: { type: 'number' } }
+  properties: {
+    result: { type: 'object' },
+    count: { type: 'number' },
+    score: { type: 'number' },
+    is_liked: { type: 'boolean' },
+    isLiked: { type: 'boolean' },
+    item: { type: 'object', additionalProperties: true, description: 'Updated feed-style item after the reaction toggle.' },
+    post: { type: 'object', additionalProperties: true, description: 'Alias of item for post reactions.' }
+  },
+  example: {
+    result: { action: 'created', type: 'like' },
+    count: 12,
+    score: 12,
+    is_liked: true,
+    isLiked: true,
+    item: { type: 'post', id: 'post-uuid', score: 12, is_liked: true, viewerState: { isScored: true } },
+    post: { type: 'post', id: 'post-uuid', score: 12, is_liked: true, viewerState: { isScored: true } }
+  }
 };
 
 export const PostSaveBody = {
@@ -1900,9 +1939,9 @@ export const CommentReportResponse = {
 
 export const PostShareBody = {
   type: 'object',
-  required: ['communityId'],
   properties: {
     communityId: { type: 'string' },
+    community_id: { type: 'string' },
     comment: { type: 'string' }
   },
   example: { communityId: 'community-uuid', comment: 'My thoughts on this post' }

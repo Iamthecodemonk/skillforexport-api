@@ -207,13 +207,19 @@ export default class JobsFreelancersUseCase {
       : Array.isArray(body.experience_levels)
         ? body.experience_levels
         : (body.experienceLevel || body.experience_level ? [body.experienceLevel || body.experience_level] : []);
+    const jobTypes = Array.isArray(body.jobTypes)
+      ? body.jobTypes
+      : Array.isArray(body.job_types)
+        ? body.job_types
+        : (body.jobType || body.job_type ? [body.jobType || body.job_type] : []);
     if (body.sponsorshipAlert && !scholarshipTypes.length) throw new Error('validation_error');
     return this.repository.upsertAlertPreferences(actor.id, {
       ...body,
       jobSearchTags: unique,
       scholarshipTypes,
       employmentTypes,
-      experienceLevels
+      experienceLevels,
+      jobTypes
     });
   }
 

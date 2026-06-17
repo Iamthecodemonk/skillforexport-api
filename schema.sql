@@ -194,9 +194,11 @@ CREATE TABLE `communities` (
   `members_only_posting` tinyint(1) DEFAULT '0',
   `created_at` timestamp NULL DEFAULT NULL,
   `default_post_visibility` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `is_private` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   KEY `idx_category_id` (`category_id`),
   KEY `idx_owner_id` (`owner_id`),
+  KEY `idx_communities_is_private` (`is_private`),
   CONSTRAINT `communities_ibfk_1` FOREIGN KEY (`category_id`) REFERENCES `community_categories` (`id`) ON DELETE SET NULL,
   CONSTRAINT `communities_ibfk_2` FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

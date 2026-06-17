@@ -57,7 +57,7 @@ const applyQuestionOrdering = (q, { sortField = null, sortDirection = null } = {
 export default class MysqlQuestionRepository {
   toQuestionWithRelations(row) {
     if (!row) return null;
-    const { user_email, user_name, user_avatar, user_skills, is_follow, community_name, community_description, community_icon, community_is_active, ...question } = row;
+    const { user_email, user_name, user_avatar, user_skills, is_follow, community_name, community_description, community_icon, community_is_active, community_default_post_visibility, ...question } = row;
     const user = typeof user_email !== 'undefined' || typeof user_name !== 'undefined'
       ? {
           id: question.user_id,
@@ -90,7 +90,10 @@ export default class MysqlQuestionRepository {
             name: community_name || null,
             description: community_description || null,
             icon: community_icon || null,
-            is_active: typeof community_is_active === 'undefined' ? undefined : community_is_active
+            is_active: typeof community_is_active === 'undefined' ? undefined : community_is_active,
+            default_post_visibility: community_default_post_visibility || null,
+            is_private: community_default_post_visibility === 'community' ? 1 : 0,
+            isPrivate: community_default_post_visibility === 'community'
           }
         : null
     };
@@ -143,6 +146,7 @@ export default class MysqlQuestionRepository {
         'c.description as community_description',
         'c.icon as community_icon',
         'c.is_active as community_is_active',
+        'c.default_post_visibility as community_default_post_visibility',
         db.raw('COALESCE(ac.total_answers, 0) as total_answers'),
         db.raw('COALESCE(ac.total_answerers, 0) as total_answerers')
       );
@@ -189,6 +193,7 @@ export default class MysqlQuestionRepository {
         'c.description as community_description',
         'c.icon as community_icon',
         'c.is_active as community_is_active',
+        'c.default_post_visibility as community_default_post_visibility',
         db.raw('COALESCE(ac.total_answers, 0) as total_answers'),
         db.raw('COALESCE(ac.total_answerers, 0) as total_answerers')
       );

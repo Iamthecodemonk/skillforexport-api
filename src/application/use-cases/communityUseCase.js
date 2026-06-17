@@ -50,15 +50,23 @@ export default class CommunityUseCase {
     return category ? category.id : null;
   }
 
-  async createCommunity({ id = null, categoryId = null, name, icon = null, description = null, ownerId = null, defaultPostVisibility = 'public', membersOnlyPosting = false }) {
+  normalizeCommunityVisibility({ defaultPostVisibility = null, isPrivate = null } = {}) {
+    if (typeof isPrivate !== 'undefined' && isPrivate !== null && !defaultPostVisibility) {
+      return isPrivate === true || isPrivate === 1 || isPrivate === '1' ? 'community' : 'public';
+    }
+    return defaultPostVisibility || 'public';
+  }
+
+  async createCommunity({ id = null, categoryId = null, name, icon = null, description = null, ownerId = null, defaultPostVisibility = null, membersOnlyPosting = false, isPrivate = null }) {
     if (!name || !ownerId) 
         throw new Error('validation_failed');
+    defaultPostVisibility = this.normalizeCommunityVisibility({ defaultPostVisibility, isPrivate });
     const allowedVisibility = ['public', 'connections', 'community'];
     if (defaultPostVisibility && !allowedVisibility.includes(defaultPostVisibility)) {
       throw new Error('validation_failed');
     }
     const communityCategoryId = categoryId || await this.getDefaultCategoryId();
-    const payload = { id: id || uuidv4(), category_id: communityCategoryId, name, icon, description, created_at: new Date(), owner_id: ownerId, default_post_visibility: defaultPostVisibility, members_only_posting: membersOnlyPosting ? 1 : 0 };
+    const payload = { id: id || uuidv4(), category_id: communityCategoryId, name, icon, description, created_at: new Date(), owner_id: ownerId, default_post_visibility: defaultPostVisibility, is_private: defaultPostVisibility === 'community' ? 1 : 0, members_only_posting: membersOnlyPosting ? 1 : 0 };
     const created = await this.communityRepository.create(payload);
     // add owner as admin member
     if (this.communityMemberRepository) {
@@ -76,6 +84,17 @@ export default class CommunityUseCase {
     const existing = await this.communityRepository.findById(id);
     if (!existing) 
         throw new Error('community_not_found');
+    const hasPrivacyUpdate = Object.prototype.hasOwnProperty.call(updates, 'isPrivate') || Object.prototype.hasOwnProperty.call(updates, 'is_private');
+    const explicitPrivate = Object.prototype.hasOwnProperty.call(updates, 'isPrivate') ? updates.isPrivate : updates.is_private;
+    if (hasPrivacyUpdate && !Object.prototype.hasOwnProperty.call(updates, 'defaultPostVisibility') && !Object.prototype.hasOwnProperty.call(updates, 'default_post_visibility')) {
+      updates.default_post_visibility = this.normalizeCommunityVisibility({ isPrivate: explicitPrivate });
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'defaultPostVisibility') || Object.prototype.hasOwnProperty.call(updates, 'default_post_visibility')) {
+      const visibility = Object.prototype.hasOwnProperty.call(updates, 'defaultPostVisibility') ? updates.defaultPostVisibility : updates.default_post_visibility;
+      const allowedVisibility = ['public', 'connections', 'community'];
+      if (visibility && !allowedVisibility.includes(visibility)) throw new Error('validation_failed');
+      updates.is_private = visibility === 'community' ? 1 : 0;
+    }
     return this.communityRepository.update(id, updates);
   }
 

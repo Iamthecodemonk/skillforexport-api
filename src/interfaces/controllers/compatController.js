@@ -13,6 +13,7 @@ const compatLogger = logger.child('COMPAT_CONTROLLER');
 const actorId = (req) => req.user && req.user.id;
 const now = () => new Date();
 const csv = (value) => String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
+const tableColumnCache = new Map();
 const queryText = (req) => {
   const query = (req && req.query) || {};
   const nestedFilters = query.filters && typeof query.filters === 'object' ? query.filters : {};
@@ -140,6 +141,76 @@ const invalidateUserProfileCache = async (req, userId) => {
   } catch (_) {
     // cache invalidation should not fail the settings request
   }
+};
+
+const getTableColumns = async (tableName) => {
+  if (tableColumnCache.has(tableName)) return tableColumnCache.get(tableName);
+  const rows = await db('INFORMATION_SCHEMA.COLUMNS')
+    .select('COLUMN_NAME as name', 'DATA_TYPE as dataType', 'EXTRA as extra')
+    .whereRaw('TABLE_SCHEMA = DATABASE()')
+    .where('TABLE_NAME', tableName);
+  const columns = {};
+  for (const row of rows || []) {
+    columns[row.name] = {
+      dataType: String(row.dataType || '').toLowerCase(),
+      extra: String(row.extra || '').toLowerCase()
+    };
+  }
+  tableColumnCache.set(tableName, columns);
+  return columns;
+};
+
+const filterExistingColumns = (payload, columns) => {
+  const filtered = {};
+  for (const [key, value] of Object.entries(payload || {})) {
+    if (Object.prototype.hasOwnProperty.call(columns, key)) filtered[key] = value;
+  }
+  return filtered;
+};
+
+const nextNumericId = async (tableName) => {
+  const row = await db(tableName).max({ max_id: 'id' }).first();
+  return Number(row && row.max_id ? row.max_id : 0) + 1;
+};
+
+const saveUserSettings = async (userId, patch = {}) => {
+  const columns = await getTableColumns('user_settings');
+  const timestamp = now();
+  const updatePayload = filterExistingColumns({ ...patch, updated_at: timestamp }, columns);
+  const existing = await db('user_settings').where({ user_id: userId }).first();
+
+  if (existing) {
+    if (Object.keys(updatePayload).length > 0) {
+      await db('user_settings').where({ user_id: userId }).update(updatePayload);
+    }
+    return db('user_settings').where({ user_id: userId }).first();
+  }
+
+  const insertPayload = filterExistingColumns({
+    user_id: userId,
+    ...patch,
+    created_at: timestamp,
+    updated_at: timestamp
+  }, columns);
+
+  if (columns.id && !Object.prototype.hasOwnProperty.call(insertPayload, 'id')) {
+    if (['char', 'varchar', 'text'].includes(columns.id.dataType)) {
+      insertPayload.id = uuidv4();
+    } else if (!columns.id.extra.includes('auto_increment')) {
+      insertPayload.id = await nextNumericId('user_settings');
+    }
+  }
+
+  try {
+    await db('user_settings').insert(insertPayload);
+  } catch (err) {
+    if (String(err && err.message || '').toLowerCase().includes('duplicate')) {
+      await db('user_settings').where({ user_id: userId }).update(updatePayload);
+    } else {
+      throw err;
+    }
+  }
+  return db('user_settings').where({ user_id: userId }).first();
 };
 
 async function paginateTable(req, reply, table, where = {}, orderColumn = 'created_at') {
@@ -514,10 +585,7 @@ export function makeCompatController({ cloudinary = null } = {}) {
       if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
       const existing = await db('user_settings').where({ user_id: userId }).first();
       const nextPrivacy = { ...parseJsonObject(existing && existing.privacy), ...(req.body || {}) };
-      await db('user_settings')
-        .insert({ id: uuidv4(), user_id: userId, privacy: JSON.stringify(nextPrivacy), created_at: now(), updated_at: now() })
-        .onConflict('user_id')
-        .merge({ privacy: JSON.stringify(nextPrivacy), updated_at: now() });
+      await saveUserSettings(userId, { privacy: JSON.stringify(nextPrivacy) });
       await invalidateUserProfileCache(req, userId);
       return reply.send({ success: true, message: 'Privacy settings updated successfully', data: [] });
     },
@@ -552,10 +620,10 @@ export function makeCompatController({ cloudinary = null } = {}) {
       for (const key of Object.keys(normalized)) {
         if (typeof normalized[key] === 'undefined') delete normalized[key];
       }
-      await db('user_settings')
-        .insert({ id: uuidv4(), user_id: userId, settings: JSON.stringify(normalized), notification_preferences: JSON.stringify(notificationPreferences), created_at: now(), updated_at: now() })
-        .onConflict('user_id')
-        .merge({ settings: JSON.stringify(normalized), notification_preferences: JSON.stringify(notificationPreferences), updated_at: now() });
+      await saveUserSettings(userId, {
+        settings: JSON.stringify(normalized),
+        notification_preferences: JSON.stringify(notificationPreferences)
+      });
       await invalidateUserProfileCache(req, userId);
       return reply.send({ success: true, message: 'Settings updated successfully', data: { user_id: userId, ...normalized } });
     },
@@ -573,10 +641,7 @@ export function makeCompatController({ cloudinary = null } = {}) {
       if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
       if (!notificationEmail) return reply.code(422).send({ success: false, message: 'notification_email is required', data: null });
       const otp = String(Math.floor(100000 + Math.random() * 900000));
-      await db('user_settings')
-        .insert({ id: uuidv4(), user_id: userId, notification_email: notificationEmail, notification_email_otp: otp, created_at: now(), updated_at: now() })
-        .onConflict('user_id')
-        .merge({ notification_email: notificationEmail, notification_email_otp: otp, updated_at: now() });
+      await saveUserSettings(userId, { notification_email: notificationEmail, notification_email_otp: otp });
       return reply.send({ success: true, message: `OTP sent to ${notificationEmail}`, data: process.env.NODE_ENV === 'production' ? {} : { otp } });
     },
 

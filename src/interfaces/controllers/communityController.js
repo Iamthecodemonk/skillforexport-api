@@ -58,7 +58,8 @@ export function makeCommunityController({ useCase = null }) {
         const membersOnlyPosting = typeof body.membersOnlyPosting !== 'undefined'
           ? body.membersOnlyPosting
           : (typeof body.members_only_posting !== 'undefined' ? body.members_only_posting : false);
-        const created = await useCase.createCommunity({ name, icon, description, categoryId, ownerId: actorId, defaultPostVisibility, membersOnlyPosting });
+        const isPrivate = typeof body.isPrivate !== 'undefined' ? body.isPrivate : body.is_private;
+        const created = await useCase.createCommunity({ name, icon, description, categoryId, ownerId: actorId, defaultPostVisibility, membersOnlyPosting, isPrivate });
         return reply.code(201).send({ success: true, data: created });
       } catch (err) {
         log.error('createCommunity error', { message: err.message });

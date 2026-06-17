@@ -91,7 +91,9 @@ export default class MysqlPostRepository {
           name: row.community_name || null,
           description: row.community_description || null,
           is_active: typeof row.community_is_active === 'undefined' ? undefined : row.community_is_active,
-          default_post_visibility: row.community_default_post_visibility || null
+          default_post_visibility: row.community_default_post_visibility || null,
+          is_private: row.community_default_post_visibility === 'community' ? 1 : 0,
+          isPrivate: row.community_default_post_visibility === 'community'
         }
       : null;
 

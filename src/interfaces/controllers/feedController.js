@@ -76,7 +76,10 @@ const compactPost = (row) => ({
   } : null,
   community: row.community_id ? {
     id: row.community_id,
-    name: row.community_name || null
+    name: row.community_name || null,
+    default_post_visibility: row.community_default_post_visibility || null,
+    is_private: row.community_default_post_visibility === 'community' ? 1 : 0,
+    isPrivate: row.community_default_post_visibility === 'community'
   } : null,
   media: mapMedia(row.media),
   is_follow: boolValue(row.is_following),
@@ -113,7 +116,10 @@ const compactQuestion = (row) => ({
   page: null,
   community: row.community_id ? {
     id: row.community_id,
-    name: row.community_name || null
+    name: row.community_name || null,
+    default_post_visibility: row.community_default_post_visibility || null,
+    is_private: row.community_default_post_visibility === 'community' ? 1 : 0,
+    isPrivate: row.community_default_post_visibility === 'community'
   } : null,
   media: [],
   is_follow: boolValue(row.is_following),
@@ -156,6 +162,7 @@ async function listCompactPosts({ actorId, limit, communityId = null, publicOnly
       'up.username as author_username',
       'up.avatar as author_avatar',
       'c.name as community_name',
+      'c.default_post_visibility as community_default_post_visibility',
       'pg.name as page_name',
       'pg.avatar as page_avatar',
       db.raw(`IFNULL((
@@ -212,6 +219,7 @@ export async function getCompactPostItem({ postId, actorId = null } = {}) {
       'up.username as author_username',
       'up.avatar as author_avatar',
       'c.name as community_name',
+      'c.default_post_visibility as community_default_post_visibility',
       'pg.name as page_name',
       'pg.avatar as page_avatar',
       db.raw(`IFNULL((
@@ -261,6 +269,7 @@ async function listCompactQuestions({ actorId, limit, communityId = null, public
       'up.username as author_username',
       'up.avatar as author_avatar',
       'c.name as community_name',
+      'c.default_post_visibility as community_default_post_visibility',
       db.raw(`IFNULL((
         SELECT GROUP_CONCAT(us.skill ORDER BY us.created_at DESC SEPARATOR '||')
         FROM user_skills us

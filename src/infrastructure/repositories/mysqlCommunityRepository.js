@@ -2,10 +2,22 @@ import db from '../knexConfig.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export default class MysqlCommunityRepository {
+  isPrivateCommunity(row = {}) {
+    const explicit = typeof row.is_private !== 'undefined' ? row.is_private : row.isPrivate;
+    if (typeof explicit !== 'undefined' && explicit !== null) {
+      return !(explicit === 0 || explicit === false || explicit === '0');
+    }
+    const visibility = row.default_post_visibility || row.defaultPostVisibility || null;
+    return visibility === 'community';
+  }
+
   mapCommunity(row) {
     if (!row) return null;
+    const isPrivate = this.isPrivateCommunity(row);
     return {
       ...row,
+      is_private: isPrivate ? 1 : 0,
+      isPrivate,
       membersOnlyPosting: !(row.members_only_posting === 0 || row.members_only_posting === false || row.members_only_posting === '0')
     };
   }
@@ -32,6 +44,14 @@ export default class MysqlCommunityRepository {
       payload.default_post_visibility = typeof record.default_post_visibility !== 'undefined'
         ? record.default_post_visibility
         : record.defaultPostVisibility;
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(record, 'is_private') ||
+      Object.prototype.hasOwnProperty.call(record, 'isPrivate') ||
+      Object.prototype.hasOwnProperty.call(record, 'default_post_visibility') ||
+      Object.prototype.hasOwnProperty.call(record, 'defaultPostVisibility')
+    ) {
+      payload.is_private = this.isPrivateCommunity(record) ? 1 : 0;
     }
     if (Object.prototype.hasOwnProperty.call(record, 'members_only_posting') || Object.prototype.hasOwnProperty.call(record, 'membersOnlyPosting')) {
       const value = typeof record.members_only_posting !== 'undefined'
@@ -145,6 +165,8 @@ export default class MysqlCommunityRepository {
       ...community
     }) => ({
       ...community,
+      is_private: this.isPrivateCommunity(community) ? 1 : 0,
+      isPrivate: this.isPrivateCommunity(community),
       membersOnlyPosting: !(community.members_only_posting === 0 || community.members_only_posting === false || community.members_only_posting === '0'),
       category: categoryId ? { id: categoryId, name: categoryName } : null,
       posts_count: parseInt(posts_count || 0, 10),

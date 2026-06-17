@@ -18,20 +18,58 @@ const toBool = (value, fallback = false) => {
 const profileSettingsShape = (settingsRow = null) => {
   const settings = settingsRow && settingsRow.settings ? settingsRow.settings : {};
   const privacy = settingsRow && settingsRow.privacy ? settingsRow.privacy : {};
-  const notifications = settings.notifications || settings.notificationPreferences || {};
+  const storedNotificationPreferences = settingsRow && settingsRow.notification_preferences ? settingsRow.notification_preferences : {};
+  const storedInApp = storedNotificationPreferences && storedNotificationPreferences.inApp ? storedNotificationPreferences.inApp : {};
+  const storedEmail = storedNotificationPreferences && storedNotificationPreferences.email ? storedNotificationPreferences.email : {};
+  const notifications = { ...storedInApp, ...(settings.notifications || {}), ...(settings.notificationPreferences || {}) };
+  const updatesSource = settings.updates && typeof settings.updates === 'object' ? settings.updates : {};
+  const storedEmailNotifications = Object.values(storedEmail).some(value => value === true);
+  const latestUpdates = {
+    inbox: toBool(settings.inbox ?? settings.invox ?? notifications.inbox ?? updatesSource.inbox, true),
+    alerts: toBool(settings.alerts ?? notifications.alerts ?? updatesSource.alerts, true),
+    emailNotifications: toBool(settings.emailNotifications ?? settings.email_notifications ?? settings.mails ?? notifications.emailNotifications ?? updatesSource.emailNotifications, storedEmailNotifications),
+    comments: toBool(settings.comments ?? notifications.comments ?? updatesSource.comments, true),
+    replies: toBool(settings.replies ?? notifications.replies ?? updatesSource.replies, true),
+    answers: toBool(settings.answers ?? notifications.answers ?? updatesSource.answers, true),
+    scoresAndReactions: toBool(settings.scoresAndReactions ?? settings.scores_and_reactions ?? settings.scores ?? settings.reactions ?? notifications.scoresAndReactions ?? updatesSource.scoresAndReactions, true),
+    follows: toBool(settings.follows ?? settings.followers ?? notifications.follows ?? updatesSource.follows, true),
+    research: toBool(settings.research ?? notifications.research ?? updatesSource.research, true),
+    recommendedJobs: toBool(settings.recommendedJobs ?? settings.recommended_jobs ?? settings.recommended ?? notifications.recommendedJobs ?? updatesSource.recommendedJobs, true),
+    pageActivity: toBool(settings.pageActivity ?? settings.page_activity ?? settings.pages ?? notifications.pageActivity ?? updatesSource.pageActivity, true),
+    featuresAndAnnouncements: toBool(settings.featuresAndAnnouncements ?? settings.features_and_announcements ?? settings.featureAndAnnouncement ?? settings.feature_and_announcement ?? notifications.featuresAndAnnouncements ?? updatesSource.featuresAndAnnouncements, true)
+  };
   return {
     id: settingsRow && settingsRow.id || null,
     user_id: settingsRow && settingsRow.user_id || null,
-    feature_and_announcement: toBool(settings.feature_and_announcement ?? settings.featureAndAnnouncement ?? notifications.featureAndAnnouncement, true),
-    featureAndAnnouncement: toBool(settings.feature_and_announcement ?? settings.featureAndAnnouncement ?? notifications.featureAndAnnouncement, true),
-    mails: toBool(settings.mails ?? notifications.mails, true),
+    feature_and_announcement: latestUpdates.featuresAndAnnouncements,
+    featureAndAnnouncement: latestUpdates.featuresAndAnnouncements,
+    mails: latestUpdates.emailNotifications,
+    emailNotifications: latestUpdates.emailNotifications,
+    email_notifications: latestUpdates.emailNotifications,
     tips_and_reminders: toBool(settings.tips_and_reminders ?? settings.tipsAndReminders ?? notifications.tipsAndReminders, true),
     tipsAndReminders: toBool(settings.tips_and_reminders ?? settings.tipsAndReminders ?? notifications.tipsAndReminders, true),
-    inbox: toBool(settings.inbox ?? notifications.inbox, true),
-    research: toBool(settings.research ?? notifications.research, false),
-    recommended: toBool(settings.recommended ?? notifications.recommended, true),
-    alerts: toBool(settings.alerts ?? notifications.alerts, true),
+    inbox: latestUpdates.inbox,
+    alerts: latestUpdates.alerts,
+    comments: latestUpdates.comments,
+    replies: latestUpdates.replies,
+    answers: latestUpdates.answers,
+    scores: latestUpdates.scoresAndReactions,
+    reactions: latestUpdates.scoresAndReactions,
+    scoresAndReactions: latestUpdates.scoresAndReactions,
+    scores_and_reactions: latestUpdates.scoresAndReactions,
+    follows: latestUpdates.follows,
+    research: latestUpdates.research,
+    recommended: latestUpdates.recommendedJobs,
+    recommendedJobs: latestUpdates.recommendedJobs,
+    recommended_jobs: latestUpdates.recommendedJobs,
+    pageActivity: latestUpdates.pageActivity,
+    page_activity: latestUpdates.pageActivity,
+    pages: latestUpdates.pageActivity,
+    featuresAndAnnouncements: latestUpdates.featuresAndAnnouncements,
+    features_and_announcements: latestUpdates.featuresAndAnnouncements,
     profile: toBool(settings.profile ?? notifications.profile, true),
+    updates: latestUpdates,
+    notificationPreferences: latestUpdates,
     privacy,
     created_at: settingsRow && settingsRow.created_at || null,
     updated_at: settingsRow && settingsRow.updated_at || null

@@ -79,6 +79,10 @@ const compactPost = (row) => ({
     name: row.community_name || null
   } : null,
   media: mapMedia(row.media),
+  is_follow: boolValue(row.is_following),
+  isFollow: boolValue(row.is_following),
+  is_followed: boolValue(row.is_following),
+  isFollowed: boolValue(row.is_following),
   is_liked: boolValue(row.is_scored),
   isLiked: boolValue(row.is_scored),
   is_saved: boolValue(row.is_saved),
@@ -112,6 +116,12 @@ const compactQuestion = (row) => ({
     name: row.community_name || null
   } : null,
   media: [],
+  is_follow: boolValue(row.is_following),
+  isFollow: boolValue(row.is_following),
+  is_followed: boolValue(row.is_following),
+  isFollowed: boolValue(row.is_following),
+  is_saved: boolValue(row.is_saved),
+  isSaved: boolValue(row.is_saved),
   viewerState: {
     isFollowing: boolValue(row.is_following),
     isScored: false,

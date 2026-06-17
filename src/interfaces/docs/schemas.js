@@ -1374,9 +1374,25 @@ export const UserSettingsBody = {
     mails: { type: 'boolean' },
     tips_and_reminders: { type: 'boolean' },
     inbox: { type: 'boolean' },
+    comments: { type: 'boolean' },
+    replies: { type: 'boolean' },
+    answers: { type: 'boolean' },
+    scoresAndReactions: { type: 'boolean' },
+    scores_and_reactions: { type: 'boolean' },
+    follows: { type: 'boolean' },
     research: { type: 'boolean' },
     recommended: { type: 'boolean' },
-    alerts: { type: 'boolean' }
+    recommendedJobs: { type: 'boolean' },
+    recommended_jobs: { type: 'boolean' },
+    alerts: { type: 'boolean' },
+    pageActivity: { type: 'boolean' },
+    page_activity: { type: 'boolean' },
+    featuresAndAnnouncements: { type: 'boolean' },
+    features_and_announcements: { type: 'boolean' },
+    emailNotifications: { type: 'boolean' },
+    email_notifications: { type: 'boolean' },
+    updates: { type: 'object', additionalProperties: { type: 'boolean' } },
+    notificationPreferences: { type: 'object', additionalProperties: { type: 'boolean' } }
   },
   additionalProperties: true,
   example: {
@@ -1384,9 +1400,17 @@ export const UserSettingsBody = {
     mails: true,
     tips_and_reminders: false,
     inbox: true,
-    research: false,
+    comments: true,
+    replies: true,
+    answers: true,
+    scoresAndReactions: true,
+    follows: true,
+    research: true,
     recommended: true,
-    alerts: false
+    alerts: true,
+    pageActivity: true,
+    featuresAndAnnouncements: true,
+    emailNotifications: false
   }
 };
 
@@ -1403,9 +1427,25 @@ export const UserSettingsResponse = {
         mails: { type: 'boolean' },
         tips_and_reminders: { type: 'boolean' },
         inbox: { type: 'boolean' },
+        comments: { type: 'boolean' },
+        replies: { type: 'boolean' },
+        answers: { type: 'boolean' },
+        scoresAndReactions: { type: 'boolean' },
+        scores_and_reactions: { type: 'boolean' },
+        follows: { type: 'boolean' },
         research: { type: 'boolean' },
         recommended: { type: 'boolean' },
-        alerts: { type: 'boolean' }
+        recommendedJobs: { type: 'boolean' },
+        recommended_jobs: { type: 'boolean' },
+        alerts: { type: 'boolean' },
+        pageActivity: { type: 'boolean' },
+        page_activity: { type: 'boolean' },
+        featuresAndAnnouncements: { type: 'boolean' },
+        features_and_announcements: { type: 'boolean' },
+        emailNotifications: { type: 'boolean' },
+        email_notifications: { type: 'boolean' },
+        updates: { type: 'object', additionalProperties: { type: 'boolean' } },
+        notificationPreferences: { type: 'object', additionalProperties: { type: 'boolean' } }
       },
       additionalProperties: true
     }
@@ -1415,8 +1455,33 @@ export const UserSettingsResponse = {
     message: 'Settings updated successfully',
     data: {
       user_id: 'user-id',
-      mails: true,
-      alerts: false
+      inbox: true,
+      alerts: true,
+      mails: false,
+      emailNotifications: false,
+      comments: true,
+      replies: true,
+      answers: true,
+      scoresAndReactions: true,
+      follows: true,
+      research: true,
+      recommendedJobs: true,
+      pageActivity: true,
+      featuresAndAnnouncements: true,
+      updates: {
+        inbox: true,
+        alerts: true,
+        emailNotifications: false,
+        comments: true,
+        replies: true,
+        answers: true,
+        scoresAndReactions: true,
+        follows: true,
+        research: true,
+        recommendedJobs: true,
+        pageActivity: true,
+        featuresAndAnnouncements: true
+      }
     }
   }
 };

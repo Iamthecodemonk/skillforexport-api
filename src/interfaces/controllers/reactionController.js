@@ -3,6 +3,23 @@ import { getCompactPostItem } from './feedController.js';
 
 const reactionLogger = logger.child('REACTION_CONTROLLER');
 
+const invalidateCompactFeedCache = async (req) => {
+  try {
+    const redis = req.server && (req.server.redisManager || req.server.redisClient);
+    if (!redis || typeof redis.keys !== 'function') return;
+    const keys = await redis.keys('feed:compact:*');
+    if (!keys || keys.length === 0) return;
+    if (redis.client && typeof redis.client === 'function') {
+      const client = redis.client();
+      if (client && typeof client.del === 'function') await client.del(...keys);
+      return;
+    }
+    if (typeof redis.del === 'function') await redis.del(...keys);
+  } catch (err) {
+    reactionLogger.warn('compact feed cache invalidation failed', { message: err && err.message });
+  }
+};
+
 export function makeReactionController({ useCase = null, notificationRepository = null, postRepository = null, commentRepository = null }) {
   if (!useCase) throw new Error('useCase_required');
 
@@ -16,6 +33,7 @@ export function makeReactionController({ useCase = null, notificationRepository 
         if (!actorId) 
           return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const res = await useCase.togglePostReaction({ postId, userId: actorId, type });
+        await invalidateCompactFeedCache(req);
         const item = await getCompactPostItem({ postId, actorId });
         const isLiked = !!(item && item.viewerState && item.viewerState.isScored);
         const payload = {

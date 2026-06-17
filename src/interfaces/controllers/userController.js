@@ -42,6 +42,23 @@ async function enqueueProfileImageFromUrl({ req, reply, useCase, mediaQueue, use
   return reply.code(202).send({ success: true, data: { jobId: job.id } });
 }
 
+const invalidateCompactFeedCache = async (req) => {
+  try {
+    const redis = req.server && (req.server.redisManager || req.server.redisClient);
+    if (!redis || typeof redis.keys !== 'function') return;
+    const keys = await redis.keys('feed:compact:*');
+    if (!keys || keys.length === 0) return;
+    if (redis.client && typeof redis.client === 'function') {
+      const client = redis.client();
+      if (client && typeof client.del === 'function') await client.del(...keys);
+      return;
+    }
+    if (typeof redis.del === 'function') await redis.del(...keys);
+  } catch (err) {
+    userLogger.warn('compact feed cache invalidation failed', { message: err && err.message });
+  }
+};
+
 export function makeUserController({ useCase = null, followerRepository = null, notificationRepository = null }) {
   if (!useCase) {
     userLogger.error('makeUserController requires a useCase');
@@ -415,6 +432,7 @@ export function makeUserController({ useCase = null, followerRepository = null, 
         }
 
         const created = await useCase.followUser(id, actorId);
+        await invalidateCompactFeedCache(req);
         if (notificationRepository) {
           try {
             await notificationRepository.create({
@@ -445,6 +463,7 @@ export function makeUserController({ useCase = null, followerRepository = null, 
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         // Attempt to unfollow; idempotent: if not following, return 200
         const deleted = await useCase.unfollowUser(id, actorId);
+        await invalidateCompactFeedCache(req);
         if (!deleted) return reply.code(200).send({ success: true, message: 'Unfollowed', data: { following: false } });
         return reply.code(200).send({ success: true, message: 'Unfollowed', data: { following: false } });
       } catch (err) {

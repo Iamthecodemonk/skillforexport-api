@@ -31,6 +31,108 @@ const parseJsonObject = (value) => {
   }
 };
 
+const toBool = (value, fallback = true) => {
+  if (typeof value === 'boolean') return value;
+  if (value === 1 || value === '1' || value === 'true') return true;
+  if (value === 0 || value === '0' || value === 'false') return false;
+  return fallback;
+};
+
+const settingValue = (source, keys, fallback = true) => {
+  for (const key of keys) {
+    if (typeof source[key] !== 'undefined') return toBool(source[key], fallback);
+  }
+  return fallback;
+};
+
+const normalizeSettings = (source = {}) => {
+  const updatesSource = source.updates && typeof source.updates === 'object' ? source.updates : {};
+  const notificationSource = source.notificationPreferences && typeof source.notificationPreferences === 'object' ? source.notificationPreferences : {};
+  const combined = { ...source, ...notificationSource, ...updatesSource };
+  const updates = {
+    inbox: settingValue(combined, ['inbox', 'invox'], true),
+    alerts: settingValue(combined, ['alerts'], true),
+    emailNotifications: settingValue(combined, ['emailNotifications', 'email_notifications', 'mails'], false),
+    comments: settingValue(combined, ['comments'], true),
+    replies: settingValue(combined, ['replies'], true),
+    answers: settingValue(combined, ['answers'], true),
+    scoresAndReactions: settingValue(combined, ['scoresAndReactions', 'scores_and_reactions', 'scores', 'reactions'], true),
+    follows: settingValue(combined, ['follows', 'followers'], true),
+    research: settingValue(combined, ['research'], true),
+    recommendedJobs: settingValue(combined, ['recommendedJobs', 'recommended_jobs', 'recommended'], true),
+    pageActivity: settingValue(combined, ['pageActivity', 'page_activity', 'pages'], true),
+    featuresAndAnnouncements: settingValue(combined, ['featuresAndAnnouncements', 'features_and_announcements', 'featureAndAnnouncement', 'feature_and_announcement'], true)
+  };
+
+  return {
+    ...source,
+    inbox: updates.inbox,
+    alerts: updates.alerts,
+    mails: updates.emailNotifications,
+    emailNotifications: updates.emailNotifications,
+    email_notifications: updates.emailNotifications,
+    comments: updates.comments,
+    replies: updates.replies,
+    answers: updates.answers,
+    scores: updates.scoresAndReactions,
+    reactions: updates.scoresAndReactions,
+    scoresAndReactions: updates.scoresAndReactions,
+    scores_and_reactions: updates.scoresAndReactions,
+    follows: updates.follows,
+    research: updates.research,
+    recommended: updates.recommendedJobs,
+    recommendedJobs: updates.recommendedJobs,
+    recommended_jobs: updates.recommendedJobs,
+    pageActivity: updates.pageActivity,
+    page_activity: updates.pageActivity,
+    pages: updates.pageActivity,
+    feature_and_announcement: updates.featuresAndAnnouncements,
+    featureAndAnnouncement: updates.featuresAndAnnouncements,
+    featuresAndAnnouncements: updates.featuresAndAnnouncements,
+    features_and_announcements: updates.featuresAndAnnouncements,
+    updates,
+    notificationPreferences: updates
+  };
+};
+
+const notificationPreferencesFromSettings = (settings = {}) => ({
+  inApp: {
+    comments: settings.comments !== false,
+    replies: settings.replies !== false,
+    answers: settings.answers !== false,
+    scores: settings.scoresAndReactions !== false,
+    follows: settings.follows !== false,
+    communities: settings.alerts !== false,
+    jobs: settings.recommendedJobs !== false,
+    pages: settings.pageActivity !== false,
+    system: settings.featuresAndAnnouncements !== false
+  },
+  email: {
+    comments: settings.emailNotifications === true && settings.comments !== false,
+    answers: settings.emailNotifications === true && settings.answers !== false,
+    jobs: settings.emailNotifications === true && settings.recommendedJobs !== false,
+    system: settings.emailNotifications === true && settings.featuresAndAnnouncements !== false
+  }
+});
+
+const settingsFromNotificationPreferences = (preferences = {}) => {
+  const inApp = preferences.inApp || {};
+  const email = preferences.email || {};
+  const emailNotifications = Object.values(email).some(value => value === true);
+  return {
+    comments: inApp.comments !== false,
+    replies: inApp.replies !== false,
+    answers: inApp.answers !== false,
+    scoresAndReactions: inApp.scores !== false,
+    follows: inApp.follows !== false,
+    alerts: inApp.communities !== false,
+    recommendedJobs: inApp.jobs !== false,
+    pageActivity: inApp.pages !== false,
+    featuresAndAnnouncements: inApp.system !== false,
+    emailNotifications
+  };
+};
+
 const invalidateUserProfileCache = async (req, userId) => {
   try {
     const redis = req.server && (req.server.redisManager || req.server.redisClient);
@@ -424,7 +526,10 @@ export function makeCompatController({ cloudinary = null } = {}) {
       const userId = actorId(req);
       if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
       const row = await db('user_settings').where({ user_id: userId }).first();
-      const settings = parseJsonObject(row && row.settings);
+      const settings = normalizeSettings({
+        ...settingsFromNotificationPreferences(parseJsonObject(row && row.notification_preferences)),
+        ...parseJsonObject(row && row.settings)
+      });
       return reply.send({
         success: true,
         message: 'Settings fetched successfully',
@@ -442,24 +547,15 @@ export function makeCompatController({ cloudinary = null } = {}) {
       const body = req.body || {};
       const existing = await db('user_settings').where({ user_id: userId }).first();
       const currentSettings = parseJsonObject(existing && existing.settings);
-      const normalized = {
-        ...currentSettings,
-        ...body,
-        feature_and_announcement: typeof body.feature_and_announcement !== 'undefined' ? body.feature_and_announcement : (typeof body.featureAndAnnouncement !== 'undefined' ? body.featureAndAnnouncement : currentSettings.feature_and_announcement),
-        featureAndAnnouncement: typeof body.featureAndAnnouncement !== 'undefined' ? body.featureAndAnnouncement : (typeof body.feature_and_announcement !== 'undefined' ? body.feature_and_announcement : currentSettings.featureAndAnnouncement),
-        inbox: typeof body.inbox !== 'undefined' ? body.inbox : (typeof body.invox !== 'undefined' ? body.invox : currentSettings.inbox),
-        research: typeof body.research !== 'undefined' ? body.research : currentSettings.research,
-        recommended: typeof body.recommended !== 'undefined' ? body.recommended : currentSettings.recommended,
-        alerts: typeof body.alerts !== 'undefined' ? body.alerts : currentSettings.alerts,
-        profile: typeof body.profile !== 'undefined' ? body.profile : currentSettings.profile
-      };
+      const normalized = normalizeSettings({ ...currentSettings, ...body });
+      const notificationPreferences = notificationPreferencesFromSettings(normalized);
       for (const key of Object.keys(normalized)) {
         if (typeof normalized[key] === 'undefined') delete normalized[key];
       }
       await db('user_settings')
-        .insert({ id: uuidv4(), user_id: userId, settings: JSON.stringify(normalized), created_at: now(), updated_at: now() })
+        .insert({ id: uuidv4(), user_id: userId, settings: JSON.stringify(normalized), notification_preferences: JSON.stringify(notificationPreferences), created_at: now(), updated_at: now() })
         .onConflict('user_id')
-        .merge({ settings: JSON.stringify(normalized), updated_at: now() });
+        .merge({ settings: JSON.stringify(normalized), notification_preferences: JSON.stringify(notificationPreferences), updated_at: now() });
       await invalidateUserProfileCache(req, userId);
       return reply.send({ success: true, message: 'Settings updated successfully', data: { user_id: userId, ...normalized } });
     },
@@ -631,15 +727,33 @@ export function makeCompatController({ cloudinary = null } = {}) {
       const userId = actorId(req);
       if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
       const search = queryText(req);
-      if (!search) return paginateTable(req, reply, 'post_reactions', { user_id: userId });
       const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
-      const query = db('post_reactions as r').leftJoin('posts as p', 'p.id', 'r.post_id').where('r.user_id', userId).andWhere((builder) => {
-        builder.where('p.title', 'like', likeText(search)).orWhere('p.content', 'like', likeText(search));
-      }).select('r.*').orderBy('r.created_at', 'desc').limit(limit).offset(offset);
-      const countQuery = db('post_reactions as r').leftJoin('posts as p', 'p.id', 'r.post_id').where('r.user_id', userId).andWhere((builder) => {
-        builder.where('p.title', 'like', likeText(search)).orWhere('p.content', 'like', likeText(search));
-      }).count({ cnt: 'r.id' }).first();
-      const [data, countRow] = await Promise.all([query, countQuery]);
+      const query = db('post_reactions as r')
+        .leftJoin('posts as p', 'p.id', 'r.post_id')
+        .where('r.user_id', userId)
+        .whereNotIn('p.moderation_status', ['suspended', 'deleted']);
+      const countQuery = db('post_reactions as r')
+        .leftJoin('posts as p', 'p.id', 'r.post_id')
+        .where('r.user_id', userId)
+        .whereNotIn('p.moderation_status', ['suspended', 'deleted'])
+        .count({ cnt: 'r.id' })
+        .first();
+      if (search) {
+        query.andWhere((builder) => {
+          builder.where('p.title', 'like', likeText(search)).orWhere('p.content', 'like', likeText(search));
+        });
+        countQuery.andWhere((builder) => {
+          builder.where('p.title', 'like', likeText(search)).orWhere('p.content', 'like', likeText(search));
+        });
+      }
+      const [rows, countRow] = await Promise.all([
+        query.select('r.*').orderBy('r.created_at', 'desc').limit(limit).offset(offset),
+        countQuery
+      ]);
+      const data = (await Promise.all((rows || []).map(async (reaction) => {
+        const post = await postRepository.findById(reaction.post_id, { userId });
+        return post ? { ...post, scored_at: reaction.created_at, score_id: reaction.id, reaction_type: reaction.type || 'like' } : null;
+      }))).filter(Boolean);
       return sendPaginated(req, reply, { data, page, perPage, total: parseInt((countRow && (countRow.cnt || Object.values(countRow)[0])) || 0, 10) });
     },
     listCommentScores: async (req, reply) => {

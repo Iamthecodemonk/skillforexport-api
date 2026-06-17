@@ -21,7 +21,9 @@ export function makeQuestionController({ useCase = null, notificationRepository 
     createQuestion: async (req, reply) => {
       try {
         const actorId = req.user && req.user.id;
-        const { communityId, title, body, visibility } = req.body || {};
+        const payload = req.body || {};
+        const communityId = payload.communityId || payload.community_id || null;
+        const { title, body, visibility } = payload;
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         if (!title || !body) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         const created = await useCase.createQuestion({ userId: actorId, communityId, title, body, visibility });
@@ -46,8 +48,9 @@ export function makeQuestionController({ useCase = null, notificationRepository 
         const search = firstDefined(query.q, query.search, nestedQueryValue(query, 'filters', 'search')) || null;
         const sortField = firstDefined(query.sortField, query.sort_field, nestedQueryValue(query, 'sort', 'field')) || null;
         const sortDirection = firstDefined(query.sortDirection, query.sort_direction, nestedQueryValue(query, 'sort', 'direction')) || null;
+        const actorId = req.user && req.user.id;
         const publicOnly = !communityId;
-        const rows = await useCase.listQuestions({ limit, offset, communityId, publicOnly, search, sortField, sortDirection });
+        const rows = await useCase.listQuestions({ limit, offset, communityId, publicOnly, search, sortField, sortDirection, actorId: actorId || null });
         const data = rows.map(r => (r && r.toPlainObject) ? r.toPlainObject() : r);
         const total = useCase.questionRepository && typeof useCase.questionRepository.countAll === 'function'
           ? await useCase.questionRepository.countAll({ communityId, publicOnly, search })
@@ -64,7 +67,8 @@ export function makeQuestionController({ useCase = null, notificationRepository 
         const { id } = req.params;
         const query = req.query || {};
         const includeAnswers = query.includeAnswers !== '0' && query.includeAnswers !== 'false';
-        const q = await useCase.getQuestion({ id, includeAnswers });
+        const actorId = req.user && req.user.id;
+        const q = await useCase.getQuestion({ id, includeAnswers, actorId: actorId || null });
         if (!q) return reply.code(404).send({ success: false, error: { code: 'question_not_found' } });
         return reply.send({ success: true, message: 'Success', data: q && q.toPlainObject ? q.toPlainObject() : q });
       } catch (err) {

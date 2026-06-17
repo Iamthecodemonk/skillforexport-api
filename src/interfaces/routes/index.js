@@ -1017,15 +1017,8 @@ export default async function registerRoutes(fastify, deps) {
   }, async (req, reply) => {
     const id = req.user && req.user.id;
     if (!id) return sendError(reply, 401, 'unauthorized', 'Unauthorized');
-    const body = req.body || {};
-    const profileKeys = ['username', 'displayName', 'display_name', 'bio', 'location', 'avatar', 'banner', 'website', 'linkedin', 'github', 'currentJobTitle', 'current_job_title', 'currentWorkspace', 'current_workspace'];
-    const hasProfilePatch = profileKeys.some((key) => Object.prototype.hasOwnProperty.call(body, key));
-    if ((body.name || body.displayName) && !hasProfilePatch) {
-      req.params = { id };
-      return handler('updateUser')(req, reply);
-    }
     req.params = { id };
-    return handler('updateUserProfile')(req, reply);
+    return handler('updateUser')(req, reply);
   });
   fastify.get('/user/:id', { schema: { operationId: 'legacyGetUser', tags: ['Users'], description: 'Legacy public profile alias for GET /users/:id', params: idParam(), response: { 200: dataResponse(schemas.UserActivityResponse), 404: schemas.GenericErrorResponse } } }, handler('getUser'));
   fastify.put('/user/:id/follow', {

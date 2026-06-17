@@ -393,7 +393,7 @@ export function makeFeedController({ postUseCase = null, questionUseCase = null 
 
         const [posts, questions, postTotal, questionTotal] = await Promise.all([
           postUseCase.ListPosts({ limit: fetchLimit, offset: 0, userId: actorId || null, communityId, publicOnly, search, sortField, sortDirection }),
-          questionUseCase.listQuestions({ limit: fetchLimit, offset: 0, communityId, publicOnly, search, sortField, sortDirection }),
+          questionUseCase.listQuestions({ limit: fetchLimit, offset: 0, communityId, publicOnly, search, sortField, sortDirection, actorId: actorId || null }),
           postUseCase.postRepository && typeof postUseCase.postRepository.countAll === 'function'
             ? postUseCase.postRepository.countAll({ communityId, publicOnly, search })
             : Promise.resolve(0),

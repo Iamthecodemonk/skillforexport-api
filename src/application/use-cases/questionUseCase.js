@@ -23,9 +23,9 @@ export default class QuestionUseCase {
     return this.questionRepository.create(q);
   }
 
-  async getQuestion({ id, includeAnswers = false }) {
+  async getQuestion({ id, includeAnswers = false, actorId = null }) {
     if (!id) throw new Error('id_required');
-    const q = await this.questionRepository.findById(id);
+    const q = await this.questionRepository.findById(id, { actorId });
     if (!q) throw new Error('question_not_found');
     if (includeAnswers && this.answerRepository && typeof this.answerRepository.listByQuestion === 'function') {
       try {
@@ -38,8 +38,8 @@ export default class QuestionUseCase {
     return q;
   }
 
-  async listQuestions({ limit = 20, offset = 0, communityId = null, publicOnly = false, search = null, sortField = null, sortDirection = null } = {}) {
-    return this.questionRepository.list({ limit, offset, communityId, publicOnly, search, sortField, sortDirection });
+  async listQuestions({ limit = 20, offset = 0, communityId = null, publicOnly = false, search = null, sortField = null, sortDirection = null, actorId = null } = {}) {
+    return this.questionRepository.list({ limit, offset, communityId, publicOnly, search, sortField, sortDirection, actorId });
   }
 
   async updateQuestion({ id, userId, updates }) {

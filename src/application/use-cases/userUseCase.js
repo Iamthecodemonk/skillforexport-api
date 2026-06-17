@@ -271,7 +271,7 @@ export default class UserUseCase {
     return this.profileRepository.update(existing.id, normalizedPatch);
   }
 
-  async updateUserDisplayName(userId, actor, { name = null, displayName = null } = {}) {
+  async updateUserDisplayName(userId, actor, patch = {}) {
     if (!userId) throw new Error('user_required');
     const actorId = actor && actor.id;
     const actorRole = actor && actor.role;
@@ -280,21 +280,26 @@ export default class UserUseCase {
 
     const user = await this.userRepository.findById(userId);
     if (!user) throw new Error('user_not_found');
+    const { name = null, displayName = null, ...profileFields } = patch || {};
     const nextName = String(displayName || name || '').trim();
-    if (!nextName) throw new Error('name_required');
+    const hasProfileFields = Object.keys(profileFields || {}).some((key) => typeof profileFields[key] !== 'undefined');
+    if (!nextName && !hasProfileFields) throw new Error('name_required');
 
     let profile = await this.profileRepository.findByUserId(userId);
+    const profilePatch = { ...profileFields };
+    if (nextName) profilePatch.displayName = nextName;
     if (!profile) {
-      profile = await this.profileRepository.create(new UserProfile({ id: uuidv4(), user_id: userId, displayName: nextName, created_at: new Date() }));
+      profile = await this.profileRepository.create(new UserProfile({ id: uuidv4(), user_id: userId, ...profilePatch, created_at: new Date() }));
     } else {
-      profile = await this.profileRepository.update(profile.id, { displayName: nextName });
+      profile = await this.profileRepository.update(profile.id, profilePatch);
     }
 
     const plainProfile = profile && typeof profile.toPlainObject === 'function' ? profile.toPlainObject() : profile;
+    const resolvedName = nextName || (plainProfile && (plainProfile.displayName || plainProfile.display_name || plainProfile.username)) || user.email;
     return {
       user: {
         id: user.id,
-        name: nextName,
+        name: resolvedName,
         email: user.email
       },
       profile: plainProfile

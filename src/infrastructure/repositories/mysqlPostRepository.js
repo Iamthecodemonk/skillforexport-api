@@ -80,7 +80,10 @@ export default class MysqlPostRepository {
       id: row.user_id,
       name: row.user_name || null,
       email: row.user_email || null,
-      avatar: row.user_avatar || null
+      avatar: row.user_avatar || null,
+      skills: parseJsonArray(row.user_skills),
+      is_follow: toBool(row.is_follow),
+      isFollow: toBool(row.is_follow)
     };
     const community = row.community_id
       ? {
@@ -118,7 +121,18 @@ export default class MysqlPostRepository {
       type: 'POST',
       user,
       community,
-      page: null
+      page: row.page_id
+        ? {
+            id: row.page_id,
+            name: row.page_name || null,
+            slug: row.page_slug || null,
+            avatar: row.page_avatar || null,
+            coverImage: row.page_cover_image || null,
+            cover_image: row.page_cover_image || null,
+            type: row.page_type || null,
+            page_type: row.page_type || null
+          }
+        : null
     };
   }
 
@@ -127,15 +141,26 @@ export default class MysqlPostRepository {
       .leftJoin('users as u', 'u.id', 'p.user_id')
       .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
       .leftJoin('communities as c', 'c.id', 'p.community_id')
+      .leftJoin('pages as pg', 'pg.id', 'p.page_id')
       .select(
         'p.*',
         'u.email as user_email',
         db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as user_name'),
         'up.avatar as user_avatar',
+        db.raw(`IFNULL((
+          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', us.id, 'skill', us.skill, 'level', us.level))
+          FROM user_skills us
+          WHERE us.user_id = p.user_id
+        ), JSON_ARRAY()) as user_skills`),
         'c.name as community_name',
         'c.description as community_description',
         'c.is_active as community_is_active',
         'c.default_post_visibility as community_default_post_visibility',
+        'pg.name as page_name',
+        'pg.slug as page_slug',
+        'pg.avatar as page_avatar',
+        'pg.cover_image as page_cover_image',
+        'pg.page_type as page_type',
         db.raw("(SELECT COUNT(*) FROM comments cm WHERE cm.post_id = p.id AND COALESCE(cm.moderation_status, 'approved') NOT IN ('suspended','deleted')) as comment_count"),
         db.raw('(SELECT COUNT(*) FROM post_reactions pr WHERE pr.post_id = p.id) as score'),
         db.raw(`IFNULL((

@@ -1,6 +1,19 @@
 import db from '../knexConfig.js';
 import { v4 as uuidv4 } from 'uuid';
 
+const parseJsonArray = (value) => {
+  if (value === null || typeof value === 'undefined') return [];
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+const toBool = (value) => value === true || value === 1 || value === '1';
+
 const applyQuestionFilters = (q, { communityId = null, publicOnly = false, search = null, userId = null } = {}) => {
   if (userId) {
     q.where('q.user_id', userId);
@@ -44,14 +57,17 @@ const applyQuestionOrdering = (q, { sortField = null, sortDirection = null } = {
 export default class MysqlQuestionRepository {
   toQuestionWithRelations(row) {
     if (!row) return null;
-    const { user_email, user_name, user_avatar, community_name, community_description, ...question } = row;
+    const { user_email, user_name, user_avatar, user_skills, is_follow, community_name, community_description, community_icon, community_is_active, ...question } = row;
     const user = typeof user_email !== 'undefined' || typeof user_name !== 'undefined'
       ? {
           id: question.user_id,
           name: user_name || null,
           email: user_email || null,
           avatar: user_avatar || null,
-          avatarUrl: user_avatar || null
+          avatarUrl: user_avatar || null,
+          skills: parseJsonArray(user_skills),
+          is_follow: toBool(is_follow),
+          isFollow: toBool(is_follow)
         }
       : null;
     return {
@@ -64,13 +80,17 @@ export default class MysqlQuestionRepository {
       updatedAt: question.updated_at,
       totalAnswers: parseInt(question.total_answers || 0, 10),
       totalAnswerers: parseInt(question.total_answerers || 0, 10),
+      is_follow: toBool(is_follow),
+      isFollow: toBool(is_follow),
       type: 'QUESTION',
       user,
       community: question.community_id
         ? {
             id: question.community_id,
             name: community_name || null,
-            description: community_description || null
+            description: community_description || null,
+            icon: community_icon || null,
+            is_active: typeof community_is_active === 'undefined' ? undefined : community_is_active
           }
         : null
     };
@@ -95,7 +115,7 @@ export default class MysqlQuestionRepository {
     return this.findById(id);
   }
 
-  async findById(id, { includeHidden = false } = {}) {
+  async findById(id, { includeHidden = false, actorId = null } = {}) {
     const answerCounts = db('answers')
       .select('question_id')
       .count({ total_answers: 'id' })
@@ -114,11 +134,23 @@ export default class MysqlQuestionRepository {
         'u.email as user_email',
         db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as user_name'),
         'up.avatar as user_avatar',
+        db.raw(`IFNULL((
+          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', us.id, 'skill', us.skill, 'level', us.level))
+          FROM user_skills us
+          WHERE us.user_id = q.user_id
+        ), JSON_ARRAY()) as user_skills`),
         'c.name as community_name',
         'c.description as community_description',
+        'c.icon as community_icon',
+        'c.is_active as community_is_active',
         db.raw('COALESCE(ac.total_answers, 0) as total_answers'),
         db.raw('COALESCE(ac.total_answerers, 0) as total_answerers')
       );
+    if (actorId) {
+      q.select(db.raw('EXISTS(SELECT 1 FROM followers f WHERE f.follower_id = ? AND f.following_id = q.user_id) as is_follow', [actorId]));
+    } else {
+      q.select(db.raw('false as is_follow'));
+    }
     applyQuestionModerationFilter(q, includeHidden);
     const row = await q.first();
 
@@ -126,7 +158,7 @@ export default class MysqlQuestionRepository {
   }
 
   async list(options = {}) {
-    const { limit = 20, offset = 0 } = options;
+    const { limit = 20, offset = 0, actorId = null } = options;
     const q = db('questions as q')
       .leftJoin('communities as c', 'c.id', 'q.community_id')
       .leftJoin('users as u', 'u.id', 'q.user_id')
@@ -148,11 +180,23 @@ export default class MysqlQuestionRepository {
         'u.email as user_email',
         db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as user_name'),
         'up.avatar as user_avatar',
+        db.raw(`IFNULL((
+          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', us.id, 'skill', us.skill, 'level', us.level))
+          FROM user_skills us
+          WHERE us.user_id = q.user_id
+        ), JSON_ARRAY()) as user_skills`),
         'c.name as community_name',
         'c.description as community_description',
+        'c.icon as community_icon',
+        'c.is_active as community_is_active',
         db.raw('COALESCE(ac.total_answers, 0) as total_answers'),
         db.raw('COALESCE(ac.total_answerers, 0) as total_answerers')
       );
+    if (actorId) {
+      q.select(db.raw('EXISTS(SELECT 1 FROM followers f WHERE f.follower_id = ? AND f.following_id = q.user_id) as is_follow', [actorId]));
+    } else {
+      q.select(db.raw('false as is_follow'));
+    }
     applyQuestionFilters(q, options);
     applyQuestionModerationFilter(q, options.includeHidden);
     applyQuestionOrdering(q, options);

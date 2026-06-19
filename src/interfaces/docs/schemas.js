@@ -782,6 +782,7 @@ export const FreelancerProfileResponse = {
     id: { type: 'string' },
     userId: { type: 'string' },
     name: { type: 'string' },
+    email: { type: ['string','null'], format: 'email' },
     title: { type: 'string' },
     skills: { type: 'array', items: { type: 'string' } },
     location: { type: ['string','null'] },
@@ -796,11 +797,20 @@ export const FreelancerProfileResponse = {
     currency: { type: ['string','null'] },
     rating: { type: ['number','null'] },
     completedJobsCount: { type: 'number' },
+    user: {
+      type: ['object','null'],
+      properties: {
+        id: { type: 'string' },
+        name: { type: ['string','null'] },
+        email: { type: ['string','null'], format: 'email' },
+        avatar: { type: ['string','null'] }
+      }
+    },
     createdAt: { type: 'string' },
     updatedAt: { type: 'string' }
   }
 };
-FreelancerProfileResponse.example = { id: 'freelancer-uuid', userId: 'user-uuid', name: 'Samuel Bada', title: 'Software Developer', skills: ['Vue','Node.js'], location: 'Lagos', bio: 'Describe achievements, skills, and experience.', avatar: null, passportMediaId: null, status: 'available', availability: 'available_now', remoteOnly: false, hourlyRateMin: null, hourlyRateMax: null, currency: 'NGN', rating: null, completedJobsCount: 0, createdAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
+FreelancerProfileResponse.example = { id: 'freelancer-uuid', userId: 'user-uuid', name: 'Samuel Bada', email: 'samuel@example.com', title: 'Software Developer', skills: ['Vue','Node.js'], location: 'Lagos', bio: 'Describe achievements, skills, and experience.', avatar: null, passportMediaId: null, status: 'available', availability: 'available_now', remoteOnly: false, hourlyRateMin: null, hourlyRateMax: null, currency: 'NGN', rating: null, completedJobsCount: 0, user: { id: 'user-uuid', name: 'Samuel Bada', email: 'samuel@example.com', avatar: null }, createdAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
 export const FreelancerCreateBody = { type: 'object', required: ['name','title','skills','location','bio','availability','agreedToTerms'], properties: { name: { type: 'string' }, title: { type: 'string' }, skills: { type: 'array', items: { type: 'string' } }, location: { type: 'string' }, bio: { type: 'string' }, passportMediaId: { type: 'string' }, availability: { type: 'string', enum: ['available_now','open','busy','unavailable'] }, remoteOnly: { type: 'boolean' }, agreedToTerms: { type: 'boolean' } }, example: { name: 'Samuel Bada', title: 'Software Developer', skills: ['Vue','Node.js'], location: 'Lagos', bio: 'Describe achievements, skills, and experience.', passportMediaId: 'media-uuid', availability: 'available_now', remoteOnly: false, agreedToTerms: true } };
 
 export const FreelanceJobResponse = {

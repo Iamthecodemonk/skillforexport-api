@@ -352,10 +352,14 @@ export default class MysqlJobsFreelancersRepository {
 
   mapFreelancer(row) {
     if (!row) return null;
+    const email = row.email || row.user_email || null;
+    const userName = row.user_name || row.name || null;
+    const avatar = row.user_avatar || row.avatar || null;
     return {
       id: row.id,
       userId: row.user_id,
       name: row.name,
+      email,
       title: row.title,
       skills: parseJson(row.skills),
       location: row.location,
@@ -370,26 +374,40 @@ export default class MysqlJobsFreelancersRepository {
       currency: row.currency,
       rating: row.rating === null ? null : Number(row.rating),
       completedJobsCount: parseInt(row.completed_jobs_count || 0, 10),
+      user: row.user_id ? {
+        id: row.user_id,
+        name: userName,
+        email,
+        avatar
+      } : null,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
   }
 
   async listFreelancers({ limit = 20, offset = 0, q, skill, location, availability, status = 'available', statuses = null, remoteOnly, sort = 'latest' } = {}) {
-    const query = db('freelancer_profiles');
-    if (Array.isArray(statuses) && statuses.length > 0) query.whereIn('status', statuses);
-    else if (status) query.where({ status });
-    if (availability) query.where({ availability });
-    if (typeof remoteOnly !== 'undefined') query.where({ remote_only: toBool(remoteOnly) ? 1 : 0 });
-    if (skill) query.where('skills', 'like', `%${skill}%`);
-    if (location) query.where('location', 'like', `%${location}%`);
+    const query = db('freelancer_profiles as fp')
+      .leftJoin('users as u', 'u.id', 'fp.user_id')
+      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+      .select(
+        'fp.*',
+        'u.email as user_email',
+        db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), fp.name, u.email) as user_name'),
+        'up.avatar as user_avatar'
+      );
+    if (Array.isArray(statuses) && statuses.length > 0) query.whereIn('fp.status', statuses);
+    else if (status) query.where({ 'fp.status': status });
+    if (availability) query.where({ 'fp.availability': availability });
+    if (typeof remoteOnly !== 'undefined') query.where({ 'fp.remote_only': toBool(remoteOnly) ? 1 : 0 });
+    if (skill) query.where('fp.skills', 'like', `%${skill}%`);
+    if (location) query.where('fp.location', 'like', `%${location}%`);
     if (q) {
       const like = `%${q}%`;
-      query.andWhere(b => b.where('name', 'like', like).orWhere('title', 'like', like).orWhere('bio', 'like', like));
+      query.andWhere(b => b.where('fp.name', 'like', like).orWhere('fp.title', 'like', like).orWhere('fp.bio', 'like', like).orWhere('u.email', 'like', like));
     }
-    if (sort === 'oldest') query.orderBy('created_at', 'asc');
-    else if (sort === 'rating') query.orderBy('rating', 'desc');
-    else query.orderBy('created_at', 'desc');
+    if (sort === 'oldest') query.orderBy('fp.created_at', 'asc');
+    else if (sort === 'rating') query.orderBy('fp.rating', 'desc');
+    else query.orderBy('fp.created_at', 'desc');
     const rows = await query.limit(limit).offset(offset);
     return rows.map(row => this.mapFreelancer(row));
   }
@@ -400,7 +418,17 @@ export default class MysqlJobsFreelancersRepository {
   }
 
   async findFreelancer(idOrUserId) {
-    const row = await db('freelancer_profiles').where(q => q.where({ id: idOrUserId }).orWhere({ user_id: idOrUserId })).first();
+    const row = await db('freelancer_profiles as fp')
+      .leftJoin('users as u', 'u.id', 'fp.user_id')
+      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+      .select(
+        'fp.*',
+        'u.email as user_email',
+        db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), fp.name, u.email) as user_name'),
+        'up.avatar as user_avatar'
+      )
+      .where(q => q.where({ 'fp.id': idOrUserId }).orWhere({ 'fp.user_id': idOrUserId }))
+      .first();
     return this.mapFreelancer(row);
   }
 

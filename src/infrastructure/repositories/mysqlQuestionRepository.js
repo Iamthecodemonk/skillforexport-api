@@ -57,7 +57,8 @@ const applyQuestionOrdering = (q, { sortField = null, sortDirection = null } = {
 export default class MysqlQuestionRepository {
   toQuestionWithRelations(row) {
     if (!row) return null;
-    const { user_email, user_name, user_avatar, user_skills, is_follow, community_name, community_description, community_icon, community_is_active, community_default_post_visibility, ...question } = row;
+    const { user_email, user_name, user_avatar, user_skills, is_follow, is_liked, community_name, community_description, community_icon, community_is_active, community_default_post_visibility, ...question } = row;
+    const score = parseInt(question.score || 0, 10);
     const user = typeof user_email !== 'undefined' || typeof user_name !== 'undefined'
       ? {
           id: question.user_id,
@@ -80,6 +81,9 @@ export default class MysqlQuestionRepository {
       updatedAt: question.updated_at,
       totalAnswers: parseInt(question.total_answers || 0, 10),
       totalAnswerers: parseInt(question.total_answerers || 0, 10),
+      score,
+      is_liked: toBool(is_liked),
+      isLiked: toBool(is_liked),
       is_follow: toBool(is_follow),
       isFollow: toBool(is_follow),
       type: 'QUESTION',
@@ -148,12 +152,16 @@ export default class MysqlQuestionRepository {
         'c.is_active as community_is_active',
         'c.default_post_visibility as community_default_post_visibility',
         db.raw('COALESCE(ac.total_answers, 0) as total_answers'),
-        db.raw('COALESCE(ac.total_answerers, 0) as total_answerers')
+        db.raw('COALESCE(ac.total_answerers, 0) as total_answerers'),
+        db.raw('(SELECT COUNT(*) FROM question_reactions qr WHERE qr.question_id = q.id) as score')
       );
     if (actorId) {
-      q.select(db.raw('EXISTS(SELECT 1 FROM followers f WHERE f.follower_id = ? AND f.following_id = q.user_id) as is_follow', [actorId]));
+      q.select(
+        db.raw('EXISTS(SELECT 1 FROM followers f WHERE f.follower_id = ? AND f.following_id = q.user_id) as is_follow', [actorId]),
+        db.raw('EXISTS(SELECT 1 FROM question_reactions qr2 WHERE qr2.user_id = ? AND qr2.question_id = q.id) as is_liked', [actorId])
+      );
     } else {
-      q.select(db.raw('false as is_follow'));
+      q.select(db.raw('false as is_follow'), db.raw('false as is_liked'));
     }
     applyQuestionModerationFilter(q, includeHidden);
     const row = await q.first();
@@ -195,12 +203,16 @@ export default class MysqlQuestionRepository {
         'c.is_active as community_is_active',
         'c.default_post_visibility as community_default_post_visibility',
         db.raw('COALESCE(ac.total_answers, 0) as total_answers'),
-        db.raw('COALESCE(ac.total_answerers, 0) as total_answerers')
+        db.raw('COALESCE(ac.total_answerers, 0) as total_answerers'),
+        db.raw('(SELECT COUNT(*) FROM question_reactions qr WHERE qr.question_id = q.id) as score')
       );
     if (actorId) {
-      q.select(db.raw('EXISTS(SELECT 1 FROM followers f WHERE f.follower_id = ? AND f.following_id = q.user_id) as is_follow', [actorId]));
+      q.select(
+        db.raw('EXISTS(SELECT 1 FROM followers f WHERE f.follower_id = ? AND f.following_id = q.user_id) as is_follow', [actorId]),
+        db.raw('EXISTS(SELECT 1 FROM question_reactions qr2 WHERE qr2.user_id = ? AND qr2.question_id = q.id) as is_liked', [actorId])
+      );
     } else {
-      q.select(db.raw('false as is_follow'));
+      q.select(db.raw('false as is_follow'), db.raw('false as is_liked'));
     }
     applyQuestionFilters(q, options);
     applyQuestionModerationFilter(q, options.includeHidden);

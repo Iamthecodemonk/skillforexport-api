@@ -111,6 +111,10 @@ export function makeJobsFreelancersController({ useCase }) {
       try { return created(reply, await useCase.recordJobShareEvent(actor(req), req.params.id, req.body || {}), 'Job share event recorded'); }
       catch (err) { return handleError(reply, err, 'job_not_found'); }
     },
+    referJob: async (req, reply) => {
+      try { return success(reply, await useCase.referJob(actor(req), req.params.id, req.body || {}), 'Job referral sent successfully'); }
+      catch (err) { return handleError(reply, err, 'job_not_found'); }
+    },
     listMyJobApplications: async (req, reply) => {
       try {
         const params = queryParams(req);

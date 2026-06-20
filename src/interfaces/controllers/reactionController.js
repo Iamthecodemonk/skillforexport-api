@@ -37,7 +37,7 @@ const invalidateUserProfileCaches = async (req, userIds = []) => {
   }
 };
 
-export function makeReactionController({ useCase = null, notificationRepository = null, postRepository = null, commentRepository = null }) {
+export function makeReactionController({ useCase = null, notificationRepository = null, postRepository = null, commentRepository = null, questionRepository = null }) {
   if (!useCase) throw new Error('useCase_required');
 
   return {
@@ -125,6 +125,60 @@ export function makeReactionController({ useCase = null, notificationRepository 
       } catch (err) {
         reactionLogger.error('toggleCommentReaction error', { message: err.message });
         if (err.message === 'comment_required' || err.message === 'user_required') return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    toggleQuestionReaction: async (req, reply) => {
+      try {
+        const { id: questionId } = req.params;
+        const body = req.body || {};
+        const actorId = req.user && req.user.id;
+        const { type } = body;
+        if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+
+        const question = questionRepository && typeof questionRepository.findById === 'function'
+          ? await questionRepository.findById(questionId, { actorId })
+          : null;
+        if (!question) return reply.code(404).send({ success: false, error: { code: 'question_not_found', message: 'Question not found' } });
+        if ((question.user_id || question.userId) === actorId) {
+          return reply.code(403).send({ success: false, error: { code: 'self_reaction_not_allowed', message: 'You cannot like your own question' } });
+        }
+
+        const res = await useCase.toggleQuestionReaction({ questionId, userId: actorId, type });
+        await invalidateCompactFeedCache(req);
+        const item = questionRepository && typeof questionRepository.findById === 'function'
+          ? await questionRepository.findById(questionId, { actorId })
+          : null;
+        await invalidateUserProfileCaches(req, [actorId, question.user_id || question.userId]);
+        const isLiked = !!(item && (item.is_liked || item.isLiked));
+        const payload = {
+          ...res,
+          score: res.count,
+          is_liked: isLiked,
+          isLiked,
+          item,
+          question: item
+        };
+        if (notificationRepository && res && res.result && res.result.action !== 'removed') {
+          try {
+            await notificationRepository.create({
+              userId: question.user_id || question.userId,
+              actorUserId: actorId,
+              type: 'question_score',
+              title: 'New reaction on your question',
+              body: 'Someone reacted to your question.',
+              target: { type: 'question', id: questionId, title: question.title, url: `/questions/${questionId}` },
+              metadata: { reactionType: type || 'like' }
+            });
+          } catch (notifyErr) {
+            reactionLogger.warn('question reaction notification failed', { message: notifyErr.message });
+          }
+        }
+        return reply.send({ success: true, message: 'Question reaction updated successfully', data: payload });
+      } catch (err) {
+        reactionLogger.error('toggleQuestionReaction error', { message: err.message });
+        if (err.message === 'question_required' || err.message === 'user_required') return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
     }

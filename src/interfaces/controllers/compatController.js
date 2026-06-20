@@ -554,7 +554,8 @@ export function makeCompatController({ cloudinary = null } = {}) {
       try {
         const userId = actorId(req);
         if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
-        const emails = csv((req.body || {}).emails);
+        const body = req.body || {};
+        const emails = csv(body.email || body.emails);
         if (emails.length === 0) return reply.code(422).send({ success: false, message: 'emails is required', data: null });
         const rows = emails.map((email) => ({ id: uuidv4(), sender_user_id: userId, email, status: 'queued', created_at: now(), updated_at: now() }));
         await db('user_referrals').insert(rows);

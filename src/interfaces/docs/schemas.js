@@ -467,6 +467,9 @@ export const QuestionResponse = {
         description: { type: ['string','null'] }
       }
     },
+    score: { type: 'number' },
+    is_liked: { type: 'boolean' },
+    isLiked: { type: 'boolean' },
     totalAnswers: { type: 'number' },
     totalAnswerers: { type: 'number' },
     answers: { type: ['array','null'], items: { type: 'object' } }
@@ -487,6 +490,9 @@ QuestionResponse.example = {
   updatedAt: '2026-04-01T12:00:00Z',
   user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null, avatarUrl: null },
   community: { id: 'community-uuid', name: 'Local Chess Club', description: 'We meet weekly to play chess' },
+  score: 3,
+  is_liked: false,
+  isLiked: false,
   totalAnswers: 1,
   totalAnswerers: 1,
   answers: [
@@ -2103,6 +2109,40 @@ export const JobShareEventResponse = {
   }
 };
 
+export const JobReferBody = {
+  type: 'object',
+  required: ['email'],
+  additionalProperties: false,
+  properties: {
+    email: { type: 'string', description: 'One email or comma-separated emails.', example: 'friend@example.com, teammate@example.com' }
+  },
+  example: { email: 'friend@example.com, teammate@example.com' }
+};
+
+export const JobReferResponse = {
+  type: 'object',
+  properties: {
+    jobId: { type: 'string' },
+    userId: { type: ['string','null'] },
+    emails: { type: 'array', items: { type: 'string' } },
+    results: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          email: { type: 'string' },
+          sent: { type: 'boolean' },
+          skipped: { type: 'boolean' },
+          reason: { type: ['string','null'] }
+        }
+      }
+    },
+    url: { type: 'string' },
+    referred: { type: 'boolean' },
+    createdAt: { type: 'string' }
+  }
+};
+
 export const LegalDocumentResponse = {
   type: 'object',
   properties: {
@@ -2259,6 +2299,8 @@ export default {
   JobShareBody,
   JobShareResponse,
   JobShareEventResponse,
+  JobReferBody,
+  JobReferResponse,
   LegalDocumentResponse,
   LegalDocumentsGroupedResponse,
   LegalDocumentCreateBody,

@@ -398,8 +398,12 @@ export default async function registerRoutes(fastify, deps) {
   fastify.post('/jobs/:id/share-events', {
     schema: { operationId: 'recordJobShareEvent', tags: ['Jobs'], description: 'Record a job copy-link/share analytics event.', params: idParam(), body: schemas.JobShareBody, response: { 201: dataResponse(schemas.JobShareEventResponse), 404: schemas.GenericErrorResponse } }
   }, handler('recordJobShareEvent'));
+  fastify.post('/jobs/:id/refer', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { operationId: 'referJob', tags: ['Jobs'], description: 'Refer a job to one or more emails. Body accepts `email` as a single email or comma-separated emails.', params: idParam(), body: schemas.JobReferBody, response: { 200: dataResponse(schemas.JobReferResponse), 404: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } }
+  }, handler('referJob'));
   fastify.get('/job/:idOrSlug', { schema: { operationId: 'legacyGetJob', tags: ['Jobs'], description: 'Legacy alias for GET /jobs/:idOrSlug', params: idParam('idOrSlug'), response: { 200: dataResponse(schemas.JobResponse), 404: schemas.GenericErrorResponse } } }, handler('getJob'));
-  fastify.post('/job/:id/shares', { schema: { operationId: 'legacyShareJob', tags: ['Jobs'], description: 'Legacy alias for POST /jobs/:id/shares', params: idParam(), body: schemas.JobShareBody, response: { 201: dataResponse(schemas.JobShareResponse), 404: schemas.GenericErrorResponse } } }, handler('shareJob'));
+  fastify.post('/job/:id/refer', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyReferJob', tags: ['Jobs'], description: 'Refer a job to one or more emails. Body accepts `email` as a single email or comma-separated emails.', params: idParam(), body: schemas.JobReferBody, response: { 200: dataResponse(schemas.JobReferResponse), 404: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } } }, handler('referJob'));
   fastify.post('/job/:id/share-events', { schema: { operationId: 'legacyRecordJobShareEvent', tags: ['Jobs'], description: 'Legacy alias for POST /jobs/:id/share-events', params: idParam(), body: schemas.JobShareBody, response: { 201: dataResponse(schemas.JobShareEventResponse), 404: schemas.GenericErrorResponse } } }, handler('recordJobShareEvent'));
   fastify.post('/job', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyCreateJob', tags: ['Jobs'], description: 'Legacy alias for POST /jobs', body: schemas.JobCreateBody, response: { 201: dataResponse(schemas.JobResponse), 422: schemas.GenericErrorResponse } } }, handler('createJob'));
   fastify.put('/job/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyUpdateJob', tags: ['Jobs'], description: 'Legacy alias for PATCH /jobs/:id', params: idParam(), body: { ...schemas.JobCreateBody, required: [] }, response: { 200: dataResponse(schemas.JobResponse), 404: schemas.GenericErrorResponse } } }, handler('updateJob'));
@@ -1042,7 +1046,7 @@ export default async function registerRoutes(fastify, deps) {
       return handler('followUser')(req, reply);
     }
   });
-  fastify.post('/user/referrals', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacySendReferrals', tags: ['Users'], description: 'Send referral emails. Accepts a comma-separated `emails` string.', body: { type: 'object', required: ['emails'], properties: { emails: { type: 'string', example: 'friend@example.com, teammate@example.com' } } }, response: { 200: dataResponse({ type: 'array', items: { type: 'string' } }), 401: schemas.AuthErrorResponse, 422: schemas.GenericErrorResponse } } }, handler('sendReferrals'));
+  fastify.post('/user/referrals', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacySendReferrals', tags: ['Users'], description: 'Send referral emails. Accepts `email` or `emails` as a comma-separated string.', body: { type: 'object', properties: { email: { type: 'string', example: 'friend@example.com, teammate@example.com' }, emails: { type: 'string', example: 'friend@example.com, teammate@example.com' } }, anyOf: [{ required: ['email'] }, { required: ['emails'] }] }, response: { 200: dataResponse({ type: 'array', items: { type: 'string' } }), 401: schemas.AuthErrorResponse, 422: schemas.GenericErrorResponse } } }, handler('sendReferrals'));
   fastify.post('/user/skills', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyAddSkills', tags: ['Users'], description: 'Legacy add skills route. Accepts comma-separated `skills` or `skill`.', body: { type: 'object', properties: { skills: { type: 'string' }, skill: { type: 'string' } } }, response: { 201: genericArraySuccess, 401: schemas.AuthErrorResponse, 422: schemas.GenericErrorResponse } } }, handler('addLegacySkills'));
   fastify.get('/user/privacy', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyGetPrivacy', tags: ['Users'], description: 'Get authenticated user privacy settings. Values: 1=public, 2=followers only, 3=only me.', response: { 200: schemas.UserPrivacyGetResponse, 401: schemas.AuthErrorResponse } } }, handler('getPrivacy'));
   fastify.put('/user/privacy', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyUpdatePrivacy', tags: ['Users'], description: 'Update legacy privacy settings. Request/response matches API contract.', body: schemas.UserPrivacyBody, response: { 200: schemas.UserPrivacyUpdateResponse, 401: schemas.AuthErrorResponse } } }, handler('updatePrivacy'));
@@ -2217,6 +2221,22 @@ export default async function registerRoutes(fastify, deps) {
       response: { 200: dataResponse(schemas.ReactionToggleResponse), 422: { type: 'object' } }
     }
   }, handler('togglePostReaction'));
+
+  fastify.post('/questions/:id/reactions', {
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.reactions, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
+    schema: {
+      operationId: 'toggleQuestionReaction',
+      tags: ['Questions', 'Reactions'],
+      description: 'Toggle reaction on a question (one reaction per user). Omitting `type` defaults to `like`. Users cannot react to their own questions.',
+      body: schemas.ReactionBody,
+      response: { 200: dataResponse(schemas.ReactionToggleResponse), 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse, 422: { type: 'object' } }
+    }
+  }, handler('toggleQuestionReaction'));
+
+  fastify.put('/question/:id/like', {
+    preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.reactions, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
+    schema: { operationId: 'legacyToggleQuestionLike', tags: ['Questions', 'Reactions'], description: 'Legacy alias for POST /questions/:id/reactions', params: idParam(), body: schemas.ReactionBody, response: { 200: dataResponse(schemas.ReactionToggleResponse), 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } }
+  }, handler('toggleQuestionReaction'));
 
   // Save and report endpoints for posts
   fastify.post('/posts/:id/save', {

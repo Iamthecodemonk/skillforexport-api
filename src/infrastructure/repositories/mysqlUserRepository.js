@@ -401,6 +401,7 @@ export default class MysqlUserRepository {
         (SELECT COUNT(*) FROM answers a WHERE a.user_id = u.id) as answerCount,
         (SELECT COUNT(*) FROM followers f WHERE f.following_id = u.id) as followerCount,
         (SELECT COUNT(*) FROM post_reactions pr JOIN posts p ON p.id = pr.post_id WHERE p.user_id = u.id) as postScore,
+        (SELECT COUNT(*) FROM question_reactions qr JOIN questions q ON q.id = qr.question_id WHERE q.user_id = u.id) as questionScore,
         (SELECT COUNT(*) FROM comment_reactions cr JOIN comments cm ON cm.id = cr.comment_id WHERE cm.user_id = u.id) as commentScore,
         (SELECT COUNT(*) FROM answer_reactions ar JOIN answers a ON a.id = ar.answer_id WHERE a.user_id = u.id) as answerScore
       FROM users u
@@ -413,6 +414,7 @@ export default class MysqlUserRepository {
     const row = rows && rows.length ? rows[0] : null;
     if (!row) return null;
     const postScore = parseInt(row.postScore || 0, 10);
+    const questionScore = parseInt(row.questionScore || 0, 10);
     const commentScore = parseInt(row.commentScore || 0, 10);
     const answerScore = parseInt(row.answerScore || 0, 10);
     const postCount = parseInt(row.postCount || 0, 10);
@@ -438,7 +440,7 @@ export default class MysqlUserRepository {
         comments: commentCount,
         answers: answerCount
       },
-      scoreTotals: { posts: postScore, comments: commentScore, questions: questionCount, answers: answerScore, total: postScore + commentScore + answerScore },
+      scoreTotals: { posts: postScore, questions: questionScore, comments: commentScore, answers: answerScore, total: postScore + questionScore + commentScore + answerScore },
       followerCount: parseInt(row.followerCount || 0, 10)
     };
   }

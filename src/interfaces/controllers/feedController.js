@@ -104,7 +104,7 @@ const compactQuestion = (row) => ({
   content: row.body,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
-  score: 0,
+  score: Number(row.score || 0),
   answersCount: Number(row.answers_count || 0),
   author: {
     id: row.user_id,
@@ -128,9 +128,11 @@ const compactQuestion = (row) => ({
   isFollowed: boolValue(row.is_following),
   is_saved: boolValue(row.is_saved),
   isSaved: boolValue(row.is_saved),
+  is_liked: boolValue(row.is_scored),
+  isLiked: boolValue(row.is_scored),
   viewerState: {
     isFollowing: boolValue(row.is_following),
-    isScored: false,
+    isScored: boolValue(row.is_scored),
     isSaved: boolValue(row.is_saved)
   }
 });
@@ -275,7 +277,8 @@ async function listCompactQuestions({ actorId, limit, communityId = null, public
         FROM user_skills us
         WHERE us.user_id = q.user_id
       ), '') as author_skills`),
-      db.raw("(SELECT COUNT(*) FROM answers a WHERE a.question_id = q.id AND COALESCE(a.moderation_status, 'approved') NOT IN ('suspended','deleted')) as answers_count")
+      db.raw("(SELECT COUNT(*) FROM answers a WHERE a.question_id = q.id AND COALESCE(a.moderation_status, 'approved') NOT IN ('suspended','deleted')) as answers_count"),
+      db.raw('(SELECT COUNT(*) FROM question_reactions qr WHERE qr.question_id = q.id) as score')
     )
     .whereNotIn('q.moderation_status', ['suspended', 'deleted'])
     .limit(limit);
@@ -288,10 +291,11 @@ async function listCompactQuestions({ actorId, limit, communityId = null, public
   if (actorId) {
     q.select(
       db.raw('EXISTS(SELECT 1 FROM followers f WHERE f.follower_id = ? AND f.following_id = q.user_id) as is_following', [actorId]),
+      db.raw('EXISTS(SELECT 1 FROM question_reactions qr2 WHERE qr2.user_id = ? AND qr2.question_id = q.id) as is_scored', [actorId]),
       db.raw('EXISTS(SELECT 1 FROM saved_items si WHERE si.user_id = ? AND si.target_id = q.id AND si.target_type = ?) as is_saved', [actorId, 'question'])
     );
   } else {
-    q.select(db.raw('false as is_following'), db.raw('false as is_saved'));
+    q.select(db.raw('false as is_following'), db.raw('false as is_scored'), db.raw('false as is_saved'));
   }
 
   return q;

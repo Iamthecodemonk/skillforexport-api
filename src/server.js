@@ -75,6 +75,7 @@ import { makeReactionController } from './interfaces/controllers/reactionControl
 import MysqlCommentRepository from './infrastructure/repositories/mysqlCommentRepository.js';
 import MysqlPostReactionRepository from './infrastructure/repositories/mysqlPostReactionRepository.js';
 import MysqlCommentReactionRepository from './infrastructure/repositories/mysqlCommentReactionRepository.js';
+import MysqlQuestionReactionRepository from './infrastructure/repositories/mysqlQuestionReactionRepository.js';
 import MysqlPostSaveRepository from './infrastructure/repositories/mysqlPostSaveRepository.js';
 import MysqlPostReportRepository from './infrastructure/repositories/mysqlPostReportRepository.js';
 import MysqlCommentReportRepository from './infrastructure/repositories/mysqlCommentReportRepository.js';
@@ -509,8 +510,10 @@ export default async function startServer() {
         try {
           const postReactionAdapter = new MysqlPostReactionRepository();
           const commentReactionAdapter = new MysqlCommentReactionRepository();
-          const reactionUseCase = new ReactionUseCase({ postReactionRepository: postReactionAdapter, commentReactionRepository: commentReactionAdapter });
-          const reactionController = makeReactionController({ useCase: reactionUseCase, notificationRepository, postRepository: postAdapter, commentRepository: commentAdapter });
+          const questionReactionAdapter = new MysqlQuestionReactionRepository();
+          const questionAdapterForReactions = new MysqlQuestionRepository();
+          const reactionUseCase = new ReactionUseCase({ postReactionRepository: postReactionAdapter, commentReactionRepository: commentReactionAdapter, questionReactionRepository: questionReactionAdapter });
+          const reactionController = makeReactionController({ useCase: reactionUseCase, notificationRepository, postRepository: postAdapter, commentRepository: commentAdapter, questionRepository: questionAdapterForReactions });
           Object.assign(controllers, reactionController);
         } catch (rErr) {
           serverLogger.warn('Reactions wiring failed', rErr && rErr.message);

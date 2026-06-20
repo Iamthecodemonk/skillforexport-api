@@ -1,9 +1,18 @@
+import { sendEmail } from '../../utils/emailService.js';
+
 const JOB_STATUSES = ['draft', 'pending_review', 'live', 'approved', 'active', 'closed', 'archived', 'deleted', 'suspended'];
 const APPLICATION_STATUSES = ['submitted', 'reviewing', 'shortlisted', 'interview', 'rejected', 'accepted', 'withdrawn'];
 const FREELANCER_STATUSES = ['draft', 'pending_review', 'available', 'certified', 'suspended'];
 const FREELANCER_AVAILABILITY = ['available_now', 'open', 'busy', 'unavailable'];
 const FREELANCE_JOB_STATUSES = ['pending_review', 'live', 'approved', 'active', 'closed', 'archived', 'deleted', 'suspended'];
 const PUBLIC_JOB_STATUSES = ['live', 'approved', 'active'];
+
+const parseEmailList = (value) => String(value || '')
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean);
+
+const isEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
 export default class JobsFreelancersUseCase {
   constructor({ repository, notificationRepository = null }) {
@@ -152,6 +161,44 @@ export default class JobsFreelancersUseCase {
       userId: actor && actor.id ? actor.id : null,
       type: body.type || 'copy_link',
       recorded: true,
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  async referJob(actor, id, body = {}) {
+    const emails = parseEmailList(body.email || body.emails);
+    if (emails.length === 0 || emails.some((email) => !isEmail(email))) throw new Error('validation_error');
+    const job = await this.getJob(id, actor && actor.id);
+    if (!PUBLIC_JOB_STATUSES.includes(job.status) && (!actor || (actor.role !== 'admin' && actor.id !== job.createdByUserId))) {
+      throw new Error('job_not_found');
+    }
+
+    const baseUrl = process.env.APP_URL || process.env.FRONTEND_URL || 'https://skills4export.com';
+    const url = `${baseUrl.replace(/\/$/, '')}/jobs/${job.slug || job.id}`;
+    const subject = `Job referral: ${job.title}`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <h2>${job.title}</h2>
+        <p>${actor && actor.email ? actor.email : 'Someone'} thought you might be interested in this job.</p>
+        <p><strong>Company:</strong> ${job.companyName || job.company_name || 'Skills4Export'}</p>
+        <p><strong>Location:</strong> ${job.location || 'Not specified'}</p>
+        <p><a href="${url}">View job</a></p>
+      </div>
+    `;
+    const text = `${job.title}\n${job.companyName || job.company_name || ''}\n${job.location || ''}\n${url}`;
+
+    const results = [];
+    for (const email of emails) {
+      const result = await sendEmail(email, subject, html, text);
+      results.push({ email, sent: !result.skipped, skipped: Boolean(result.skipped), reason: result.reason || null });
+    }
+    return {
+      jobId: job.id,
+      userId: actor && actor.id ? actor.id : null,
+      emails,
+      results,
+      url,
+      referred: true,
       createdAt: new Date().toISOString()
     };
   }

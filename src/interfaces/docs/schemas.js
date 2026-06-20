@@ -1305,6 +1305,18 @@ export const FullProfileResponse = {
         answers: { type: 'number' }
       }
     },
+    metrics: {
+      type: 'object',
+      description: 'Alias of counts for clients that label profile totals as metrics.',
+      properties: {
+        pages: { type: 'number' },
+        communities: { type: 'number' },
+        posts: { type: 'number' },
+        questions: { type: 'number' },
+        comments: { type: 'number' },
+        answers: { type: 'number' }
+      }
+    },
     scores: {
       type: 'object',
       properties: {
@@ -1563,7 +1575,11 @@ export const PublicProfileResponse = {
     posts: { type: 'array', items: { type: 'object', additionalProperties: true } },
     scoreTotals: {
       type: 'object',
-      properties: { posts: { type: 'number' }, comments: { type: 'number' }, total: { type: 'number' } }
+      properties: { posts: { type: 'number' }, comments: { type: 'number' }, questions: { type: 'number' }, answers: { type: 'number' }, total: { type: 'number' } }
+    },
+    counts: {
+      type: 'object',
+      properties: { posts: { type: 'number' }, questions: { type: 'number' }, comments: { type: 'number' }, answers: { type: 'number' } }
     },
     followerCount: { type: 'number' }
   }

@@ -195,6 +195,7 @@ export default class UserUseCase {
         current_workspace: profile && (profile.current_workspace || profile.currentWorkspace) || null,
         notification_email: rawSettings && rawSettings.notification_email || null,
         counts,
+        metrics: counts,
         followers,
         following: { users: [], pages: [], totals: 0 },
         skills,

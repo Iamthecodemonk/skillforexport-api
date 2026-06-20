@@ -395,9 +395,14 @@ export default class MysqlUserRepository {
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', exp.id, 'company', exp.company, 'title', exp.title, 'employment_type', exp.employment_type, 'start_date', exp.start_date, 'end_date', exp.end_date, 'is_current', exp.is_current, 'description', exp.description)) FROM user_experiences exp WHERE exp.user_id = u.id), JSON_ARRAY()) as experiences,
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', pfo.id, 'title', pfo.title, 'description', pfo.description, 'link', pfo.link, 'pictures', IFNULL(pfo.pictures, JSON_ARRAY()))) FROM user_portfolios pfo WHERE pfo.user_id = u.id), JSON_ARRAY()) as portfolios,
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', p.id, 'title', p.title, 'content', p.content, 'visibility', p.visibility, 'community_id', p.community_id, 'page_id', p.page_id, 'created_at', p.created_at, 'updated_at', p.updated_at)) FROM posts p WHERE p.user_id = u.id AND p.visibility = 'public'), JSON_ARRAY()) as posts,
+        (SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id) as postCount,
+        (SELECT COUNT(*) FROM questions q WHERE q.user_id = u.id) as questionCount,
+        (SELECT COUNT(*) FROM comments cm WHERE cm.user_id = u.id) as commentCount,
+        (SELECT COUNT(*) FROM answers a WHERE a.user_id = u.id) as answerCount,
         (SELECT COUNT(*) FROM followers f WHERE f.following_id = u.id) as followerCount,
         (SELECT COUNT(*) FROM post_reactions pr JOIN posts p ON p.id = pr.post_id WHERE p.user_id = u.id) as postScore,
-        (SELECT COUNT(*) FROM comment_reactions cr JOIN comments cm ON cm.id = cr.comment_id WHERE cm.user_id = u.id) as commentScore
+        (SELECT COUNT(*) FROM comment_reactions cr JOIN comments cm ON cm.id = cr.comment_id WHERE cm.user_id = u.id) as commentScore,
+        (SELECT COUNT(*) FROM answer_reactions ar JOIN answers a ON a.id = ar.answer_id WHERE a.user_id = u.id) as answerScore
       FROM users u
       LEFT JOIN user_profiles up ON up.user_id = u.id
       WHERE u.id = ?
@@ -409,6 +414,11 @@ export default class MysqlUserRepository {
     if (!row) return null;
     const postScore = parseInt(row.postScore || 0, 10);
     const commentScore = parseInt(row.commentScore || 0, 10);
+    const answerScore = parseInt(row.answerScore || 0, 10);
+    const postCount = parseInt(row.postCount || 0, 10);
+    const questionCount = parseInt(row.questionCount || 0, 10);
+    const commentCount = parseInt(row.commentCount || 0, 10);
+    const answerCount = parseInt(row.answerCount || 0, 10);
     return {
       id: row.id,
       name: row.displayName || row.username || null,
@@ -422,7 +432,13 @@ export default class MysqlUserRepository {
       experiences: parseJsonArray(row.experiences),
       portfolios: parseJsonArray(row.portfolios),
       posts: parseJsonArray(row.posts),
-      scoreTotals: { posts: postScore, comments: commentScore, total: postScore + commentScore },
+      counts: {
+        posts: postCount,
+        questions: questionCount,
+        comments: commentCount,
+        answers: answerCount
+      },
+      scoreTotals: { posts: postScore, comments: commentScore, questions: questionCount, answers: answerScore, total: postScore + commentScore + answerScore },
       followerCount: parseInt(row.followerCount || 0, 10)
     };
   }

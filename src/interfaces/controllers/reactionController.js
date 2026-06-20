@@ -49,6 +49,13 @@ export function makeReactionController({ useCase = null, notificationRepository 
         const { type } = body;
         if (!actorId) 
           return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        if (postRepository && typeof postRepository.findById === 'function') {
+          const post = await postRepository.findById(postId, { userId: actorId });
+          if (!post) return reply.code(404).send({ success: false, error: { code: 'post_not_found', message: 'Post not found' } });
+          if ((post.user_id || post.userId) === actorId) {
+            return reply.code(403).send({ success: false, error: { code: 'self_reaction_not_allowed', message: 'You cannot like your own post' } });
+          }
+        }
         const res = await useCase.togglePostReaction({ postId, userId: actorId, type });
         await invalidateCompactFeedCache(req);
         const item = await getCompactPostItem({ postId, actorId });

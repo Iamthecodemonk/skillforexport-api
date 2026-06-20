@@ -192,6 +192,7 @@ CREATE TABLE `communities` (
   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `is_active` tinyint(1) DEFAULT '1',
   `members_only_posting` tinyint(1) DEFAULT '0',
+  `only_admin` tinyint(1) NOT NULL DEFAULT '0',
   `created_at` timestamp NULL DEFAULT NULL,
   `default_post_visibility` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `is_private` tinyint(1) NOT NULL DEFAULT '0',
@@ -199,6 +200,7 @@ CREATE TABLE `communities` (
   KEY `idx_category_id` (`category_id`),
   KEY `idx_owner_id` (`owner_id`),
   KEY `idx_communities_is_private` (`is_private`),
+  KEY `idx_communities_only_admin` (`only_admin`),
   CONSTRAINT `communities_ibfk_1` FOREIGN KEY (`category_id`) REFERENCES `community_categories` (`id`) ON DELETE SET NULL,
   CONSTRAINT `communities_ibfk_2` FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -545,7 +547,7 @@ CREATE TABLE `job_applications` (
   `job_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `user_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `cover_letter` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-  `resume_media_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `resume_media_id` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `answers` json DEFAULT NULL,
   `status` enum('submitted','reviewing','shortlisted','interview','rejected','accepted','withdrawn') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'submitted',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,

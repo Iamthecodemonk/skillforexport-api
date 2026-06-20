@@ -20,6 +20,23 @@ const invalidateCompactFeedCache = async (req) => {
   }
 };
 
+const invalidateUserProfileCaches = async (req, userIds = []) => {
+  try {
+    const redis = req.server && (req.server.redisManager || req.server.redisClient);
+    const ids = [...new Set((userIds || []).filter(Boolean))];
+    if (!redis || ids.length === 0) return;
+    const keys = ids.map((id) => `user:profile:${id}`);
+    if (redis.client && typeof redis.client === 'function') {
+      const client = redis.client();
+      if (client && typeof client.del === 'function') await client.del(...keys);
+      return;
+    }
+    if (typeof redis.del === 'function') await redis.del(...keys);
+  } catch (err) {
+    reactionLogger.warn('profile cache invalidation failed', { message: err && err.message });
+  }
+};
+
 export function makeReactionController({ useCase = null, notificationRepository = null, postRepository = null, commentRepository = null }) {
   if (!useCase) throw new Error('useCase_required');
 
@@ -35,6 +52,8 @@ export function makeReactionController({ useCase = null, notificationRepository 
         const res = await useCase.togglePostReaction({ postId, userId: actorId, type });
         await invalidateCompactFeedCache(req);
         const item = await getCompactPostItem({ postId, actorId });
+        const postOwnerId = item && item.author && item.author.id;
+        await invalidateUserProfileCaches(req, [actorId, postOwnerId]);
         const isLiked = !!(item && item.viewerState && item.viewerState.isScored);
         const payload = {
           ...res,
@@ -47,15 +66,17 @@ export function makeReactionController({ useCase = null, notificationRepository 
         if (notificationRepository && postRepository && res && res.result && res.result.action !== 'removed') {
           try {
             const post = await postRepository.findById(postId, { userId: actorId });
-            await notificationRepository.create({
-              userId: post && post.user_id,
-              actorUserId: actorId,
-              type: 'post_score',
-              title: 'New reaction on your post',
-              body: 'Someone reacted to your post.',
-              target: { type: 'post', id: postId, title: post && post.title, url: `/posts/${postId}` },
-              metadata: { reactionType: type || 'like' }
-            });
+            if (post && post.user_id && post.user_id !== actorId) {
+              await notificationRepository.create({
+                userId: post.user_id,
+                actorUserId: actorId,
+                type: 'post_score',
+                title: 'New reaction on your post',
+                body: 'Someone reacted to your post.',
+                target: { type: 'post', id: postId, title: post && post.title, url: `/posts/${postId}` },
+                metadata: { reactionType: type || 'like' }
+              });
+            }
           } catch (notifyErr) {
             reactionLogger.warn('post reaction notification failed', { message: notifyErr.message });
           }

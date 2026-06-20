@@ -57,7 +57,11 @@ export default class CommunityUseCase {
     return defaultPostVisibility || 'public';
   }
 
-  async createCommunity({ id = null, categoryId = null, name, icon = null, description = null, ownerId = null, defaultPostVisibility = null, membersOnlyPosting = false, isPrivate = null }) {
+  toFlag(value) {
+    return value === true || value === 1 || value === '1';
+  }
+
+  async createCommunity({ id = null, categoryId = null, name, icon = null, description = null, ownerId = null, defaultPostVisibility = null, membersOnlyPosting = false, isPrivate = null, onlyAdmin = false }) {
     if (!name || !ownerId) 
         throw new Error('validation_failed');
     defaultPostVisibility = this.normalizeCommunityVisibility({ defaultPostVisibility, isPrivate });
@@ -66,7 +70,7 @@ export default class CommunityUseCase {
       throw new Error('validation_failed');
     }
     const communityCategoryId = categoryId || await this.getDefaultCategoryId();
-    const payload = { id: id || uuidv4(), category_id: communityCategoryId, name, icon, description, created_at: new Date(), owner_id: ownerId, default_post_visibility: defaultPostVisibility, is_private: defaultPostVisibility === 'community' ? 1 : 0, members_only_posting: membersOnlyPosting ? 1 : 0 };
+    const payload = { id: id || uuidv4(), category_id: communityCategoryId, name, icon, description, created_at: new Date(), owner_id: ownerId, default_post_visibility: defaultPostVisibility, is_private: defaultPostVisibility === 'community' ? 1 : 0, members_only_posting: this.toFlag(membersOnlyPosting) ? 1 : 0, only_admin: this.toFlag(onlyAdmin) ? 1 : 0 };
     const created = await this.communityRepository.create(payload);
     // add owner as admin member
     if (this.communityMemberRepository) {

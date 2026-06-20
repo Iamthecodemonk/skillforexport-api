@@ -681,7 +681,7 @@ export const JobApplicationResponse = {
 };
 JobApplicationResponse.example = { id: 'application-uuid', jobId: 'job-uuid', userId: 'user-uuid', job: null, coverLetter: 'Optional text', resumeMediaId: null, answers: [], status: 'submitted', createdAt: '2026-05-07T10:00:00Z', appliedAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
 
-export const JobApplicationBody = { type: 'object', properties: { coverLetter: { type: 'string' }, resumeMediaId: { type: 'string' }, answers: { type: 'array', items: {} } }, example: { coverLetter: 'Optional text', resumeMediaId: 'media-uuid', answers: [] } };
+export const JobApplicationBody = { type: 'object', properties: { coverLetter: { type: 'string' }, resumeMediaId: { type: 'string', description: 'Uploaded resume media id, URL, or legacy mobile file reference.' }, answers: { type: 'array', items: {} } }, example: { coverLetter: 'Optional text', resumeMediaId: 'media-uuid-or-url', answers: [] } };
 export const StatusUpdateBody = {
   type: 'object',
   required: ['status'],
@@ -1898,14 +1898,14 @@ CommunityCategoryResponse.example = { id: 'community-category-uuid', name: 'Spor
 export const CommunityCreateBody = {
   type: 'object',
   required: ['name'],
-  properties: { name: { type: 'string' }, icon: { type: 'string', description: 'Line Awesome icon class/name, for example `las la-users` or `la-users`.' }, description: { type: 'string' }, categoryId: { type: 'string' }, defaultPostVisibility: { type: 'string', enum: ['public','connections','community'] }, isPrivate: { type: 'boolean', description: 'When true, community posts default to visibility=community and stay inside the community.' }, is_private: { type: 'number', enum: [0, 1], description: 'Database/legacy alias for isPrivate.' }, membersOnlyPosting: { type: 'boolean', description: 'When true, only community members can post. When false, any authenticated user can post in the community.' }, members_only_posting: { type: 'number', enum: [0, 1], description: 'Legacy/database alias for membersOnlyPosting.' } },
-  example: { name: 'Local Chess Club', icon: 'las la-chess', description: 'We meet weekly to play chess', categoryId: null, defaultPostVisibility: 'public', isPrivate: false, membersOnlyPosting: false }
+  properties: { name: { type: 'string' }, icon: { type: 'string', description: 'Line Awesome icon class/name, for example `las la-users` or `la-users`.' }, description: { type: 'string' }, categoryId: { type: 'string' }, defaultPostVisibility: { type: 'string', enum: ['public','connections','community'] }, isPrivate: { type: 'boolean', description: 'When true, community posts default to visibility=community and stay inside the community.' }, is_private: { type: 'number', enum: [0, 1], description: 'Database/legacy alias for isPrivate.' }, onlyAdmin: { type: 'boolean', description: 'When true, only platform admins/community admins can post; posts from this community cannot be shared to another community.' }, only_admin: { type: 'number', enum: [0, 1], description: 'Database/legacy alias for onlyAdmin.' }, membersOnlyPosting: { type: 'boolean', description: 'When true, only community members can post. When false, any authenticated user can post in the community.' }, members_only_posting: { type: 'number', enum: [0, 1], description: 'Legacy/database alias for membersOnlyPosting.' } },
+  example: { name: 'Local Chess Club', icon: 'las la-chess', description: 'We meet weekly to play chess', categoryId: null, defaultPostVisibility: 'public', isPrivate: false, onlyAdmin: false, membersOnlyPosting: false }
 };
 
 export const CommunityUpdateBody = {
   type: 'object',
-  properties: { name: { type: 'string' }, icon: { type: 'string', description: 'Line Awesome icon class/name, for example `las la-users` or `la-users`.' }, description: { type: 'string' }, defaultPostVisibility: { type: 'string', enum: ['public','connections','community'] }, isPrivate: { type: 'boolean', description: 'When true, community posts default to visibility=community and stay inside the community.' }, is_private: { type: 'number', enum: [0, 1], description: 'Database/legacy alias for isPrivate.' }, membersOnlyPosting: { type: 'boolean', description: 'When true, only community members can post. When false, any authenticated user can post in the community.' }, members_only_posting: { type: 'number', enum: [0, 1], description: 'Legacy/database alias for membersOnlyPosting.' }, is_active: { type: 'number' } },
-  example: { name: 'Chess Club', icon: 'las la-chess', description: 'Updated desc', defaultPostVisibility: 'community', isPrivate: true, membersOnlyPosting: false, is_active: 1 }
+  properties: { name: { type: 'string' }, icon: { type: 'string', description: 'Line Awesome icon class/name, for example `las la-users` or `la-users`.' }, description: { type: 'string' }, defaultPostVisibility: { type: 'string', enum: ['public','connections','community'] }, isPrivate: { type: 'boolean', description: 'When true, community posts default to visibility=community and stay inside the community.' }, is_private: { type: 'number', enum: [0, 1], description: 'Database/legacy alias for isPrivate.' }, onlyAdmin: { type: 'boolean', description: 'When true, only platform admins/community admins can post; posts from this community cannot be shared to another community.' }, only_admin: { type: 'number', enum: [0, 1], description: 'Database/legacy alias for onlyAdmin.' }, membersOnlyPosting: { type: 'boolean', description: 'When true, only community members can post. When false, any authenticated user can post in the community.' }, members_only_posting: { type: 'number', enum: [0, 1], description: 'Legacy/database alias for membersOnlyPosting.' }, is_active: { type: 'number' } },
+  example: { name: 'Chess Club', icon: 'las la-chess', description: 'Updated desc', defaultPostVisibility: 'community', isPrivate: true, onlyAdmin: false, membersOnlyPosting: false, is_active: 1 }
 };
 
 export const CommunityResponse = {
@@ -1931,6 +1931,8 @@ export const CommunityResponse = {
     default_post_visibility: { type: ['string','null'], description: 'Default visibility for new posts in this community' },
     is_private: { type: 'number', enum: [0, 1], description: '1 means posts default to visibility=community and stay inside the community.' },
     isPrivate: { type: 'boolean', description: 'Boolean form of is_private.' },
+    only_admin: { type: 'number', enum: [0, 1], description: '1 means only platform/community admins can post and posts cannot be shared to another community.' },
+    onlyAdmin: { type: 'boolean', description: 'Boolean form of only_admin.' },
     posts_count: { type: 'number', description: 'Total number of posts under this community' },
     post_likes_count: { type: 'number', description: 'Total number of like reactions on posts under this community' },
     post_reactions_count: { type: 'number', description: 'Total number of all post reactions under this community' },
@@ -1938,7 +1940,7 @@ export const CommunityResponse = {
     created_at: { type: 'string' }
   }
 };
-CommunityResponse.example = { id: 'community-uuid', categoryId: 'community-category-uuid', category_id: 'community-category-uuid', category: { id: 'community-category-uuid', name: 'Sports' }, name: 'Local Chess Club', icon: 'las la-chess', description: 'We meet weekly to play chess', is_active: 1, members_only_posting: 0, membersOnlyPosting: false, default_post_visibility: 'community', is_private: 1, isPrivate: true, posts_count: 24, post_likes_count: 41, post_reactions_count: 58, comments_count: 103, created_at: '2026-04-12T10:00:00Z' };
+CommunityResponse.example = { id: 'community-uuid', categoryId: 'community-category-uuid', category_id: 'community-category-uuid', category: { id: 'community-category-uuid', name: 'Sports' }, name: 'Local Chess Club', icon: 'las la-chess', description: 'We meet weekly to play chess', is_active: 1, members_only_posting: 0, membersOnlyPosting: false, default_post_visibility: 'community', is_private: 1, isPrivate: true, only_admin: 0, onlyAdmin: false, posts_count: 24, post_likes_count: 41, post_reactions_count: 58, comments_count: 103, created_at: '2026-04-12T10:00:00Z' };
 
 export const CommunityMemberResponse = {
   type: 'object',
@@ -2046,6 +2048,39 @@ export const PostShareEventResponse = {
   properties: {
     postId: { type: 'string' },
     userId: { type: 'string' },
+    type: { type: 'string' },
+    recorded: { type: 'boolean' },
+    createdAt: { type: 'string' }
+  }
+};
+
+export const JobShareBody = {
+  type: 'object',
+  properties: {
+    type: { type: 'string', example: 'copy_link' },
+    url: { type: 'string' }
+  },
+  example: { type: 'copy_link' }
+};
+
+export const JobShareResponse = {
+  type: 'object',
+  properties: {
+    jobId: { type: 'string' },
+    userId: { type: ['string','null'] },
+    type: { type: 'string' },
+    url: { type: 'string' },
+    title: { type: ['string','null'] },
+    recorded: { type: 'boolean' },
+    createdAt: { type: 'string' }
+  }
+};
+
+export const JobShareEventResponse = {
+  type: 'object',
+  properties: {
+    jobId: { type: 'string' },
+    userId: { type: ['string','null'] },
     type: { type: 'string' },
     recorded: { type: 'boolean' },
     createdAt: { type: 'string' }
@@ -2205,6 +2240,9 @@ export default {
   PostShareResponse,
   PostShareEventBody,
   PostShareEventResponse,
+  JobShareBody,
+  JobShareResponse,
+  JobShareEventResponse,
   LegalDocumentResponse,
   LegalDocumentsGroupedResponse,
   LegalDocumentCreateBody,

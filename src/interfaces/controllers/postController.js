@@ -32,7 +32,7 @@ export function makePostController({ useCase = null }) {
         if (!title || !content) {
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         }
-        const created = await useCase.CreatePost({ userId: actorId, communityId, pageId, title, content, visibility, mediaAssetIds });
+        const created = await useCase.CreatePost({ userId: actorId, communityId, pageId, title, content, visibility, mediaAssetIds, actorRole: req.user && req.user.role });
 
         // Invalidate simple feed caches when a new post is created
         try {
@@ -55,6 +55,7 @@ export function makePostController({ useCase = null }) {
           'community_not_found',
           'community_inactive',
           'not_a_member',
+          'admin_only_community',
           'media_validation_unavailable',
           'media_not_ready'
         ]);
@@ -75,6 +76,9 @@ export function makePostController({ useCase = null }) {
         }
         if (err.message === 'not_a_member') {
           return reply.code(403).send({ success: false, error: { code: 'not_a_member', message: 'Join the community before posting' } });
+        }
+        if (err.message === 'admin_only_community') {
+          return reply.code(403).send({ success: false, error: { code: 'admin_only_community', message: 'Only admins can post in this community' } });
         }
         if (err.message === 'media_validation_unavailable') {
           return reply.code(503).send({ success: false, error: { code: 'media_validation_unavailable', message: 'Media validation is unavailable' } });
@@ -135,10 +139,10 @@ export function makePostController({ useCase = null }) {
         const communityId = firstDefined(body.communityId, body.community_id);
         const { comment } = body;
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
-        const shared = await useCase.SharePost({ postId, userId: actorId, communityId, comment });
+        const shared = await useCase.SharePost({ postId, userId: actorId, communityId, comment, actorRole: req.user && req.user.role });
         return reply.code(201).send({ success: true, data: shared });
       } catch (err) {
-        const expectedErrors = new Set(['post_required', 'user_required', 'community_required', 'post_not_found', 'community_not_found', 'community_inactive', 'not_a_member']);
+        const expectedErrors = new Set(['post_required', 'user_required', 'community_required', 'post_not_found', 'community_not_found', 'community_inactive', 'not_a_member', 'admin_only_community', 'admin_only_community_share_disabled']);
         if (!expectedErrors.has(err.message)) {
           postLogger.error('sharePost error', { message: err.message, stack: err.stack });
         }
@@ -146,6 +150,8 @@ export function makePostController({ useCase = null }) {
         if (err.message === 'community_not_found') return reply.code(404).send({ success: false, error: { code: 'community_not_found' } });
         if (err.message === 'community_inactive') return reply.code(403).send({ success: false, error: { code: 'community_inactive' } });
         if (err.message === 'not_a_member') return reply.code(403).send({ success: false, error: { code: 'not_a_member' } });
+        if (err.message === 'admin_only_community') return reply.code(403).send({ success: false, error: { code: 'admin_only_community', message: 'Only admins can post in this community' } });
+        if (err.message === 'admin_only_community_share_disabled') return reply.code(403).send({ success: false, error: { code: 'admin_only_community_share_disabled', message: 'Posts from this community cannot be shared to another community' } });
         if (err.message === 'post_required' || err.message === 'user_required' || err.message === 'community_required') {
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         }

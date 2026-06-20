@@ -9,7 +9,7 @@ export default class PostUseCase {
     this.notificationRepository = notificationRepository;
   }
 
-  async CreatePost({ userId, communityId = null, pageId = null, title, content, visibility = null, parentPostId = null, originalPostId = null, mediaAssetIds = [] }) {
+  async CreatePost({ userId, communityId = null, pageId = null, title, content, visibility = null, parentPostId = null, originalPostId = null, mediaAssetIds = [], actorRole = null }) {
     if (!userId) throw new Error('user_required');
     if (!title || String(title).trim() === '') throw new Error('title_required');
     if (!content || String(content).trim() === '') throw new Error('content_required');
@@ -29,6 +29,15 @@ export default class PostUseCase {
       if (membersOnlyPosting && this.communityMemberRepository && typeof this.communityMemberRepository.findByUserAndCommunity === 'function') {
         const member = await this.communityMemberRepository.findByUserAndCommunity(userId, communityId);
         if (!member) throw new Error('not_a_member');
+      }
+      const onlyAdmin = community && !(community.only_admin === 0 || community.only_admin === false || community.only_admin === '0' || typeof community.only_admin === 'undefined');
+      if (onlyAdmin && actorRole !== 'admin') {
+        const member = this.communityMemberRepository && typeof this.communityMemberRepository.findByUserAndCommunity === 'function'
+          ? await this.communityMemberRepository.findByUserAndCommunity(userId, communityId)
+          : null;
+        const isCommunityAdmin = member && member.role === 'admin';
+        const isOwner = community && (community.owner_id === userId || community.ownerId === userId);
+        if (!isCommunityAdmin && !isOwner) throw new Error('admin_only_community');
       }
       // If no explicit visibility provided, and community defines a default, use it
       if (!visibility && community && community.default_post_visibility) {
@@ -127,13 +136,19 @@ export default class PostUseCase {
     return this.postRepository.list({ limit, offset, lastCreatedAt, lastId, userId, communityId, publicOnly, search, sortField, sortDirection });
   }
 
-  async SharePost({ postId, userId, communityId, comment = null }) {
+  async SharePost({ postId, userId, communityId, comment = null, actorRole = null }) {
     if (!postId) throw new Error('post_required');
     if (!userId) throw new Error('user_required');
     if (!communityId) throw new Error('community_required');
 
     const original = await this.postRepository.findById(postId, { userId });
     if (!original) throw new Error('post_not_found');
+    const originalCommunityId = original.community_id || original.communityId || (original.community && original.community.id) || null;
+    if (originalCommunityId && this.communityRepository && typeof this.communityRepository.findById === 'function') {
+      const sourceCommunity = await this.communityRepository.findById(originalCommunityId);
+      const sourceAdminOnly = sourceCommunity && !(sourceCommunity.only_admin === 0 || sourceCommunity.only_admin === false || sourceCommunity.only_admin === '0' || typeof sourceCommunity.only_admin === 'undefined');
+      if (sourceAdminOnly) throw new Error('admin_only_community_share_disabled');
+    }
 
     const trimmedComment = typeof comment === 'string' ? comment.trim() : '';
     const shared = await this.CreatePost({
@@ -142,7 +157,8 @@ export default class PostUseCase {
       title: original.title ? `Shared: ${original.title}` : 'Shared post',
       content: trimmedComment || original.content || 'Shared a post',
       visibility: 'community',
-      parentPostId: original.id
+      parentPostId: original.id,
+      actorRole
     });
 
     return {

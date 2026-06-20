@@ -2,6 +2,11 @@ import db from '../knexConfig.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export default class MysqlCommunityRepository {
+  isAdminOnlyCommunity(row = {}) {
+    const explicit = typeof row.only_admin !== 'undefined' ? row.only_admin : row.onlyAdmin;
+    return !(explicit === 0 || explicit === false || explicit === '0' || typeof explicit === 'undefined' || explicit === null);
+  }
+
   isPrivateCommunity(row = {}) {
     const explicit = typeof row.is_private !== 'undefined' ? row.is_private : row.isPrivate;
     if (typeof explicit !== 'undefined' && explicit !== null) {
@@ -18,6 +23,8 @@ export default class MysqlCommunityRepository {
       ...row,
       is_private: isPrivate ? 1 : 0,
       isPrivate,
+      only_admin: this.isAdminOnlyCommunity(row) ? 1 : 0,
+      onlyAdmin: this.isAdminOnlyCommunity(row),
       membersOnlyPosting: !(row.members_only_posting === 0 || row.members_only_posting === false || row.members_only_posting === '0')
     };
   }
@@ -58,6 +65,10 @@ export default class MysqlCommunityRepository {
         ? record.members_only_posting
         : record.membersOnlyPosting;
       payload.members_only_posting = value === false || value === 0 || value === '0' ? 0 : 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(record, 'only_admin') || Object.prototype.hasOwnProperty.call(record, 'onlyAdmin')) {
+      const value = typeof record.only_admin !== 'undefined' ? record.only_admin : record.onlyAdmin;
+      payload.only_admin = value === true || value === 1 || value === '1' ? 1 : 0;
     }
     if (Object.prototype.hasOwnProperty.call(record, 'is_active') || Object.prototype.hasOwnProperty.call(record, 'isActive')) {
       payload.is_active = typeof record.is_active !== 'undefined' ? record.is_active : record.isActive;
@@ -167,6 +178,8 @@ export default class MysqlCommunityRepository {
       ...community,
       is_private: this.isPrivateCommunity(community) ? 1 : 0,
       isPrivate: this.isPrivateCommunity(community),
+      only_admin: this.isAdminOnlyCommunity(community) ? 1 : 0,
+      onlyAdmin: this.isAdminOnlyCommunity(community),
       membersOnlyPosting: !(community.members_only_posting === 0 || community.members_only_posting === false || community.members_only_posting === '0'),
       category: categoryId ? { id: categoryId, name: categoryName } : null,
       posts_count: parseInt(posts_count || 0, 10),

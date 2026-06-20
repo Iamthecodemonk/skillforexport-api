@@ -59,6 +59,23 @@ const invalidateCompactFeedCache = async (req) => {
   }
 };
 
+const invalidateUserProfileCaches = async (req, userIds = []) => {
+  try {
+    const redis = req.server && (req.server.redisManager || req.server.redisClient);
+    const ids = [...new Set((userIds || []).filter(Boolean))];
+    if (!redis || ids.length === 0) return;
+    const keys = ids.map((id) => `user:profile:${id}`);
+    if (redis.client && typeof redis.client === 'function') {
+      const client = redis.client();
+      if (client && typeof client.del === 'function') await client.del(...keys);
+      return;
+    }
+    if (typeof redis.del === 'function') await redis.del(...keys);
+  } catch (err) {
+    userLogger.warn('profile cache invalidation failed', { message: err && err.message });
+  }
+};
+
 export function makeUserController({ useCase = null, followerRepository = null, notificationRepository = null }) {
   if (!useCase) {
     userLogger.error('makeUserController requires a useCase');
@@ -424,6 +441,8 @@ export function makeUserController({ useCase = null, followerRepository = null, 
           if (followerRepository && typeof followerRepository.findByFollowerAndFollowing === 'function') {
             const existing = await followerRepository.findByFollowerAndFollowing(actorId, id);
             if (existing) {
+              await invalidateCompactFeedCache(req);
+              await invalidateUserProfileCaches(req, [actorId, id]);
               return reply.code(200).send({ success: true, message: 'Followed', data: { following: true } });
             }
           }
@@ -433,6 +452,7 @@ export function makeUserController({ useCase = null, followerRepository = null, 
 
         const created = await useCase.followUser(id, actorId);
         await invalidateCompactFeedCache(req);
+        await invalidateUserProfileCaches(req, [actorId, id]);
         if (notificationRepository) {
           try {
             await notificationRepository.create({
@@ -464,6 +484,7 @@ export function makeUserController({ useCase = null, followerRepository = null, 
         // Attempt to unfollow; idempotent: if not following, return 200
         const deleted = await useCase.unfollowUser(id, actorId);
         await invalidateCompactFeedCache(req);
+        await invalidateUserProfileCaches(req, [actorId, id]);
         if (!deleted) return reply.code(200).send({ success: true, message: 'Unfollowed', data: { following: false } });
         return reply.code(200).send({ success: true, message: 'Unfollowed', data: { following: false } });
       } catch (err) {

@@ -126,6 +126,36 @@ export default class JobsFreelancersUseCase {
     return application;
   }
 
+  async shareJob(actor, id, body = {}) {
+    const job = await this.getJob(id, actor && actor.id);
+    if (!PUBLIC_JOB_STATUSES.includes(job.status) && (!actor || (actor.role !== 'admin' && actor.id !== job.createdByUserId))) {
+      throw new Error('job_not_found');
+    }
+    return {
+      jobId: job.id,
+      userId: actor && actor.id ? actor.id : null,
+      type: body.type || 'share',
+      url: body.url || `/jobs/${job.slug || job.id}`,
+      title: job.title,
+      recorded: true,
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  async recordJobShareEvent(actor, id, body = {}) {
+    const job = await this.getJob(id, actor && actor.id);
+    if (!PUBLIC_JOB_STATUSES.includes(job.status) && (!actor || (actor.role !== 'admin' && actor.id !== job.createdByUserId))) {
+      throw new Error('job_not_found');
+    }
+    return {
+      jobId: job.id,
+      userId: actor && actor.id ? actor.id : null,
+      type: body.type || 'copy_link',
+      recorded: true,
+      createdAt: new Date().toISOString()
+    };
+  }
+
   async listMyPostedJobs(actor, params) {
     if (!actor || !actor.id) throw new Error('unauthorized');
     return this.repository.listJobs({ ...params, userId: actor.id, status: params.status || null, createdByUserId: actor.id });

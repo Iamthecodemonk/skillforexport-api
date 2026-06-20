@@ -103,6 +103,14 @@ export function makeJobsFreelancersController({ useCase }) {
       try { return created(reply, await useCase.applyToJob(actor(req), req.params.id, req.body || {})); }
       catch (err) { return handleError(reply, err); }
     },
+    shareJob: async (req, reply) => {
+      try { return created(reply, await useCase.shareJob(actor(req), req.params.id, req.body || {}), 'Job shared successfully'); }
+      catch (err) { return handleError(reply, err, 'job_not_found'); }
+    },
+    recordJobShareEvent: async (req, reply) => {
+      try { return created(reply, await useCase.recordJobShareEvent(actor(req), req.params.id, req.body || {}), 'Job share event recorded'); }
+      catch (err) { return handleError(reply, err, 'job_not_found'); }
+    },
     listMyJobApplications: async (req, reply) => {
       try {
         const params = queryParams(req);

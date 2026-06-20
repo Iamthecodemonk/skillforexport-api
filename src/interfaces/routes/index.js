@@ -392,7 +392,15 @@ export default async function registerRoutes(fastify, deps) {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: { operationId: 'deleteJob', tags: ['Jobs'], description: 'Delete a job posting. Creator/admin only.', params: idParam(), response: { 200: schemas.IdSuccessResponse } }
   }, handler('deleteJob'));
+  fastify.post('/jobs/:id/shares', {
+    schema: { operationId: 'shareJob', tags: ['Jobs'], description: 'Acknowledge/share a job link. Use this for frontend job share actions.', params: idParam(), body: schemas.JobShareBody, response: { 201: dataResponse(schemas.JobShareResponse), 404: schemas.GenericErrorResponse } }
+  }, handler('shareJob'));
+  fastify.post('/jobs/:id/share-events', {
+    schema: { operationId: 'recordJobShareEvent', tags: ['Jobs'], description: 'Record a job copy-link/share analytics event.', params: idParam(), body: schemas.JobShareBody, response: { 201: dataResponse(schemas.JobShareEventResponse), 404: schemas.GenericErrorResponse } }
+  }, handler('recordJobShareEvent'));
   fastify.get('/job/:idOrSlug', { schema: { operationId: 'legacyGetJob', tags: ['Jobs'], description: 'Legacy alias for GET /jobs/:idOrSlug', params: idParam('idOrSlug'), response: { 200: dataResponse(schemas.JobResponse), 404: schemas.GenericErrorResponse } } }, handler('getJob'));
+  fastify.post('/job/:id/shares', { schema: { operationId: 'legacyShareJob', tags: ['Jobs'], description: 'Legacy alias for POST /jobs/:id/shares', params: idParam(), body: schemas.JobShareBody, response: { 201: dataResponse(schemas.JobShareResponse), 404: schemas.GenericErrorResponse } } }, handler('shareJob'));
+  fastify.post('/job/:id/share-events', { schema: { operationId: 'legacyRecordJobShareEvent', tags: ['Jobs'], description: 'Legacy alias for POST /jobs/:id/share-events', params: idParam(), body: schemas.JobShareBody, response: { 201: dataResponse(schemas.JobShareEventResponse), 404: schemas.GenericErrorResponse } } }, handler('recordJobShareEvent'));
   fastify.post('/job', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyCreateJob', tags: ['Jobs'], description: 'Legacy alias for POST /jobs', body: schemas.JobCreateBody, response: { 201: dataResponse(schemas.JobResponse), 422: schemas.GenericErrorResponse } } }, handler('createJob'));
   fastify.put('/job/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyUpdateJob', tags: ['Jobs'], description: 'Legacy alias for PATCH /jobs/:id', params: idParam(), body: { ...schemas.JobCreateBody, required: [] }, response: { 200: dataResponse(schemas.JobResponse), 404: schemas.GenericErrorResponse } } }, handler('updateJob'));
   fastify.delete('/job/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyDeleteJob', tags: ['Jobs'], description: 'Legacy alias for DELETE /jobs/:id', params: idParam(), response: { 200: schemas.IdSuccessResponse, 404: schemas.GenericErrorResponse } } }, handler('deleteJob'));

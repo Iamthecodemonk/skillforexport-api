@@ -1,6 +1,5 @@
 import logger from '../../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
-import { readProfileFromCache, writeProfileToCache } from '../../utils/redisProfileCache.js';
 import { sendError } from '../errorResponse.js';
 import { parsePagination, buildPaginatedResponse } from '../paginationResponse.js';
 import os from 'os';
@@ -193,20 +192,11 @@ export function makeUserController({ useCase = null, followerRepository = null, 
     getUserProfile: async (req, reply) => {
       try {
         const { id } = req.params; // user id
-        const redis = req.server && (req.server.redisManager || req.server.redisClient);
-        const cacheKey = `user:profile:${id}`;
-
-        const cachedParsed = await readProfileFromCache(redis, cacheKey);
-        if (cachedParsed) 
-          return reply.send({ success: true, message: 'Profile fetched successfully', data: cachedParsed });
-
         const full = await useCase.getFullProfile(id);
         if (!full) 
           return reply.code(404).send({ success: false, error: { code: 'user_not_found' } });
 
-        await writeProfileToCache(redis, cacheKey, full);
-
-        return reply.send({ success: true, message: 'Profile fetched successfully', data: full });
+        return reply.header('Cache-Control', 'no-store').send({ success: true, message: 'Profile fetched successfully', data: full });
       } catch (err) {
         userLogger.error('getUserProfile error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
@@ -218,19 +208,11 @@ export function makeUserController({ useCase = null, followerRepository = null, 
         const userId = req.user && req.user.id;
         if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
 
-        const redis = req.server && (req.server.redisManager || req.server.redisClient);
-        const cacheKey = `user:profile:${userId}`;
-
-        const cachedParsed = await readProfileFromCache(redis, cacheKey);
-        if (cachedParsed) return reply.send({ success: true, message: 'Profile fetched successfully', data: cachedParsed });
-
         const full = await useCase.getFullProfile(userId);
         if (!full) 
           return reply.code(404).send({ success: false, error: { code: 'user_not_found' } });
 
-        await writeProfileToCache(redis, cacheKey, full);
-
-        return reply.send({ success: true, message: 'Profile fetched successfully', data: full });
+        return reply.header('Cache-Control', 'no-store').send({ success: true, message: 'Profile fetched successfully', data: full });
       } catch (err) {
         userLogger.error('getMyProfile error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });

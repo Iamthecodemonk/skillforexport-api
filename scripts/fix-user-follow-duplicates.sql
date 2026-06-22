@@ -1,6 +1,11 @@
 -- Remove duplicate user follow rows and prevent them from being recreated.
 -- Keeps the oldest row for each follower/following pair.
 
+DELETE FROM followers
+WHERE follower_id IS NOT NULL
+  AND following_id IS NOT NULL
+  AND follower_id = following_id;
+
 DELETE f1
 FROM followers f1
 JOIN followers f2

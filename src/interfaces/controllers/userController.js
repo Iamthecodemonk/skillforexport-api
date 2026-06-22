@@ -418,6 +418,9 @@ export function makeUserController({ useCase = null, followerRepository = null, 
             success: false,
             error: { code: 'validation_failed' }
           });
+        if (actorId === id) {
+          return reply.code(422).send({ success: false, error: { code: 'self_follow_not_allowed', message: 'You cannot follow yourself' } });
+        }
         // If controller has a followerRepository, prefer to check for existing relation first (idempotent)
         try {
           if (followerRepository && typeof followerRepository.findByFollowerAndFollowing === 'function') {
@@ -453,6 +456,9 @@ export function makeUserController({ useCase = null, followerRepository = null, 
         return reply.code(201).send({ success: true, message: 'Followed', data: { following: true } });
       } catch (err) {
         userLogger.error('followUser error', { message: err.message, stack: err.stack });
+        if (err.message === 'self_follow_not_allowed') {
+          return reply.code(422).send({ success: false, error: { code: 'self_follow_not_allowed', message: 'You cannot follow yourself' } });
+        }
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
     },
@@ -464,7 +470,7 @@ export function makeUserController({ useCase = null, followerRepository = null, 
         if (!actorId)
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         if (actorId === id)
-          return reply.code(422).send({ success: false, error: { code: 'validation_failed', message: 'You cannot follow yourself' } });
+          return reply.code(422).send({ success: false, error: { code: 'self_follow_not_allowed', message: 'You cannot follow yourself' } });
 
         const existing = followerRepository && typeof followerRepository.findByFollowerAndFollowing === 'function'
           ? await followerRepository.findByFollowerAndFollowing(actorId, id)
@@ -498,6 +504,9 @@ export function makeUserController({ useCase = null, followerRepository = null, 
         return reply.code(200).send({ success: true, message: 'Followed', data: { following: true } });
       } catch (err) {
         userLogger.error('toggleFollowUser error', { message: err.message, stack: err.stack });
+        if (err.message === 'self_follow_not_allowed') {
+          return reply.code(422).send({ success: false, error: { code: 'self_follow_not_allowed', message: 'You cannot follow yourself' } });
+        }
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
     },

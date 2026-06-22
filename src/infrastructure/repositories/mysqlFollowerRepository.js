@@ -48,7 +48,10 @@ export default class MysqlFollowerRepository {
   }
 
   async create(record) {
-    const existing = await this.findByFollowerAndFollowing(record.follower_id || record.followerId, record.following_id || record.followingId);
+    const followerId = record.follower_id || record.followerId;
+    const followingId = record.following_id || record.followingId;
+    if (followerId && followingId && String(followerId) === String(followingId)) throw new Error('self_follow_not_allowed');
+    const existing = await this.findByFollowerAndFollowing(followerId, followingId);
     if (existing) return existing;
     const now = new Date();
     const payload = { ...record, created_at: now };
@@ -56,7 +59,7 @@ export default class MysqlFollowerRepository {
       await db('followers').insert(payload);
     } catch (err) {
       if (err && (err.code === 'ER_DUP_ENTRY' || err.errno === 1062)) {
-        return this.findByFollowerAndFollowing(record.follower_id || record.followerId, record.following_id || record.followingId);
+        return this.findByFollowerAndFollowing(followerId, followingId);
       }
       throw err;
     }

@@ -415,6 +415,7 @@ export default class UserUseCase {
   }
 
   async followUser(userId, followerId) {
+    if (userId && followerId && String(userId) === String(followerId)) throw new Error('self_follow_not_allowed');
     const entry = new Follower({ id: uuidv4(), follower_id: followerId, following_id: userId, created_at: new Date() });
     return this.followerRepository.create(entry);
   }

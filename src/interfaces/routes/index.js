@@ -1570,6 +1570,35 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('followUser'));
 
+  fastify.get('/users/:id/follow-status', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'getUserFollowStatus',
+      tags: ['Users'],
+      description: 'Read-only follow status for the authenticated user against the target user. Use this on profile page load instead of the legacy toggle endpoint.',
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+            data: {
+              type: 'object',
+              properties: {
+                following: { type: 'boolean' },
+                is_following: { type: 'boolean' },
+                followerId: { type: 'string' },
+                followingId: { type: 'string' }
+              }
+            }
+          },
+          example: { success: true, message: 'Follow status fetched successfully', data: { following: true, is_following: true, followerId: 'viewer-user-uuid', followingId: 'profile-user-uuid' } }
+        },
+        401: schemas.AuthErrorResponse
+      }
+    }
+  }, handler('getFollowStatus'));
+
   fastify.delete('/users/:id/follow', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {

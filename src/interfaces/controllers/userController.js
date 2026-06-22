@@ -502,6 +502,33 @@ export function makeUserController({ useCase = null, followerRepository = null, 
       }
     },
 
+    getFollowStatus: async (req, reply) => {
+      try {
+        const { id } = req.params;
+        const actorId = req.user && req.user.id;
+        if (!actorId)
+          return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+
+        const existing = followerRepository && typeof followerRepository.findByFollowerAndFollowing === 'function'
+          ? await followerRepository.findByFollowerAndFollowing(actorId, id)
+          : null;
+
+        return reply.send({
+          success: true,
+          message: 'Follow status fetched successfully',
+          data: {
+            following: Boolean(existing),
+            is_following: Boolean(existing),
+            followerId: actorId,
+            followingId: id
+          }
+        });
+      } catch (err) {
+        userLogger.error('getFollowStatus error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
     unfollowUser: async (req, reply) => {
       try {
         const { id } = req.params; // target user id

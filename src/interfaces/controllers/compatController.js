@@ -313,6 +313,27 @@ async function reportDetails(targetType, targetId) {
   return rows.map(mapReportRow);
 }
 
+async function findReportForTarget(targetType, targetId) {
+  return applyGenericReportTypeWhere(db('generic_reports'), targetType)
+    .where('target_id', targetId)
+    .first();
+}
+
+async function resolveReportedTargetId(targetType, id) {
+  if (!id) return null;
+  const directReport = await findReportForTarget(targetType, id);
+  if (directReport) return { targetId: id, reportId: directReport.id, source: 'target' };
+
+  const reportRow = await applyGenericReportTypeWhere(db('generic_reports'), targetType)
+    .where('id', id)
+    .first();
+  if (reportRow && reportRow.target_id) {
+    return { targetId: reportRow.target_id, reportId: reportRow.id, source: 'report' };
+  }
+
+  return null;
+}
+
 function mapReportRow(row) {
   return {
     id: row.id,
@@ -371,19 +392,23 @@ async function updateModerationTarget({ targetType, targetId, action, actorId })
   const updatedAt = now();
 
   if (targetType === 'post') {
-    await db('posts').where({ id: targetId }).update({ moderation_status: status, updated_at: updatedAt });
+    const affected = await db('posts').where({ id: targetId }).update({ moderation_status: status, updated_at: updatedAt });
+    if (!affected) return null;
     return db('posts').where({ id: targetId }).first();
   }
   if (targetType === 'comment') {
-    await db('comments').where({ id: targetId }).update({ moderation_status: status, updated_at: updatedAt });
+    const affected = await db('comments').where({ id: targetId }).update({ moderation_status: status, updated_at: updatedAt });
+    if (!affected) return null;
     return db('comments').where({ id: targetId }).first();
   }
   if (targetType === 'question') {
-    await db('questions').where({ id: targetId }).update({ moderation_status: status, updated_at: updatedAt });
+    const affected = await db('questions').where({ id: targetId }).update({ moderation_status: status, updated_at: updatedAt });
+    if (!affected) return null;
     return db('questions').where({ id: targetId }).first();
   }
   if (targetType === 'answer') {
-    await db('answers').where({ id: targetId }).update({ moderation_status: status, updated_at: updatedAt });
+    const affected = await db('answers').where({ id: targetId }).update({ moderation_status: status, updated_at: updatedAt });
+    if (!affected) return null;
     return db('answers').where({ id: targetId }).first();
   }
   if (targetType === 'page') {
@@ -395,11 +420,13 @@ async function updateModerationTarget({ targetType, targetId, action, actorId })
       patch.approved_by = actorId;
     }
     if (status === 'suspended' || status === 'deleted') patch.is_active = 0;
-    await db('pages').where({ id: targetId }).update(patch);
+    const affected = await db('pages').where({ id: targetId }).update(patch);
+    if (!affected) return null;
     return db('pages').where({ id: targetId }).first();
   }
   if (targetType === 'job') {
-    await db('jobs').where({ id: targetId }).update({ status, updated_at: updatedAt });
+    const affected = await db('jobs').where({ id: targetId }).update({ status, updated_at: updatedAt });
+    if (!affected) return null;
     return db('jobs').where({ id: targetId }).first();
   }
   throw new Error('invalid_report_type');
@@ -914,14 +941,17 @@ export function makeCompatController({ cloudinary = null } = {}) {
       const data = (await Promise.all(pageRows.map(async (row) => {
         const target = await targetPayload({ targetType, targetId: row.targetId, repositories });
         if (!target) return null;
+        const reports = await reportDetails(targetType, row.targetId);
         return {
+          id: row.targetId,
           targetType,
           targetId: row.targetId,
+          primaryReportId: reports && reports[0] ? reports[0].id : null,
           reports_count: row.reportsCount,
           reportsCount: row.reportsCount,
           data: target,
           target,
-          reports: await reportDetails(targetType, row.targetId)
+          reports
         };
       }))).filter(Boolean);
       return sendPaginated(req, reply, { data, page, perPage, total: allRows.length });
@@ -936,14 +966,17 @@ export function makeCompatController({ cloudinary = null } = {}) {
         data[targetType === 'post' ? 'posts' : `${targetType}s`] = (await Promise.all(rows.map(async (row) => {
           const target = await targetPayload({ targetType, targetId: row.targetId, repositories });
           if (!target) return null;
+          const reports = await reportDetails(targetType, row.targetId);
           return {
+            id: row.targetId,
             targetType,
             targetId: row.targetId,
+            primaryReportId: reports && reports[0] ? reports[0].id : null,
             reports_count: row.reportsCount,
             reportsCount: row.reportsCount,
             data: target,
             target,
-            reports: await reportDetails(targetType, row.targetId)
+            reports
           };
         }))).filter(Boolean);
       }
@@ -952,13 +985,18 @@ export function makeCompatController({ cloudinary = null } = {}) {
     moderateReportedTarget: async (req, reply) => {
       if (!requireAdmin(req, reply)) return;
       const targetType = normalizeReportType((req.params && req.params.type) || (req.body && req.body.targetType));
-      const targetId = (req.params && req.params.id) || (req.body && (req.body.targetId || req.body.id));
+      const requestedId = (req.params && req.params.id) || (req.body && (req.body.targetId || req.body.reportId || req.body.id));
       const action = (req.params && req.params.action) || (req.body && req.body.action);
       const allowed = new Set(['post', 'comment', 'question', 'answer', 'page', 'job']);
-      if (!allowed.has(targetType) || !targetId) {
+      if (!allowed.has(targetType) || !requestedId) {
         return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
       }
       try {
+        const resolved = await resolveReportedTargetId(targetType, requestedId);
+        if (!resolved || !resolved.targetId) {
+          return reply.code(404).send({ success: false, error: { code: 'reported_target_not_found' } });
+        }
+        const targetId = resolved.targetId;
         const updated = await updateModerationTarget({ targetType, targetId, action, actorId: actorId(req) });
         if (!updated) return reply.code(404).send({ success: false, error: { code: 'target_not_found' } });
         const repositories = { postRepository, commentRepository, questionRepository, answerRepository };
@@ -969,6 +1007,8 @@ export function makeCompatController({ cloudinary = null } = {}) {
           data: {
             targetType,
             targetId,
+            requestedId,
+            reportId: resolved.reportId || null,
             action,
             status: moderationStatusForAction(action),
             target: target || updated

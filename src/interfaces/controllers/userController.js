@@ -457,6 +457,51 @@ export function makeUserController({ useCase = null, followerRepository = null, 
       }
     },
 
+    toggleFollowUser: async (req, reply) => {
+      try {
+        const { id } = req.params;
+        const actorId = req.user && req.user.id;
+        if (!actorId)
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        if (actorId === id)
+          return reply.code(422).send({ success: false, error: { code: 'validation_failed', message: 'You cannot follow yourself' } });
+
+        const existing = followerRepository && typeof followerRepository.findByFollowerAndFollowing === 'function'
+          ? await followerRepository.findByFollowerAndFollowing(actorId, id)
+          : null;
+
+        if (existing) {
+          await useCase.unfollowUser(id, actorId);
+          await invalidateCompactFeedCache(req);
+          await invalidateUserProfileCaches(req, [actorId, id]);
+          return reply.code(200).send({ success: true, message: 'Unfollowed', data: { following: false } });
+        }
+
+        const created = await useCase.followUser(id, actorId);
+        await invalidateCompactFeedCache(req);
+        await invalidateUserProfileCaches(req, [actorId, id]);
+        if (notificationRepository) {
+          try {
+            await notificationRepository.create({
+              userId: id,
+              actorUserId: actorId,
+              type: 'user_follow',
+              title: 'New follower',
+              body: 'Someone followed you.',
+              target: { type: 'user', id: actorId, title: null, url: `/users/${actorId}` },
+              metadata: { followId: created && created.id }
+            });
+          } catch (notifyErr) {
+            userLogger.warn('follow notification failed', { message: notifyErr.message });
+          }
+        }
+        return reply.code(200).send({ success: true, message: 'Followed', data: { following: true } });
+      } catch (err) {
+        userLogger.error('toggleFollowUser error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
     unfollowUser: async (req, reply) => {
       try {
         const { id } = req.params; // target user id

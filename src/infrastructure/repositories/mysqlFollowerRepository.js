@@ -48,9 +48,18 @@ export default class MysqlFollowerRepository {
   }
 
   async create(record) {
+    const existing = await this.findByFollowerAndFollowing(record.follower_id || record.followerId, record.following_id || record.followingId);
+    if (existing) return existing;
     const now = new Date();
     const payload = { ...record, created_at: now };
-    await db('followers').insert(payload);
+    try {
+      await db('followers').insert(payload);
+    } catch (err) {
+      if (err && (err.code === 'ER_DUP_ENTRY' || err.errno === 1062)) {
+        return this.findByFollowerAndFollowing(record.follower_id || record.followerId, record.following_id || record.followingId);
+      }
+      throw err;
+    }
     return db('followers').where({ id: record.id }).first();
   }
 
@@ -59,10 +68,9 @@ export default class MysqlFollowerRepository {
   }
 
   async deleteByFollowerAndFollowing(followerId, followingId) {
-    // Attempt to find existing record first
-    const existing = await db('followers').where({ follower_id: followerId, following_id: followingId }).first();
+    const existing = await db('followers').where({ follower_id: followerId, following_id: followingId }).orderBy('created_at', 'asc').first();
     if (!existing) return null;
-    await db('followers').where({ id: existing.id }).del();
-    return existing;
+    const deletedCount = await db('followers').where({ follower_id: followerId, following_id: followingId }).del();
+    return { ...existing, deletedCount };
   }
 }

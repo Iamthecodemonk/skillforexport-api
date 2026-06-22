@@ -1036,16 +1036,7 @@ export default async function registerRoutes(fastify, deps) {
   fastify.put('/user/:id/follow', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: { operationId: 'legacyToggleFollowUser', tags: ['Users'], description: 'Legacy toggle follow. Follows when not following, unfollows when already following.', params: idParam(), response: { 200: genericSuccess, 401: schemas.AuthErrorResponse } }
-  }, async (req, reply) => {
-    const followerId = req.user && req.user.id;
-    if (!followerId) return sendError(reply, 401, 'unauthorized', 'Unauthorized');
-    try {
-      const existing = deps.controllers && deps.controllers.__noop;
-      return handler('followUser')(req, reply);
-    } catch (e) {
-      return handler('followUser')(req, reply);
-    }
-  });
+  }, handler('toggleFollowUser'));
   fastify.post('/user/referrals', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacySendReferrals', tags: ['Users'], description: 'Send referral emails. Accepts `email` or `emails` as a comma-separated string.', body: { type: 'object', properties: { email: { type: 'string', example: 'friend@example.com, teammate@example.com' }, emails: { type: 'string', example: 'friend@example.com, teammate@example.com' } }, anyOf: [{ required: ['email'] }, { required: ['emails'] }] }, response: { 200: dataResponse({ type: 'array', items: { type: 'string' } }), 401: schemas.AuthErrorResponse, 422: schemas.GenericErrorResponse } } }, handler('sendReferrals'));
   fastify.post('/user/skills', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyAddSkills', tags: ['Users'], description: 'Legacy add skills route. Accepts comma-separated `skills` or `skill`.', body: { type: 'object', properties: { skills: { type: 'string' }, skill: { type: 'string' } } }, response: { 201: genericArraySuccess, 401: schemas.AuthErrorResponse, 422: schemas.GenericErrorResponse } } }, handler('addLegacySkills'));
   fastify.get('/user/privacy', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyGetPrivacy', tags: ['Users'], description: 'Get authenticated user privacy settings. Values: 1=public, 2=followers only, 3=only me.', response: { 200: schemas.UserPrivacyGetResponse, 401: schemas.AuthErrorResponse } } }, handler('getPrivacy'));

@@ -284,6 +284,7 @@ CREATE TABLE `followers` (
   `following_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_followers_pair` (`follower_id`,`following_id`),
   KEY `idx_follower_id` (`follower_id`),
   KEY `idx_following_id` (`following_id`),
   CONSTRAINT `followers_ibfk_1` FOREIGN KEY (`follower_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,

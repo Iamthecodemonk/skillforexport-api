@@ -84,6 +84,15 @@ export function makeReactionController({ useCase = null, notificationRepository 
                 metadata: { reactionType: type || 'like' }
               });
             }
+            if (typeof notificationRepository.notifyFollowersOfUser === 'function') {
+              await notificationRepository.notifyFollowersOfUser(actorId, {
+                type: 'followed_user_post_score',
+                title: 'Post scored by someone you follow',
+                body: 'Someone you follow scored a post.',
+                target: { type: 'post', id: postId, title: post && post.title, url: `/posts/${postId}` },
+                metadata: { reactionType: type || 'like' }
+              });
+            }
           } catch (notifyErr) {
             reactionLogger.warn('post reaction notification failed', { message: notifyErr.message });
           }

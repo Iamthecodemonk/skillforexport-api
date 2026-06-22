@@ -9,7 +9,7 @@ export default class PostUseCase {
     this.notificationRepository = notificationRepository;
   }
 
-  async CreatePost({ userId, communityId = null, pageId = null, title, content, visibility = null, parentPostId = null, originalPostId = null, mediaAssetIds = [], actorRole = null }) {
+  async CreatePost({ userId, communityId = null, pageId = null, title, content, visibility = null, parentPostId = null, originalPostId = null, mediaAssetIds = [], actorRole = null, skipFollowerNotification = false }) {
     if (!userId) throw new Error('user_required');
     if (!title || String(title).trim() === '') throw new Error('title_required');
     if (!content || String(content).trim() === '') throw new Error('content_required');
@@ -118,6 +118,15 @@ export default class PostUseCase {
             metadata: { communityId }
           });
         }
+        if (!skipFollowerNotification && this.notificationRepository && typeof this.notificationRepository.notifyFollowersOfUser === 'function') {
+          await this.notificationRepository.notifyFollowersOfUser(userId, {
+            type: 'followed_user_post',
+            title: 'New post from someone you follow',
+            body: 'Someone you follow made a new post.',
+            target: { type: 'post', id: created.id, title: created.title, url: `/posts/${created.id}` },
+            metadata: { postId: created.id, communityId, pageId }
+          });
+        }
       } catch (notifyErr) {
         postLogger.warn('post notification failed', { message: notifyErr && notifyErr.message });
       }
@@ -158,8 +167,23 @@ export default class PostUseCase {
       content: trimmedComment || original.content || 'Shared a post',
       visibility: 'community',
       parentPostId: original.id,
-      actorRole
+      actorRole,
+      skipFollowerNotification: true
     });
+
+    if (this.notificationRepository && typeof this.notificationRepository.notifyFollowersOfUser === 'function') {
+      try {
+        await this.notificationRepository.notifyFollowersOfUser(userId, {
+          type: 'followed_user_post_share',
+          title: 'Post shared by someone you follow',
+          body: 'Someone you follow shared a post.',
+          target: { type: 'post', id: shared.id, title: shared.title, url: `/posts/${shared.id}` },
+          metadata: { postId: shared.id, originalPostId: original.id, communityId }
+        });
+      } catch (notifyErr) {
+        postLogger.warn('post share follower notification failed', { message: notifyErr && notifyErr.message });
+      }
+    }
 
     return {
       ...shared,

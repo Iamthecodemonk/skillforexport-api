@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../knexConfig.js';
+import { sendEmail } from '../../utils/emailService.js';
 
 const DEFAULT_PREFERENCES = {
   inApp: {
@@ -12,12 +13,14 @@ const DEFAULT_PREFERENCES = {
     communities: true,
     jobs: true,
     pages: true,
+    alerts: true,
     system: true
   },
   email: {
     comments: false,
     answers: true,
     jobs: true,
+    alerts: true,
     system: true
   }
 };
@@ -29,13 +32,30 @@ const TYPE_CATEGORY = {
   post_score: 'scores',
   comment_score: 'scores',
   answer_score: 'scores',
+  question_score: 'scores',
   user_follow: 'follows',
+  followed_user_post: 'alerts',
+  followed_user_comment: 'alerts',
+  followed_user_job: 'jobs',
+  followed_user_freelance_job: 'jobs',
+  followed_user_post_share: 'alerts',
+  followed_user_post_score: 'scores',
+  followed_user_question: 'alerts',
+  followed_user_answer: 'answers',
+  followed_user_comment_reply: 'comments',
+  content_flagged: 'system',
+  contest_win: 'system',
+  contest_alert: 'alerts',
+  sponsorship_alert: 'alerts',
+  recommended_job: 'jobs',
   page_follow: 'pages',
   community_follow: 'communities',
   job_status: 'jobs',
   freelance_job_status: 'jobs',
   job_application: 'jobs',
+  job_application_submitted: 'jobs',
   freelance_job_application: 'jobs',
+  freelance_job_application_submitted: 'jobs',
   page_post: 'pages',
   community_post: 'communities',
   system: 'system'
@@ -134,6 +154,43 @@ export default class MysqlNotificationRepository {
     return prefs.inApp[category] !== false;
   }
 
+  async shouldEmail(userId, type) {
+    const category = TYPE_CATEGORY[type] || 'system';
+    const prefs = await this.getPreferences(userId);
+    return prefs.email[category] === true;
+  }
+
+  async recipient(userId) {
+    return db('users as u')
+      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+      .where('u.id', userId)
+      .select('u.id', 'u.email', 'up.username', 'up.display_name')
+      .first();
+  }
+
+  async sendNotificationEmail(userId, notification) {
+    try {
+      if (!(await this.shouldEmail(userId, notification.type))) return null;
+      const user = await this.recipient(userId);
+      if (!user || !user.email) return null;
+      const appUrl = (process.env.APP_URL || process.env.FRONTEND_URL || 'https://skills4export.com').replace(/\/$/, '');
+      const targetUrl = notification.target && notification.target.url ? `${appUrl}${notification.target.url}` : appUrl;
+      const subject = notification.title || 'Skills4Export notification';
+      const actorName = notification.actor && notification.actor.name ? notification.actor.name : 'Someone';
+      const html = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+          <p>${notification.body || subject}</p>
+          <p><strong>From:</strong> ${actorName}</p>
+          <p><a href="${targetUrl}">Open in Skills4Export</a></p>
+        </div>
+      `;
+      const text = `${notification.body || subject}\nFrom: ${actorName}\n${targetUrl}`;
+      return sendEmail(user.email, subject, html, text);
+    } catch (err) {
+      return null;
+    }
+  }
+
   async create({ userId, actorUserId = null, type, title, body, target = {}, metadata = {} }) {
     if (!userId || !type) return null;
     if (actorUserId && actorUserId === userId) return null;
@@ -184,7 +241,31 @@ export default class MysqlNotificationRepository {
     });
     const unreadCount = await this.unreadCount(userId);
     emitter.emit(userId, { notification, unreadCount });
+    await this.sendNotificationEmail(userId, notification);
     return notification;
+  }
+
+  async notifyFollowersOfUser(actorUserId, payload = {}) {
+    if (!actorUserId || !payload.type) return [];
+    const rows = await db('followers')
+      .where({ following_id: actorUserId })
+      .whereNotNull('follower_id')
+      .select('follower_id');
+    const uniqueFollowerIds = [...new Set(rows.map(row => row.follower_id).filter(Boolean))];
+    const notifications = [];
+    for (const followerId of uniqueFollowerIds) {
+      const notification = await this.create({
+        userId: followerId,
+        actorUserId,
+        type: payload.type,
+        title: payload.title,
+        body: payload.body,
+        target: payload.target,
+        metadata: payload.metadata || {}
+      });
+      if (notification) notifications.push(notification);
+    }
+    return notifications;
   }
 
   async list(userId, { limit = 20, offset = 0 } = {}) {

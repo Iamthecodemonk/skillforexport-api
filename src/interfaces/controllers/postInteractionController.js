@@ -2,7 +2,7 @@ import logger from '../../utils/logger.js';
 
 const piLogger = logger.child('POST_INTERACTION_CONTROLLER');
 
-export function makePostInteractionController({ useCase = null }) {
+export function makePostInteractionController({ useCase = null, notificationRepository = null, postRepository = null, commentRepository = null }) {
   if (!useCase) throw new Error('useCase_required');
 
   return {
@@ -30,6 +30,22 @@ export function makePostInteractionController({ useCase = null }) {
         const { reason, details } = body;
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const rep = await useCase.reportPost({ postId, userId: actorId, reason, details });
+        if (notificationRepository && postRepository) {
+          try {
+            const post = await postRepository.findById(postId, { includeHidden: true });
+            await notificationRepository.create({
+              userId: post && (post.user_id || post.userId),
+              actorUserId: null,
+              type: 'content_flagged',
+              title: 'Post flagged',
+              body: 'Your post was flagged for review.',
+              target: { type: 'post', id: postId, title: post && post.title, url: `/posts/${postId}` },
+              metadata: { targetType: 'post', targetId: postId, anonymous: true }
+            });
+          } catch (notifyErr) {
+            piLogger.warn('post report notification failed', { message: notifyErr.message });
+          }
+        }
         return reply.code(201).send({ success: true, message: 'Post reported successfully', data: rep });
       } catch (err) {
         piLogger.error('reportPost error', { message: err.message });
@@ -46,6 +62,22 @@ export function makePostInteractionController({ useCase = null }) {
         const { reason, details } = body;
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const rep = await useCase.reportComment({ commentId, userId: actorId, reason, details });
+        if (notificationRepository && commentRepository) {
+          try {
+            const comment = await commentRepository.findById(commentId, { includeHidden: true });
+            await notificationRepository.create({
+              userId: comment && (comment.user_id || comment.userId),
+              actorUserId: null,
+              type: 'content_flagged',
+              title: 'Comment flagged',
+              body: 'Your comment was flagged for review.',
+              target: { type: 'comment', id: commentId, title: null, url: comment ? `/posts/${comment.post_id}` : null },
+              metadata: { targetType: 'comment', targetId: commentId, anonymous: true }
+            });
+          } catch (notifyErr) {
+            piLogger.warn('comment report notification failed', { message: notifyErr.message });
+          }
+        }
         return reply.code(201).send({ success: true, message: 'Comment reported successfully', data: rep });
       } catch (err) {
         piLogger.error('reportComment error', { message: err.message });

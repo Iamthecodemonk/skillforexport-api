@@ -27,6 +27,20 @@ export function makeQuestionController({ useCase = null, notificationRepository 
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         if (!title || !body) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         const created = await useCase.createQuestion({ userId: actorId, communityId, title, body, visibility });
+        if (notificationRepository && typeof notificationRepository.notifyFollowersOfUser === 'function') {
+          try {
+            const question = created && created.toPlainObject ? created.toPlainObject() : created;
+            await notificationRepository.notifyFollowersOfUser(actorId, {
+              type: 'followed_user_question',
+              title: 'New question from someone you follow',
+              body: 'Someone you follow asked a question.',
+              target: { type: 'question', id: question && question.id, title: question && question.title, url: `/questions/${question && question.id}` },
+              metadata: { questionId: question && question.id, communityId }
+            });
+          } catch (notifyErr) {
+            questionLogger.warn('question follower notification failed', { message: notifyErr.message });
+          }
+        }
         return reply.code(201).send({ success: true, message: 'Question created successfully', data: created && created.toPlainObject ? created.toPlainObject() : created });
       } catch (err) {
         questionLogger.error('createQuestion error', { message: err.message, stack: err.stack });
@@ -99,6 +113,15 @@ export function makeQuestionController({ useCase = null, notificationRepository 
               target: { type: 'question', id: questionId, title: question && question.title, url: `/questions/${questionId}` },
               metadata: { answerId: created && created.id, parentAnswerId }
             });
+            if (typeof notificationRepository.notifyFollowersOfUser === 'function') {
+              await notificationRepository.notifyFollowersOfUser(actorId, {
+                type: 'followed_user_answer',
+                title: 'New answer from someone you follow',
+                body: 'Someone you follow answered a question.',
+                target: { type: 'question', id: questionId, title: question && question.title, url: `/questions/${questionId}` },
+                metadata: { answerId: created && created.id, parentAnswerId }
+              });
+            }
           } catch (notifyErr) {
             questionLogger.warn('answer notification failed', { message: notifyErr.message });
           }

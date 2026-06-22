@@ -42,6 +42,15 @@ export function makeCommentController({ useCase = null, notificationRepository =
                 metadata: { commentId: created.id }
               });
             }
+            if (typeof notificationRepository.notifyFollowersOfUser === 'function') {
+              await notificationRepository.notifyFollowersOfUser(actorId, {
+                type: parentCommentId ? 'followed_user_comment_reply' : 'followed_user_comment',
+                title: parentCommentId ? 'New reply from someone you follow' : 'New comment from someone you follow',
+                body: parentCommentId ? 'Someone you follow replied to a comment.' : 'Someone you follow made a comment.',
+                target: { type: 'post', id: postId, title: post && post.title, url: `/posts/${postId}` },
+                metadata: { commentId: created.id, parentCommentId }
+              });
+            }
           } catch (notifyErr) {
             commentLogger.warn('comment notification failed', { message: notifyErr.message });
           }

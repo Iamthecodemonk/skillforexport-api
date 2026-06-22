@@ -73,7 +73,17 @@ export default class JobsFreelancersUseCase {
   async createJob(actor, body = {}) {
     if (!actor || !actor.id) throw new Error('unauthorized');
     if (!body.title || !(body.companyName || body.company) || !body.description) throw new Error('validation_error');
-    return this.repository.createJob({ ...body, createdByUserId: actor.id, status: body.status || 'pending_review' });
+    const job = await this.repository.createJob({ ...body, createdByUserId: actor.id, status: body.status || 'pending_review' });
+    if (this.notificationRepository && typeof this.notificationRepository.notifyFollowersOfUser === 'function') {
+      await this.notificationRepository.notifyFollowersOfUser(actor.id, {
+        type: 'followed_user_job',
+        title: 'New job from someone you follow',
+        body: `Someone you follow posted "${job.title}".`,
+        target: { type: 'job', id: job.id, title: job.title, url: `/jobs/${job.id}` },
+        metadata: { jobId: job.id }
+      });
+    }
+    return job;
   }
 
   async updateJob(actor, id, body = {}) {
@@ -128,6 +138,15 @@ export default class JobsFreelancersUseCase {
         type: 'job_application',
         title: 'New job application',
         body: `Someone applied to "${job.title}".`,
+        target: { type: 'job', id: job.id, title: job.title, url: `/jobs/${job.id}` },
+        metadata: { applicationId: application.id }
+      });
+      await this.notify({
+        userId: actor.id,
+        actorUserId: null,
+        type: 'job_application_submitted',
+        title: 'Job application submitted',
+        body: `Your application for "${job.title}" was submitted.`,
         target: { type: 'job', id: job.id, title: job.title, url: `/jobs/${job.id}` },
         metadata: { applicationId: application.id }
       });
@@ -366,7 +385,17 @@ export default class JobsFreelancersUseCase {
   async createFreelanceJob(actor, body = {}) {
     if (!actor || !actor.id) throw new Error('unauthorized');
     if (!body.agreedToTerms || !body.title || !body.description || !(body.companyName || body.company)) throw new Error('validation_error');
-    return this.repository.createFreelanceJob({ ...body, postedByUserId: actor.id, status: body.status || 'pending_review' });
+    const job = await this.repository.createFreelanceJob({ ...body, postedByUserId: actor.id, status: body.status || 'pending_review' });
+    if (this.notificationRepository && typeof this.notificationRepository.notifyFollowersOfUser === 'function') {
+      await this.notificationRepository.notifyFollowersOfUser(actor.id, {
+        type: 'followed_user_freelance_job',
+        title: 'New freelance job from someone you follow',
+        body: `Someone you follow posted "${job.title}".`,
+        target: { type: 'freelance_job', id: job.id, title: job.title, url: `/freelance-jobs/${job.id}` },
+        metadata: { freelanceJobId: job.id }
+      });
+    }
+    return job;
   }
 
   async updateFreelanceJob(actor, id, body = {}) {
@@ -421,6 +450,15 @@ export default class JobsFreelancersUseCase {
         type: 'freelance_job_application',
         title: 'New freelance job application',
         body: `Someone applied to "${job.title}".`,
+        target: { type: 'freelance_job', id: job.id, title: job.title, url: `/freelance-jobs/${job.id}` },
+        metadata: { applicationId: application.id }
+      });
+      await this.notify({
+        userId: actor.id,
+        actorUserId: null,
+        type: 'freelance_job_application_submitted',
+        title: 'Freelance job application submitted',
+        body: `Your application for "${job.title}" was submitted.`,
         target: { type: 'freelance_job', id: job.id, title: job.title, url: `/freelance-jobs/${job.id}` },
         metadata: { applicationId: application.id }
       });

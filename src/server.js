@@ -360,7 +360,7 @@ export default async function startServer() {
   }
 
   // register app routes
-  const controllers = { ...healthController, ...makeCompatController({ cloudinary }) };
+  const controllers = { ...healthController };
   let notificationRepository = null;
   try {
     notificationRepository = new MysqlNotificationRepository();
@@ -368,6 +368,7 @@ export default async function startServer() {
   } catch (notificationErr) {
     serverLogger.warn('Notifications wiring failed', { message: notificationErr && notificationErr.message });
   }
+  Object.assign(controllers, makeCompatController({ cloudinary, notificationRepository }));
   try {
     const legalDocumentRepository = new MysqlLegalDocumentRepository();
     const legalDocumentUseCase = new LegalDocumentUseCase({ repository: legalDocumentRepository });
@@ -492,7 +493,7 @@ export default async function startServer() {
           const postReportAdapter = new MysqlPostReportRepository();
           const commentReportAdapter = new MysqlCommentReportRepository();
           const postInteractionUseCase = new PostInteractionUseCase({ postSaveRepository: postSaveAdapter, postReportRepository: postReportAdapter, commentReportRepository: commentReportAdapter });
-          const postInteractionController = makePostInteractionController({ useCase: postInteractionUseCase });
+          const postInteractionController = makePostInteractionController({ useCase: postInteractionUseCase, notificationRepository, postRepository: postAdapter, commentRepository: commentAdapter });
           Object.assign(controllers, postInteractionController);
         } catch (piErr) {
           serverLogger.warn('Post interaction wiring failed', piErr && piErr.message);

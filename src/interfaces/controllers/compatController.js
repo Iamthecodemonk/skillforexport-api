@@ -363,6 +363,23 @@ async function clearReportsForTarget(targetType, targetId) {
   }
 }
 
+async function notifyFlaggedOwner({ notificationRepository, targetType, targetId, repositories }) {
+  if (!notificationRepository) return null;
+  const target = await targetPayload({ targetType, targetId, repositories });
+  if (!target) return null;
+  const ownerId = target.user_id || target.userId || target.owner_id || target.ownerId || target.created_by_user_id || target.createdByUserId || target.posted_by_user_id || target.postedByUserId;
+  if (!ownerId) return null;
+  return notificationRepository.create({
+    userId: ownerId,
+    actorUserId: null,
+    type: 'content_flagged',
+    title: `${targetType} flagged`,
+    body: `Your ${targetType} was flagged for review.`,
+    target: { type: targetType, id: targetId, title: target.title || target.name || null, url: `/${targetType}s/${targetId}` },
+    metadata: { targetType, targetId, anonymous: true }
+  });
+}
+
 function mapReportRow(row) {
   return {
     id: row.id,
@@ -461,7 +478,7 @@ async function updateModerationTarget({ targetType, targetId, action, actorId })
   throw new Error('invalid_report_type');
 }
 
-export function makeCompatController({ cloudinary = null } = {}) {
+export function makeCompatController({ cloudinary = null, notificationRepository = null } = {}) {
   const postRepository = new MysqlPostRepository();
   const commentRepository = new MysqlCommentRepository();
   const questionRepository = new MysqlQuestionRepository();
@@ -939,16 +956,27 @@ export function makeCompatController({ cloudinary = null } = {}) {
       const { id, q, report_reason_id: reasonId, additional_notes: notes } = req.body || {};
       const targetType = ({ p: 'post', q: 'question', a: 'answer', c: 'comment' })[q] || q;
       if (!id || !targetType) return reply.code(422).send({ success: false, message: 'id and q are required', data: null });
-      return reply.send({ success: true, message: 'Report submitted successfully', data: await createGenericReport({ userId, targetId: id, targetType, reason: reasonId || null, details: notes || null }) });
+      const data = await createGenericReport({ userId, targetId: id, targetType, reason: reasonId || null, details: notes || null });
+      await notifyFlaggedOwner({ notificationRepository, targetType, targetId: id, repositories: { postRepository, commentRepository, questionRepository, answerRepository } });
+      return reply.send({ success: true, message: 'Report submitted successfully', data });
     },
 
-    reportQuestion: async (req, reply) => reply.code(201).send({ success: true, message: 'Question reported successfully', data: await createGenericReport({ userId: actorId(req), targetId: req.params.id, targetType: 'question', reason: (req.body || {}).reason || (req.body || {}).report_reason_id || null, details: (req.body || {}).details || (req.body || {}).additional_notes || null }) }),
-    reportAnswer: async (req, reply) => reply.code(201).send({ success: true, message: 'Answer reported successfully', data: await createGenericReport({ userId: actorId(req), targetId: req.params.id, targetType: 'answer', reason: (req.body || {}).reason || (req.body || {}).report_reason_id || null, details: (req.body || {}).details || (req.body || {}).additional_notes || null }) }),
+    reportQuestion: async (req, reply) => {
+      const data = await createGenericReport({ userId: actorId(req), targetId: req.params.id, targetType: 'question', reason: (req.body || {}).reason || (req.body || {}).report_reason_id || null, details: (req.body || {}).details || (req.body || {}).additional_notes || null });
+      await notifyFlaggedOwner({ notificationRepository, targetType: 'question', targetId: req.params.id, repositories: { postRepository, commentRepository, questionRepository, answerRepository } });
+      return reply.code(201).send({ success: true, message: 'Question reported successfully', data });
+    },
+    reportAnswer: async (req, reply) => {
+      const data = await createGenericReport({ userId: actorId(req), targetId: req.params.id, targetType: 'answer', reason: (req.body || {}).reason || (req.body || {}).report_reason_id || null, details: (req.body || {}).details || (req.body || {}).additional_notes || null });
+      await notifyFlaggedOwner({ notificationRepository, targetType: 'answer', targetId: req.params.id, repositories: { postRepository, commentRepository, questionRepository, answerRepository } });
+      return reply.code(201).send({ success: true, message: 'Answer reported successfully', data });
+    },
     reportPage: async (req, reply) => {
       const userId = actorId(req);
       if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
       const body = req.body || {};
       const data = await createGenericReport({ userId, targetId: req.params.id, targetType: 'page', reason: body.reason || body.report_reason_id || null, details: body.details || body.additional_notes || null });
+      await notifyFlaggedOwner({ notificationRepository, targetType: 'page', targetId: req.params.id, repositories: { postRepository, commentRepository, questionRepository, answerRepository } });
       return reply.code(201).send({ success: true, message: 'Page reported successfully', data });
     },
     reportJob: async (req, reply) => {
@@ -956,6 +984,7 @@ export function makeCompatController({ cloudinary = null } = {}) {
       if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
       const body = req.body || {};
       const data = await createGenericReport({ userId, targetId: req.params.id, targetType: 'job', reason: body.reason || body.report_reason_id || null, details: body.details || body.additional_notes || null });
+      await notifyFlaggedOwner({ notificationRepository, targetType: 'job', targetId: req.params.id, repositories: { postRepository, commentRepository, questionRepository, answerRepository } });
       return reply.code(201).send({ success: true, message: 'Job reported successfully', data });
     },
     listReportedTargets: async (req, reply) => {

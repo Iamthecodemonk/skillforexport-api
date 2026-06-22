@@ -96,6 +96,23 @@ const normalizeSettings = (source = {}) => {
   };
 };
 
+async function invalidateCompactFeedCache(req) {
+  try {
+    const redis = req.server && (req.server.redisManager || req.server.redisClient);
+    if (!redis || typeof redis.keys !== 'function') return;
+    const keys = await redis.keys('feed:compact:*');
+    if (!keys || keys.length === 0) return;
+    if (redis.client && typeof redis.client === 'function') {
+      const client = redis.client();
+      if (client && typeof client.del === 'function') await client.del(...keys);
+      return;
+    }
+    if (typeof redis.del === 'function') await redis.del(...keys);
+  } catch (err) {
+    compatLogger.warn('compact feed cache invalidation failed', { message: err && err.message });
+  }
+}
+
 const notificationPreferencesFromSettings = (settings = {}) => ({
   inApp: {
     comments: settings.comments !== false,
@@ -332,6 +349,18 @@ async function resolveReportedTargetId(targetType, id) {
   }
 
   return null;
+}
+
+async function clearReportsForTarget(targetType, targetId) {
+  await applyGenericReportTypeWhere(db('generic_reports'), targetType)
+    .where('target_id', targetId)
+    .del();
+
+  if (targetType === 'post') {
+    await db('post_reports').where({ post_id: targetId }).del();
+  } else if (targetType === 'comment') {
+    await db('comment_reports').where({ comment_id: targetId }).del();
+  }
 }
 
 function mapReportRow(row) {
@@ -999,6 +1028,8 @@ export function makeCompatController({ cloudinary = null } = {}) {
         const targetId = resolved.targetId;
         const updated = await updateModerationTarget({ targetType, targetId, action, actorId: actorId(req) });
         if (!updated) return reply.code(404).send({ success: false, error: { code: 'target_not_found' } });
+        await clearReportsForTarget(targetType, targetId);
+        await invalidateCompactFeedCache(req);
         const repositories = { postRepository, commentRepository, questionRepository, answerRepository };
         const target = await targetPayload({ targetType, targetId, repositories });
         return reply.send({
@@ -1011,6 +1042,7 @@ export function makeCompatController({ cloudinary = null } = {}) {
             reportId: resolved.reportId || null,
             action,
             status: moderationStatusForAction(action),
+            reportsResolved: true,
             target: target || updated
           }
         });

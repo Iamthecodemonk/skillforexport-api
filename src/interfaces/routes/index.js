@@ -212,6 +212,7 @@ export default async function registerRoutes(fastify, deps) {
       reportId: { type: ['string','null'], description: 'One report id attached to the moderated target.' },
       action: { type: 'string', enum: ['approve', 'suspend', 'unsuspend', 'delete'] },
       status: { type: 'string', enum: ['approved', 'suspended', 'deleted'] },
+      reportsResolved: { type: 'boolean', description: 'True when report rows for this exact target have been cleared from the moderation queue.' },
       target: reportTargetDataSchema
     },
     example: {
@@ -221,6 +222,7 @@ export default async function registerRoutes(fastify, deps) {
       reportId: 'report-uuid',
       action: 'suspend',
       status: 'suspended',
+      reportsResolved: true,
       target: { ...schemas.PostResponse.example, moderation_status: 'suspended', moderationStatus: 'suspended' }
     }
   });

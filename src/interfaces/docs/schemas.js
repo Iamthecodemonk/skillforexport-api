@@ -1183,10 +1183,20 @@ export const Follower = {
     id: { type: 'string' },
     followerId: { type: 'string' },
     followingId: { type: 'string' },
-    createdAt: { type: 'string' }
+    createdAt: { type: 'string' },
+    user: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        name: { type: ['string','null'] },
+        email: { type: ['string','null'] },
+        role: { type: ['string','null'] },
+        avatar: { type: ['string','null'] }
+      }
+    }
   }
 };
-Follower.example = { id: 'follow-uuid', followerId: 'user-uuid-2', followingId: 'user-uuid', createdAt: '2026-04-20T09:00:00Z' };
+Follower.example = { id: 'follow-uuid', followerId: 'user-uuid-2', followingId: 'user-uuid', createdAt: '2026-04-20T09:00:00Z', user: { id: 'user-uuid-2', name: 'Jane Doe', email: 'jane@example.com', role: 'user', avatar: null } };
 
 export const OAuthAccount = {
   type: 'object',

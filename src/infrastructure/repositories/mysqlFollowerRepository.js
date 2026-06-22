@@ -2,7 +2,26 @@ import db from '../knexConfig.js';
 
 export default class MysqlFollowerRepository {
   async listFollowers(userId) {
-    return db('followers').where({ following_id: userId }).orderBy('created_at', 'desc');
+    return db('followers as f')
+      .leftJoin('users as u', 'u.id', 'f.follower_id')
+      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+      .where('f.following_id', userId)
+      .orderBy('f.created_at', 'desc')
+      .select(
+        'f.id',
+        'f.follower_id',
+        'f.following_id',
+        'f.created_at',
+        db.raw(`
+          JSON_OBJECT(
+            'id', u.id,
+            'name', COALESCE(NULLIF(up.display_name, ''), NULLIF(up.username, ''), u.email),
+            'email', u.email,
+            'role', u.role,
+            'avatar', up.avatar
+          ) as user
+        `)
+      );
   }
 
   async listFollowing(userId) {

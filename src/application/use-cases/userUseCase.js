@@ -428,6 +428,10 @@ export default class UserUseCase {
     return this.followerRepository.listFollowers(userId);
   }
 
+  async listFollowing(userId) {
+    return this.followerRepository.listFollowing(userId);
+  }
+
   async listLoginHistory(userId) {
     return this.loginHistoryRepository.listByUserId(userId);
   }

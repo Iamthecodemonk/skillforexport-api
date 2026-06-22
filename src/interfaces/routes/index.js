@@ -1622,6 +1622,21 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('listFollowers'));
 
+  fastify.get('/users/:id/following', {
+    schema: {
+      operationId: 'listFollowing',
+      tags: ['Users'],
+      description: 'List users followed by a user.',
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: { type: 'array', items: schemas.Follower } },
+          example: { success: true, data: [schemas.Follower.example] }
+        }
+      }
+    }
+  }, handler('listFollowing'));
+
   fastify.get('/users/:id/login-history', {
     schema: {
       operationId: 'listLoginHistory',

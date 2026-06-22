@@ -504,6 +504,17 @@ export function makeUserController({ useCase = null, followerRepository = null, 
       }
     },
 
+    listFollowing: async (req, reply) => {
+      try {
+        const { id } = req.params;
+        const rows = await useCase.listFollowing(id);
+        return reply.send({ success: true, data: rows.map(r => r.toPlainObject()) });
+      } catch (err) {
+        userLogger.error('listFollowing error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
     listLoginHistory: async (req, reply) => {
       try {
         const { id } = req.params;

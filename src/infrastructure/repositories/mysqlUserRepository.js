@@ -40,7 +40,9 @@ async function countUserOwnedRows(tableName, userId, ownerColumns = ['user_id'])
   if (!ownerColumn) return 0;
   const query = db(tableName).where(ownerColumn, userId);
   if (columns.has('moderation_status')) {
-    query.whereNotIn('moderation_status', ['suspended', 'deleted']);
+    query.andWhere((builder) => {
+      builder.whereNull('moderation_status').orWhereNotIn('moderation_status', ['suspended', 'deleted']);
+    });
   }
   const row = await query.count({ cnt: 'id' }).first();
   return numberFromRow(row);

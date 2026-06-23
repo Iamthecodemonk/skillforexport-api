@@ -75,6 +75,27 @@ const invalidateUserProfileCaches = async (req, userIds = []) => {
   }
 };
 
+const emptyFollowGroup = () => ({ users: [], pages: [], totals: 0 });
+
+const getFollowProfileState = async (useCase, actorId, targetId) => {
+  const [actorProfile, targetProfile] = await Promise.all([
+    actorId ? useCase.getFullProfile(actorId).catch(() => null) : Promise.resolve(null),
+    targetId ? useCase.getFullProfile(targetId).catch(() => null) : Promise.resolve(null)
+  ]);
+  return {
+    viewer: {
+      id: actorId || null,
+      following: actorProfile && actorProfile.following ? actorProfile.following : emptyFollowGroup(),
+      followingCount: actorProfile && typeof actorProfile.followingCount !== 'undefined' ? actorProfile.followingCount : 0
+    },
+    target: {
+      id: targetId || null,
+      followers: targetProfile && targetProfile.followers ? targetProfile.followers : emptyFollowGroup(),
+      followerCount: targetProfile && typeof targetProfile.followerCount !== 'undefined' ? targetProfile.followerCount : 0
+    }
+  };
+};
+
 export function makeUserController({ useCase = null, followerRepository = null, notificationRepository = null }) {
   if (!useCase) {
     userLogger.error('makeUserController requires a useCase');
@@ -428,7 +449,8 @@ export function makeUserController({ useCase = null, followerRepository = null, 
             if (existing) {
               await invalidateCompactFeedCache(req);
               await invalidateUserProfileCaches(req, [actorId, id]);
-              return reply.code(200).send({ success: true, message: 'Followed', data: { following: true } });
+              const profile = await getFollowProfileState(useCase, actorId, id);
+              return reply.code(200).send({ success: true, message: 'Followed', data: { following: true, is_following: true, profile } });
             }
           }
         } catch (e) {
@@ -438,6 +460,7 @@ export function makeUserController({ useCase = null, followerRepository = null, 
         const created = await useCase.followUser(id, actorId);
         await invalidateCompactFeedCache(req);
         await invalidateUserProfileCaches(req, [actorId, id]);
+        const profile = await getFollowProfileState(useCase, actorId, id);
         if (notificationRepository) {
           try {
             await notificationRepository.create({
@@ -453,7 +476,7 @@ export function makeUserController({ useCase = null, followerRepository = null, 
             userLogger.warn('follow notification failed', { message: notifyErr.message });
           }
         }
-        return reply.code(201).send({ success: true, message: 'Followed', data: { following: true } });
+        return reply.code(201).send({ success: true, message: 'Followed', data: { following: true, is_following: true, profile } });
       } catch (err) {
         userLogger.error('followUser error', { message: err.message, stack: err.stack });
         if (err.message === 'self_follow_not_allowed') {
@@ -480,12 +503,14 @@ export function makeUserController({ useCase = null, followerRepository = null, 
           await useCase.unfollowUser(id, actorId);
           await invalidateCompactFeedCache(req);
           await invalidateUserProfileCaches(req, [actorId, id]);
-          return reply.code(200).send({ success: true, message: 'Unfollowed', data: { following: false } });
+          const profile = await getFollowProfileState(useCase, actorId, id);
+          return reply.code(200).send({ success: true, message: 'Unfollowed', data: { following: false, is_following: false, profile } });
         }
 
         const created = await useCase.followUser(id, actorId);
         await invalidateCompactFeedCache(req);
         await invalidateUserProfileCaches(req, [actorId, id]);
+        const profile = await getFollowProfileState(useCase, actorId, id);
         if (notificationRepository) {
           try {
             await notificationRepository.create({
@@ -501,7 +526,7 @@ export function makeUserController({ useCase = null, followerRepository = null, 
             userLogger.warn('follow notification failed', { message: notifyErr.message });
           }
         }
-        return reply.code(200).send({ success: true, message: 'Followed', data: { following: true } });
+        return reply.code(200).send({ success: true, message: 'Followed', data: { following: true, is_following: true, profile } });
       } catch (err) {
         userLogger.error('toggleFollowUser error', { message: err.message, stack: err.stack });
         if (err.message === 'self_follow_not_allowed') {
@@ -548,8 +573,9 @@ export function makeUserController({ useCase = null, followerRepository = null, 
         const deleted = await useCase.unfollowUser(id, actorId);
         await invalidateCompactFeedCache(req);
         await invalidateUserProfileCaches(req, [actorId, id]);
-        if (!deleted) return reply.code(200).send({ success: true, message: 'Unfollowed', data: { following: false } });
-        return reply.code(200).send({ success: true, message: 'Unfollowed', data: { following: false } });
+        const profile = await getFollowProfileState(useCase, actorId, id);
+        if (!deleted) return reply.code(200).send({ success: true, message: 'Unfollowed', data: { following: false, is_following: false, profile } });
+        return reply.code(200).send({ success: true, message: 'Unfollowed', data: { following: false, is_following: false, profile } });
       } catch (err) {
         userLogger.error('unfollowUser error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });

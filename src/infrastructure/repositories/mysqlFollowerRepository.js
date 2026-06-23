@@ -47,6 +47,30 @@ export default class MysqlFollowerRepository {
       );
   }
 
+  async listFollowingPages(userId) {
+    return db('page_followers as pf')
+      .leftJoin('pages as p', 'p.id', 'pf.page_id')
+      .where('pf.user_id', userId)
+      .orderBy('pf.created_at', 'desc')
+      .select(
+        'pf.id',
+        'pf.page_id',
+        'pf.user_id',
+        'pf.role',
+        'pf.created_at',
+        db.raw(`
+          JSON_OBJECT(
+            'id', p.id,
+            'name', p.name,
+            'slug', p.slug,
+            'type', p.page_type,
+            'pageType', p.page_type,
+            'avatar', p.avatar
+          ) as page
+        `)
+      );
+  }
+
   async create(record) {
     const followerId = record.follower_id || record.followerId;
     const followingId = record.following_id || record.followingId;

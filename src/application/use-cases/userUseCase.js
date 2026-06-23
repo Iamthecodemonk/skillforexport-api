@@ -168,7 +168,19 @@ export default class UserUseCase {
       const certifications = parse(row.certifications) || [];
       const education = parse(row.education) || [];
       const experiences = parse(row.experiences) || [];
-      const followers = parse(row.followers) || [];
+      const followerUsers = parse(row.followers) || [];
+      const followingUsers = parse(row.following_users) || [];
+      const followingPages = parse(row.following_pages) || [];
+      const followers = {
+        users: followerUsers,
+        pages: [],
+        totals: followerUsers.length
+      };
+      const following = {
+        users: followingUsers,
+        pages: followingPages,
+        totals: followingUsers.length + followingPages.length
+      };
       const oauthAccounts = parse(row.oauth_accounts) || [];
       const createdAt = row.user_created_at;
       const rawAlertSettings = rawSettings && rawSettings.settings && typeof rawSettings.settings.alerts === 'object'
@@ -197,7 +209,9 @@ export default class UserUseCase {
         counts,
         metrics: counts,
         followers,
-        following: { users: [], pages: [], totals: 0 },
+        following,
+        followerCount: followers.totals,
+        followingCount: following.totals,
         skills,
         educations: education,
         education,
@@ -423,6 +437,70 @@ export default class UserUseCase {
   async unfollowUser(userId, followerId) {
     // Attempt to delete the follower relation; adapter returns deleted row or null
     return this.followerRepository.deleteByFollowerAndFollowing(followerId, userId);
+  }
+
+  normalizeFollowRow(row) {
+    if (!row) return null;
+    const parse = (value) => {
+      if (typeof value !== 'string') return value || null;
+      try { return JSON.parse(value); } catch (e) { return value; }
+    };
+    return {
+      id: row.id,
+      followerId: row.followerId || row.follower_id,
+      followingId: row.followingId || row.following_id,
+      createdAt: row.createdAt || row.created_at,
+      user: parse(row.user)
+    };
+  }
+
+  normalizePageFollowRow(row) {
+    if (!row) return null;
+    const parse = (value) => {
+      if (typeof value !== 'string') return value || null;
+      try { return JSON.parse(value); } catch (e) { return value; }
+    };
+    return {
+      id: row.id,
+      pageId: row.pageId || row.page_id,
+      userId: row.userId || row.user_id,
+      role: row.role || 'follower',
+      createdAt: row.createdAt || row.created_at,
+      page: parse(row.page)
+    };
+  }
+
+  async getFollowProfileState(actorId, targetId) {
+    const [followerRows, followingRows, followingPageRows] = await Promise.all([
+      targetId ? this.followerRepository.listFollowers(targetId) : Promise.resolve([]),
+      actorId ? this.followerRepository.listFollowing(actorId) : Promise.resolve([]),
+      actorId && typeof this.followerRepository.listFollowingPages === 'function'
+        ? this.followerRepository.listFollowingPages(actorId)
+        : Promise.resolve([])
+    ]);
+    const followers = (followerRows || []).map((row) => this.normalizeFollowRow(row)).filter(Boolean);
+    const followingUsers = (followingRows || []).map((row) => this.normalizeFollowRow(row)).filter(Boolean);
+    const followingPages = (followingPageRows || []).map((row) => this.normalizePageFollowRow(row)).filter(Boolean);
+    return {
+      viewer: {
+        id: actorId || null,
+        following: {
+          users: followingUsers,
+          pages: followingPages,
+          totals: followingUsers.length + followingPages.length
+        },
+        followingCount: followingUsers.length + followingPages.length
+      },
+      target: {
+        id: targetId || null,
+        followers: {
+          users: followers,
+          pages: [],
+          totals: followers.length
+        },
+        followerCount: followers.length
+      }
+    };
   }
 
   async listFollowers(userId) {

@@ -1198,6 +1198,20 @@ export const Follower = {
 };
 Follower.example = { id: 'follow-uuid', followerId: 'user-uuid-2', followingId: 'user-uuid', createdAt: '2026-04-20T09:00:00Z', user: { id: 'user-uuid-2', name: 'Jane Doe', email: 'jane@example.com', role: 'user', avatar: null } };
 
+export const FollowGroupResponse = {
+  type: 'object',
+  properties: {
+    users: { type: 'array', items: { ...Follower } },
+    pages: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    totals: { type: 'number' }
+  }
+};
+FollowGroupResponse.example = {
+  users: [Follower.example],
+  pages: [],
+  totals: 1
+};
+
 export const OAuthAccount = {
   type: 'object',
   properties: {
@@ -1257,15 +1271,10 @@ export const FullProfileResponse = {
     education: { type: 'array', items: { ...Education } }, // <--- Use spread
     experiences: { type: 'array', items: { ...Experience } }, // <--- Use spread
     activeExperiences: { type: 'array', items: { ...Experience } },
-    followers: { type: 'array', items: { ...Follower } }, // <--- Use spread
-    following: {
-      type: 'object',
-      properties: {
-        users: { type: 'array', items: { type: 'object', additionalProperties: true } },
-        pages: { type: 'array', items: { type: 'object', additionalProperties: true } },
-        totals: { type: 'number' }
-      }
-    },
+    followers: { ...FollowGroupResponse },
+    following: { ...FollowGroupResponse },
+    followerCount: { type: 'number' },
+    followingCount: { type: 'number' },
     oauthAccounts: { type: 'array', items: { ...OAuthAccount } }, // <--- Use spread
     communities: { type: 'array', items: { type: 'object', additionalProperties: true } },
     privacy: {
@@ -2357,6 +2366,7 @@ export default {
   Education,
   Experience,
   Follower,
+  FollowGroupResponse,
   OAuthAccount,
   UserLoginHistory
 };

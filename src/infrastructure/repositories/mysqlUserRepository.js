@@ -203,7 +203,64 @@ export default class MysqlUserRepository {
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', c.id, 'name', c.name, 'issuer', c.issuer, 'issue_date', c.issue_date)) FROM user_certifications c WHERE c.user_id = u.id), JSON_ARRAY()) as certifications,
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', e.id, 'school', e.school, 'degree', e.degree, 'field', e.field, 'start_date', e.start_date, 'end_date', e.end_date)) FROM user_education e WHERE e.user_id = u.id), JSON_ARRAY()) as education,
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', ex.id, 'company', ex.company, 'title', ex.title, 'employment_type', ex.employment_type, 'start_date', ex.start_date, 'end_date', ex.end_date, 'is_current', ex.is_current, 'description', ex.description)) FROM user_experiences ex WHERE ex.user_id = u.id), JSON_ARRAY()) as experiences,
-        IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', f.id, 'follower_id', f.follower_id)) FROM followers f WHERE f.following_id = u.id), JSON_ARRAY()) as followers,
+        IFNULL((
+          SELECT JSON_ARRAYAGG(JSON_OBJECT(
+            'id', f.id,
+            'followerId', f.follower_id,
+            'followingId', f.following_id,
+            'createdAt', f.created_at,
+            'user', JSON_OBJECT(
+              'id', fu.id,
+              'name', COALESCE(NULLIF(fup.display_name, ''), NULLIF(fup.username, ''), fu.email),
+              'email', fu.email,
+              'role', fu.role,
+              'avatar', fup.avatar
+            )
+          ))
+          FROM followers f
+          LEFT JOIN users fu ON fu.id = f.follower_id
+          LEFT JOIN user_profiles fup ON fup.user_id = fu.id
+          WHERE f.following_id = u.id
+        ), JSON_ARRAY()) as followers,
+        IFNULL((
+          SELECT JSON_ARRAYAGG(JSON_OBJECT(
+            'id', f.id,
+            'followerId', f.follower_id,
+            'followingId', f.following_id,
+            'createdAt', f.created_at,
+            'user', JSON_OBJECT(
+              'id', tu.id,
+              'name', COALESCE(NULLIF(tup.display_name, ''), NULLIF(tup.username, ''), tu.email),
+              'email', tu.email,
+              'role', tu.role,
+              'avatar', tup.avatar
+            )
+          ))
+          FROM followers f
+          LEFT JOIN users tu ON tu.id = f.following_id
+          LEFT JOIN user_profiles tup ON tup.user_id = tu.id
+          WHERE f.follower_id = u.id
+        ), JSON_ARRAY()) as following_users,
+        IFNULL((
+          SELECT JSON_ARRAYAGG(JSON_OBJECT(
+            'id', pf.id,
+            'pageId', pf.page_id,
+            'userId', pf.user_id,
+            'role', pf.role,
+            'createdAt', pf.created_at,
+            'page', JSON_OBJECT(
+              'id', p.id,
+              'name', p.name,
+              'slug', p.slug,
+              'type', p.page_type,
+              'pageType', p.page_type,
+              'avatar', p.avatar
+            )
+          ))
+          FROM page_followers pf
+          LEFT JOIN pages p ON p.id = pf.page_id
+          WHERE pf.user_id = u.id
+        ), JSON_ARRAY()) as following_pages,
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', oa.id, 'provider', oa.provider, 'provider_id', oa.provider_id, 'provider_email', oa.provider_email, 'avatar_url', oa.avatar_url)) FROM user_oauth_accounts oa WHERE oa.user_id = u.id), JSON_ARRAY()) as oauth_accounts
       FROM users u
       LEFT JOIN user_profiles up ON up.user_id = u.id

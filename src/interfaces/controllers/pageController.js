@@ -3,6 +3,39 @@ import { buildPaginatedResponse, parsePagination } from '../paginationResponse.j
 
 const pageLogger = logger.child('PAGE_CONTROLLER');
 
+const invalidateUserProfileCaches = async (req, userIds = []) => {
+  try {
+    const redis = req.server && (req.server.redisManager || req.server.redisClient);
+    const ids = [...new Set((userIds || []).filter(Boolean))];
+    if (!redis || ids.length === 0) return;
+    const keys = ids.map((id) => `user:profile:${id}`);
+    if (redis.client && typeof redis.client === 'function') {
+      const client = redis.client();
+      if (client && typeof client.del === 'function') await client.del(...keys);
+      return;
+    }
+    if (typeof redis.del === 'function') await redis.del(...keys);
+  } catch (err) {
+    pageLogger.warn('profile cache invalidation failed', { message: err && err.message });
+  }
+};
+
+const emptyFollowGroup = () => ({ users: [], pages: [], totals: 0 });
+
+const getPageFollowProfileState = async (useCase, actorId) => {
+  if (!useCase || typeof useCase.getFullProfile !== 'function') {
+    return null;
+  }
+  const actorProfile = actorId ? await useCase.getFullProfile(actorId).catch(() => null) : null;
+  return {
+    viewer: {
+      id: actorId || null,
+      following: actorProfile && actorProfile.following ? actorProfile.following : emptyFollowGroup(),
+      followingCount: actorProfile && typeof actorProfile.followingCount !== 'undefined' ? actorProfile.followingCount : 0
+    }
+  };
+};
+
 export function makePageController({ useCase = null, followersRepository = null, userRepository = null, profileRepository = null, skillRepository = null }) {
   if (!useCase) {
     pageLogger.error('makePageController requires a UseCase');
@@ -138,25 +171,34 @@ export function makePageController({ useCase = null, followersRepository = null,
         try {
           const existing = await followersRepository.findByPageAndUser(id, actorId);
           if (existing) {
-            return reply.code(200).send({ success: true, message: 'Followed successfully.', data: { following: true } });
+            await invalidateUserProfileCaches(req, [actorId]);
+            const profile = await getPageFollowProfileState(useCase, actorId);
+            return reply.code(200).send({ success: true, message: 'Followed successfully.', data: { following: true, is_following: true, ...(profile ? { profile } : {}) } });
           }
         } catch (e) {
           // ignore and proceed to create
         }
         await followersRepository.create({ pageId: id, userId: actorId });
-        return reply.code(201).send({ success: true, message: 'Followed successfully.', data: { following: true } });
+        await invalidateUserProfileCaches(req, [actorId]);
+        const profile = await getPageFollowProfileState(useCase, actorId);
+        return reply.code(201).send({ success: true, message: 'Followed successfully.', data: { following: true, is_following: true, ...(profile ? { profile } : {}) } });
       } catch (err) {
         pageLogger.error('followPage error', { message: err.message, stack: err.stack });
         // Handle duplicate key gracefully in case of race condition
         if (err && (err.code === 'ER_DUP_ENTRY' || (err && String(err.message || '').toLowerCase().includes('duplicate entry')))) {
           try {
             const existing = await followersRepository.findByPageAndUser(req.params.id, req.user && req.user.id);
-            if (existing)
-              return reply.code(200).send({ success: true, message: 'Followed successfully.', data: { following: true } });
+            if (existing) {
+              await invalidateUserProfileCaches(req, [req.user && req.user.id]);
+              const profile = await getPageFollowProfileState(useCase, req.user && req.user.id);
+              return reply.code(200).send({ success: true, message: 'Followed successfully.', data: { following: true, is_following: true, ...(profile ? { profile } : {}) } });
+            }
           } catch (e) {
             // fallthrough
           }
-          return reply.code(200).send({ success: true, message: 'Followed successfully.', data: { following: true } });
+          await invalidateUserProfileCaches(req, [req.user && req.user.id]);
+          const profile = await getPageFollowProfileState(useCase, req.user && req.user.id);
+          return reply.code(200).send({ success: true, message: 'Followed successfully.', data: { following: true, is_following: true, ...(profile ? { profile } : {}) } });
         }
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
@@ -171,7 +213,9 @@ export function makePageController({ useCase = null, followersRepository = null,
         if (!followersRepository)
             return reply.code(501).send({ success: false, error: { code: 'not_implemented' } });
         await followersRepository.deleteByPageAndUser(id, actorId);
-        return reply.code(200).send({ success: true, message: 'Unfollowed successfully.', data: { following: false } });
+        await invalidateUserProfileCaches(req, [actorId]);
+        const profile = await getPageFollowProfileState(useCase, actorId);
+        return reply.code(200).send({ success: true, message: 'Unfollowed successfully.', data: { following: false, is_following: false, ...(profile ? { profile } : {}) } });
       } catch (err) {
         pageLogger.error('unfollowPage error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });

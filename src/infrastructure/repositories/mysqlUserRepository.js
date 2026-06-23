@@ -538,6 +538,30 @@ export default class MysqlUserRepository {
     return numberFromRow(row);
   }
 
+  async getProfileStats(userId) {
+    const sql = `
+      SELECT
+        (SELECT COUNT(*) FROM pages pg WHERE pg.owner_id = ?) as pages,
+        (SELECT COUNT(*) FROM community_members cm WHERE cm.user_id = ?) as communities,
+        (SELECT COUNT(*) FROM posts p WHERE p.user_id = ? AND (p.moderation_status IS NULL OR p.moderation_status NOT IN ('suspended', 'deleted'))) as posts,
+        (SELECT COUNT(*) FROM questions q WHERE q.user_id = ? AND (q.moderation_status IS NULL OR q.moderation_status NOT IN ('suspended', 'deleted'))) as questions,
+        (SELECT COUNT(*) FROM comments c WHERE c.user_id = ? AND (c.moderation_status IS NULL OR c.moderation_status NOT IN ('suspended', 'deleted'))) as comments,
+        (SELECT COUNT(*) FROM answers a WHERE a.user_id = ? AND (a.moderation_status IS NULL OR a.moderation_status NOT IN ('suspended', 'deleted'))) as answers
+    `;
+    const res = await db.raw(sql, [userId, userId, userId, userId, userId, userId]);
+    const rows = Array.isArray(res) && Array.isArray(res[0]) ? res[0] : (res.rows || res[0] || res);
+    const row = rows && rows.length ? rows[0] : null;
+    if (!row) return null;
+    return {
+      pages: numberFromRow({ cnt: row.pages }),
+      communities: numberFromRow({ cnt: row.communities }),
+      posts: numberFromRow({ cnt: row.posts }),
+      questions: numberFromRow({ cnt: row.questions }),
+      comments: numberFromRow({ cnt: row.comments }),
+      answers: numberFromRow({ cnt: row.answers })
+    };
+  }
+
   async countPages(userId) {
     const row = await db('pages').where({ owner_id: userId }).count({ cnt: 'id' }).first();
     return numberFromRow(row);

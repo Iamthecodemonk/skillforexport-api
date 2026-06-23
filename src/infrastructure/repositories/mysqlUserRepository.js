@@ -549,18 +549,18 @@ export default class MysqlUserRepository {
   }
 
   async countPosts(userId) {
-    return countUserOwnedRows('posts', userId, ['user_id', 'owner_id', 'created_by_user_id']);
+    return countUserOwnedRows('posts', userId, ['user_id', 'owner_id', 'owner_user_id', 'created_by_user_id', 'created_by', 'author_id', 'posted_by_user_id']);
   }
 
   async countQuestions(userId) {
-    return countUserOwnedRows('questions', userId, ['user_id', 'asker_id', 'author_id', 'created_by_user_id']);
+    return countUserOwnedRows('questions', userId, ['user_id', 'asker_id', 'asked_by', 'asker', 'author_id', 'created_by_user_id', 'created_by', 'creator_id', 'creator_user_id', 'owner_id', 'owner_user_id']);
   }
 
   async countComments(userId) {
-    return countUserOwnedRows('comments', userId, ['user_id', 'author_id', 'created_by_user_id']);
+    return countUserOwnedRows('comments', userId, ['user_id', 'author_id', 'created_by_user_id', 'created_by', 'creator_id', 'creator_user_id', 'owner_id', 'owner_user_id']);
   }
 
   async countAnswers(userId) {
-    return countUserOwnedRows('answers', userId, ['user_id', 'answerer_id', 'author_id', 'created_by_user_id']);
+    return countUserOwnedRows('answers', userId, ['user_id', 'answerer_id', 'answered_by', 'author_id', 'created_by_user_id', 'created_by', 'creator_id', 'creator_user_id', 'owner_id', 'owner_user_id']);
   }
 }

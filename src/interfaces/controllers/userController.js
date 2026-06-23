@@ -78,6 +78,9 @@ const invalidateUserProfileCaches = async (req, userIds = []) => {
 const emptyFollowGroup = () => ({ users: [], pages: [], totals: 0 });
 
 const getFollowProfileState = async (useCase, actorId, targetId) => {
+  if (useCase && typeof useCase.getFollowProfileState === 'function') {
+    return useCase.getFollowProfileState(actorId, targetId);
+  }
   const [actorProfile, targetProfile] = await Promise.all([
     actorId ? useCase.getFullProfile(actorId).catch(() => null) : Promise.resolve(null),
     targetId ? useCase.getFullProfile(targetId).catch(() => null) : Promise.resolve(null)

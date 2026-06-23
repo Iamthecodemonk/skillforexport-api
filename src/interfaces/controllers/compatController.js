@@ -1057,7 +1057,6 @@ export function makeCompatController({ cloudinary = null, notificationRepository
         const targetId = resolved.targetId;
         const updated = await updateModerationTarget({ targetType, targetId, action, actorId: actorId(req) });
         if (!updated) return reply.code(404).send({ success: false, error: { code: 'target_not_found' } });
-        await clearReportsForTarget(targetType, targetId);
         await invalidateCompactFeedCache(req);
         const repositories = { postRepository, commentRepository, questionRepository, answerRepository };
         const target = await targetPayload({ targetType, targetId, repositories });
@@ -1071,7 +1070,7 @@ export function makeCompatController({ cloudinary = null, notificationRepository
             reportId: resolved.reportId || null,
             action,
             status: moderationStatusForAction(action),
-            reportsResolved: true,
+            reportsResolved: false,
             target: target || updated
           }
         });

@@ -212,7 +212,7 @@ export default async function registerRoutes(fastify, deps) {
       reportId: { type: ['string','null'], description: 'One report id attached to the moderated target.' },
       action: { type: 'string', enum: ['approve', 'suspend', 'unsuspend', 'delete'] },
       status: { type: 'string', enum: ['approved', 'suspended', 'deleted'] },
-      reportsResolved: { type: 'boolean', description: 'True when report rows for this exact target have been cleared from the moderation queue.' },
+      reportsResolved: { type: 'boolean', description: 'False by default because report rows are kept so admins can still see suspended/deleted reported items.' },
       target: reportTargetDataSchema
     },
     example: {
@@ -222,7 +222,7 @@ export default async function registerRoutes(fastify, deps) {
       reportId: 'report-uuid',
       action: 'suspend',
       status: 'suspended',
-      reportsResolved: true,
+      reportsResolved: false,
       target: { ...schemas.PostResponse.example, moderation_status: 'suspended', moderationStatus: 'suspended' }
     }
   });
@@ -1098,9 +1098,9 @@ export default async function registerRoutes(fastify, deps) {
   fastify.get('/admin/reports/answers', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedAnswers', tags: ['Admin', 'Reports'], description: 'Admin list of reported answers with reports_count. Each row includes the full answer in data/target and the related question when available.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: reportPaginatedResponse } } }, async (req, reply) => { req.params = { type: 'answer' }; return handler('listReportedTargets')(req, reply); });
   fastify.get('/admin/reports/pages', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedPages', tags: ['Admin', 'Reports'], description: 'Admin list of reported pages with reports_count. Each row includes the full page in data/target.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: reportPaginatedResponse } } }, async (req, reply) => { req.params = { type: 'page' }; return handler('listReportedTargets')(req, reply); });
   fastify.get('/admin/reports/jobs', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminListReportedJobs', tags: ['Admin', 'Reports'], description: 'Admin list of reported jobs with reports_count. Each row includes the full job in data/target.', querystring: { type: 'object', properties: listQueryBase }, response: { 200: reportPaginatedResponse } } }, async (req, reply) => { req.params = { type: 'job' }; return handler('listReportedTargets')(req, reply); });
-  fastify.patch('/admin/reports/:type/:id/moderate', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminModerateReportedTarget', tags: ['Admin', 'Reports', 'Moderation'], description: 'Moderate one exact reported post, comment, question, answer, page, or job. The id may be the target id or an individual report id; the backend resolves it to one target only. suspend/delete hide the item from public/user-facing endpoints. unsuspend/approve restore it as approved. Delete is soft delete, not permanent deletion.', params: { type: 'object', required: ['type', 'id'], properties: { type: { type: 'string', enum: ['post', 'posts', 'comment', 'comments', 'question', 'questions', 'answer', 'answers', 'page', 'pages', 'job', 'jobs'] }, id: { type: 'string' } } }, body: moderationActionBody, response: { 200: moderationActionResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } } }, handler('moderateReportedTarget'));
+  fastify.patch('/admin/reports/:type/:id/moderate', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'adminModerateReportedTarget', tags: ['Admin', 'Reports', 'Moderation'], description: 'Moderate one exact reported post, comment, question, answer, page, or job. The id may be the target id or an individual report id; the backend resolves it to one target only. suspend/delete hide the item from public/user-facing endpoints. unsuspend/approve restore it as approved. Delete is soft delete, not permanent deletion. Report rows are kept so reported admin lists still show suspended/deleted items.', params: { type: 'object', required: ['type', 'id'], properties: { type: { type: 'string', enum: ['post', 'posts', 'comment', 'comments', 'question', 'questions', 'answer', 'answers', 'page', 'pages', 'job', 'jobs'] }, id: { type: 'string' } } }, body: moderationActionBody, response: { 200: moderationActionResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } } }, handler('moderateReportedTarget'));
   for (const moderationAction of ['approve', 'suspend', 'unsuspend', 'delete']) {
-    fastify.post(`/admin/reports/:type/:id/${moderationAction}`, { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: `admin${moderationAction.charAt(0).toUpperCase()}${moderationAction.slice(1)}ReportedTarget`, tags: ['Admin', 'Reports', 'Moderation'], description: `Admin ${moderationAction} one exact reported post, comment, question, answer, page, or job. The id may be the target id or an individual report id; the backend resolves it to one target only. Delete is soft delete, not permanent deletion.`, params: { type: 'object', required: ['type', 'id'], properties: { type: { type: 'string', enum: ['post', 'posts', 'comment', 'comments', 'question', 'questions', 'answer', 'answers', 'page', 'pages', 'job', 'jobs'] }, id: { type: 'string' } } }, response: { 200: moderationActionResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } } }, async (req, reply) => { req.params = { ...req.params, action: moderationAction }; return handler('moderateReportedTarget')(req, reply); });
+    fastify.post(`/admin/reports/:type/:id/${moderationAction}`, { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: `admin${moderationAction.charAt(0).toUpperCase()}${moderationAction.slice(1)}ReportedTarget`, tags: ['Admin', 'Reports', 'Moderation'], description: `Admin ${moderationAction} one exact reported post, comment, question, answer, page, or job. The id may be the target id or an individual report id; the backend resolves it to one target only. Delete is soft delete, not permanent deletion. Report rows are kept so reported admin lists still show moderated items.`, params: { type: 'object', required: ['type', 'id'], properties: { type: { type: 'string', enum: ['post', 'posts', 'comment', 'comments', 'question', 'questions', 'answer', 'answers', 'page', 'pages', 'job', 'jobs'] }, id: { type: 'string' } } }, response: { 200: moderationActionResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } } }, async (req, reply) => { req.params = { ...req.params, action: moderationAction }; return handler('moderateReportedTarget')(req, reply); });
   }
   fastify.get('/report-reasons', { schema: { operationId: 'legacyListReportReasons', tags: ['Reports'], description: 'Legacy report reasons endpoint', response: { 200: dataResponse({ type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' } } } }) } } }, handler('reportReasons'));
   fastify.get('/education', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyListEducation', tags: ['Education'], description: 'Legacy education resource list', querystring: { type: 'object', properties: listQueryBase }, response: { 200: genericPaginatedResponse } } }, handler('listEducationRoot'));
@@ -2134,6 +2134,30 @@ export default async function registerRoutes(fastify, deps) {
       response: { 200: schemas.PostPaginatedResponse }
     }
   }, handler('listPosts'));
+
+  fastify.get('/admin/posts', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'adminListPosts',
+      tags: ['Admin', 'Posts'],
+      description: 'Admin list of all posts, including approved, pending, suspended, and deleted posts. Optional `status`/`moderation_status` can filter one or more comma-separated statuses.',
+      querystring: {
+        type: 'object',
+        properties: {
+          ...listQueryBase,
+          q: { type: 'string' },
+          search: { type: 'string' },
+          communityId: { type: 'string' },
+          community_id: { type: 'string' },
+          status: { type: 'string', description: 'Comma-separated moderation statuses, for example `approved,suspended,deleted`.' },
+          moderation_status: { type: 'string', description: 'Alias of status.' },
+          sortField: { type: 'string' },
+          sortDirection: { type: 'string', enum: ['asc', 'desc'] }
+        }
+      },
+      response: { 200: schemas.PostPaginatedResponse, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse }
+    }
+  }, handler('adminListPosts'));
 
   fastify.get('/posts/:id', {
     schema: {

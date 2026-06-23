@@ -131,6 +131,45 @@ export function makePostController({ useCase = null }) {
       }
     },
 
+    adminListPosts: async (req, reply) => {
+      try {
+        const actor = req.user || null;
+        if (!actor) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        if (actor.role !== 'admin') return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+        const { page, perPage, limit, offset } = parsePagination(req.query, 20);
+        const query = req.query || {};
+        const communityId = firstDefined(
+          query.communityId,
+          query.community_id,
+          nestedQueryValue(query, 'filters', 'community_id'),
+          nestedQueryValue(query, 'filters', 'communityId')
+        ) || null;
+        const search = firstDefined(query.q, query.search, nestedQueryValue(query, 'filters', 'search')) || null;
+        const sortField = firstDefined(query.sortField, query.sort_field, nestedQueryValue(query, 'sort', 'field')) || null;
+        const sortDirection = firstDefined(query.sortDirection, query.sort_direction, nestedQueryValue(query, 'sort', 'direction')) || null;
+        const status = firstDefined(query.status, query.moderation_status, nestedQueryValue(query, 'filters', 'status'), nestedQueryValue(query, 'filters', 'moderation_status')) || null;
+        const rows = await useCase.ListPosts({
+          limit,
+          offset,
+          userId: actor.id,
+          communityId,
+          publicOnly: false,
+          search,
+          sortField,
+          sortDirection,
+          includeHidden: true,
+          status
+        });
+        const total = useCase.postRepository && typeof useCase.postRepository.countAll === 'function'
+          ? await useCase.postRepository.countAll({ communityId, publicOnly: false, search, includeHidden: true, status })
+          : rows.length;
+        return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
+      } catch (err) {
+        postLogger.error('adminListPosts error', { message: err.message, stack: err.stack });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
     sharePost: async (req, reply) => {
       try {
         const { id: postId } = req.params;

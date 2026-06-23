@@ -21,6 +21,31 @@ const numberFromRow = (row) => {
   return parseInt(value || 0, 10);
 };
 
+const tableColumnCache = new Map();
+
+async function tableColumns(tableName) {
+  if (tableColumnCache.has(tableName)) return tableColumnCache.get(tableName);
+  const rows = await db('INFORMATION_SCHEMA.COLUMNS')
+    .select('COLUMN_NAME as name')
+    .whereRaw('TABLE_SCHEMA = DATABASE()')
+    .where('TABLE_NAME', tableName);
+  const columns = new Set((rows || []).map((row) => row.name));
+  tableColumnCache.set(tableName, columns);
+  return columns;
+}
+
+async function countUserOwnedRows(tableName, userId, ownerColumns = ['user_id']) {
+  const columns = await tableColumns(tableName);
+  const ownerColumn = ownerColumns.find((column) => columns.has(column));
+  if (!ownerColumn) return 0;
+  const query = db(tableName).where(ownerColumn, userId);
+  if (columns.has('moderation_status')) {
+    query.whereNotIn('moderation_status', ['suspended', 'deleted']);
+  }
+  const row = await query.count({ cnt: 'id' }).first();
+  return numberFromRow(row);
+}
+
 export default class MysqlUserRepository {
   async findByEmail(email) {
     const user = await db('users').where({ email }).first();
@@ -518,22 +543,18 @@ export default class MysqlUserRepository {
   }
 
   async countPosts(userId) {
-    const row = await db('posts').where({ user_id: userId }).count({ cnt: 'id' }).first();
-    return numberFromRow(row);
+    return countUserOwnedRows('posts', userId, ['user_id', 'owner_id', 'created_by_user_id']);
   }
 
   async countQuestions(userId) {
-    const row = await db('questions').where({ user_id: userId }).count({ cnt: 'id' }).first();
-    return numberFromRow(row);
+    return countUserOwnedRows('questions', userId, ['user_id', 'asker_id', 'author_id', 'created_by_user_id']);
   }
 
   async countComments(userId) {
-    const row = await db('comments').where({ user_id: userId }).count({ cnt: 'id' }).first();
-    return numberFromRow(row);
+    return countUserOwnedRows('comments', userId, ['user_id', 'author_id', 'created_by_user_id']);
   }
 
   async countAnswers(userId) {
-    const row = await db('answers').where({ user_id: userId }).count({ cnt: 'id' }).first();
-    return numberFromRow(row);
+    return countUserOwnedRows('answers', userId, ['user_id', 'answerer_id', 'author_id', 'created_by_user_id']);
   }
 }

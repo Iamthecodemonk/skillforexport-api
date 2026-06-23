@@ -274,12 +274,14 @@ export default class UserUseCase {
   }
 
   async getUserStats(userId) {
-    const pages = await this.userRepository.countPages(userId);
-    const communities = await this.userRepository.countCommunities(userId);
-    const posts = await this.userRepository.countPosts(userId);
-    const questions = typeof this.userRepository.countQuestions === 'function' ? await this.userRepository.countQuestions(userId) : 0;
-    const comments = await this.userRepository.countComments(userId);
-    const answers = typeof this.userRepository.countAnswers === 'function' ? await this.userRepository.countAnswers(userId) : 0;
+    const [pages, communities, posts, questions, comments, answers] = await Promise.all([
+      this.userRepository.countPages(userId),
+      this.userRepository.countCommunities(userId),
+      this.userRepository.countPosts(userId),
+      typeof this.userRepository.countQuestions === 'function' ? this.userRepository.countQuestions(userId) : Promise.resolve(0),
+      this.userRepository.countComments(userId),
+      typeof this.userRepository.countAnswers === 'function' ? this.userRepository.countAnswers(userId) : Promise.resolve(0)
+    ]);
     return {
       pages: parseInt(pages || 0, 10),
       communities: parseInt(communities || 0, 10),

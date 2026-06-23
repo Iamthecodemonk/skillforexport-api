@@ -274,6 +274,19 @@ export default class UserUseCase {
   }
 
   async getUserStats(userId) {
+    if (this.userRepository && typeof this.userRepository.getProfileStats === 'function') {
+      const stats = await this.userRepository.getProfileStats(userId);
+      if (stats) {
+        return {
+          pages: parseInt(stats.pages || 0, 10),
+          communities: parseInt(stats.communities || 0, 10),
+          posts: parseInt(stats.posts || 0, 10),
+          questions: parseInt(stats.questions || 0, 10),
+          comments: parseInt(stats.comments || 0, 10),
+          answers: parseInt(stats.answers || 0, 10)
+        };
+      }
+    }
     const [pages, communities, posts, questions, comments, answers] = await Promise.all([
       this.userRepository.countPages(userId),
       this.userRepository.countCommunities(userId),

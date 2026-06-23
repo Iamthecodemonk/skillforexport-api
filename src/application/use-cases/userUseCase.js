@@ -156,7 +156,24 @@ export default class UserUseCase {
         return v;
       };
       const profile = parse(row.profile);
-      const counts = await this.getUserStats(userId);
+      const hasInlineCounts = [
+        row.count_pages,
+        row.count_communities,
+        row.count_posts,
+        row.count_questions,
+        row.count_comments,
+        row.count_answers
+      ].some((value) => typeof value !== 'undefined' && value !== null);
+      const counts = hasInlineCounts
+        ? {
+            pages: parseInt(row.count_pages || 0, 10),
+            communities: parseInt(row.count_communities || 0, 10),
+            posts: parseInt(row.count_posts || 0, 10),
+            questions: parseInt(row.count_questions || 0, 10),
+            comments: parseInt(row.count_comments || 0, 10),
+            answers: parseInt(row.count_answers || 0, 10)
+          }
+        : await this.getUserStats(userId);
       const rawSettings = this.settingsRepository && typeof this.settingsRepository.get === 'function'
         ? await this.settingsRepository.get(userId)
         : null;

@@ -234,6 +234,12 @@ export default class MysqlUserRepository {
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', c.id, 'name', c.name, 'issuer', c.issuer, 'issue_date', c.issue_date)) FROM user_certifications c WHERE c.user_id = u.id), JSON_ARRAY()) as certifications,
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', e.id, 'school', e.school, 'degree', e.degree, 'field', e.field, 'start_date', e.start_date, 'end_date', e.end_date)) FROM user_education e WHERE e.user_id = u.id), JSON_ARRAY()) as education,
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', ex.id, 'company', ex.company, 'title', ex.title, 'employment_type', ex.employment_type, 'start_date', ex.start_date, 'end_date', ex.end_date, 'is_current', ex.is_current, 'description', ex.description)) FROM user_experiences ex WHERE ex.user_id = u.id), JSON_ARRAY()) as experiences,
+        (SELECT COUNT(*) FROM pages pg WHERE pg.owner_id = u.id) as count_pages,
+        (SELECT COUNT(*) FROM community_members cm WHERE cm.user_id = u.id) as count_communities,
+        (SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id AND (p.moderation_status IS NULL OR p.moderation_status NOT IN ('suspended', 'deleted'))) as count_posts,
+        (SELECT COUNT(*) FROM questions q WHERE q.user_id = u.id AND (q.moderation_status IS NULL OR q.moderation_status NOT IN ('suspended', 'deleted'))) as count_questions,
+        (SELECT COUNT(*) FROM comments cm WHERE cm.user_id = u.id AND (cm.moderation_status IS NULL OR cm.moderation_status NOT IN ('suspended', 'deleted'))) as count_comments,
+        (SELECT COUNT(*) FROM answers a WHERE a.user_id = u.id AND (a.moderation_status IS NULL OR a.moderation_status NOT IN ('suspended', 'deleted'))) as count_answers,
         IFNULL((
           SELECT JSON_ARRAYAGG(JSON_OBJECT(
             'id', f.id,

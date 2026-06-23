@@ -36,9 +36,13 @@ async function tableColumns(tableName) {
 
 async function countUserOwnedRows(tableName, userId, ownerColumns = ['user_id']) {
   const columns = await tableColumns(tableName);
-  const ownerColumn = ownerColumns.find((column) => columns.has(column));
-  if (!ownerColumn) return 0;
-  const query = db(tableName).where(ownerColumn, userId);
+  const availableOwnerColumns = ownerColumns.filter((column) => columns.has(column));
+  if (availableOwnerColumns.length === 0) return 0;
+  const query = db(tableName).where((builder) => {
+    for (const column of availableOwnerColumns) {
+      builder.orWhere(column, userId);
+    }
+  });
   if (columns.has('moderation_status')) {
     query.andWhere((builder) => {
       builder.whereNull('moderation_status').orWhereNotIn('moderation_status', ['suspended', 'deleted']);

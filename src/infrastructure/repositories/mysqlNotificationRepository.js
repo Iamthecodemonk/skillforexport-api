@@ -76,6 +76,24 @@ const parseJson = (value, fallback = null) => {
 
 const displayName = (user) => user && (user.display_name || user.username || null);
 
+const tableColumnCache = new Map();
+
+async function tableColumns(tableName) {
+  if (tableColumnCache.has(tableName)) return tableColumnCache.get(tableName);
+  const rows = await db('INFORMATION_SCHEMA.COLUMNS')
+    .select('COLUMN_NAME as name')
+    .whereRaw('TABLE_SCHEMA = DATABASE()')
+    .where('TABLE_NAME', tableName);
+  const columns = new Set((rows || []).map((row) => row.name));
+  tableColumnCache.set(tableName, columns);
+  return columns;
+}
+
+async function existingColumnPayload(tableName, payload = {}) {
+  const columns = await tableColumns(tableName);
+  return Object.fromEntries(Object.entries(payload).filter(([key]) => columns.has(key)));
+}
+
 export default class MysqlNotificationRepository {
   defaults() {
     return JSON.parse(JSON.stringify(DEFAULT_PREFERENCES));
@@ -206,7 +224,7 @@ export default class MysqlNotificationRepository {
       url: target.url || null
     };
     const meta = { ...metadata, actor, target: targetPayload };
-    await db('notifications').insert({
+    const insertPayload = await existingColumnPayload('notifications', {
       id,
       user_id: userId,
       type,
@@ -224,6 +242,7 @@ export default class MysqlNotificationRepository {
       created_at: now,
       updated_at: now
     });
+    await db('notifications').insert(insertPayload);
     const notification = this.map({
       id,
       type,

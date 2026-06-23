@@ -741,7 +741,8 @@ export function makeCompatController({ cloudinary = null, notificationRepository
       const userId = actorId(req);
       if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
       const row = await db('notifications').where({ user_id: userId, is_read: 0 }).count({ cnt: 'id' }).first();
-      return reply.send({ success: true, data: { count: parseInt((row && (row.cnt || Object.values(row)[0])) || 0, 10) } });
+      const count = parseInt((row && (row.cnt || Object.values(row)[0])) || 0, 10);
+      return reply.send({ success: true, count, data: { count } });
     },
 
     markNotificationsRead: async (req, reply) => {

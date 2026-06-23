@@ -28,7 +28,8 @@ export function makeNotificationController({ repository }) {
       try {
         const userId = actorId(req);
         if (!userId) return sendError(reply, 401, 'unauthorized', 'Unauthorized');
-        return reply.send({ count: await repository.unreadCount(userId) });
+        const count = await repository.unreadCount(userId);
+        return reply.send({ success: true, count, data: { count } });
       } catch (err) {
         notificationLogger.error('unreadNotificationCount failed', { message: err.message });
         return sendError(reply, 500, 'internal_error', 'Internal server error');

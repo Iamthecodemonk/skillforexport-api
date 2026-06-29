@@ -1802,6 +1802,29 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('listChannelTopics'));
 
+  fastify.post('/channels/:slugOrId/channels', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'createNestedChannel',
+      tags: ['Channels'],
+      description: 'Create a child channel under a special content channel. Alias of /channels/{slugOrId}/topics.',
+      params: idParam('slugOrId'),
+      body: schemas.ChannelCreateBody,
+      response: { 201: dataResponse(schemas.CommunityResponse), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse, 409: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse }
+    }
+  }, handler('createChannelTopic'));
+
+  fastify.get('/channels/:slugOrId/channels', {
+    schema: {
+      operationId: 'listNestedChannels',
+      tags: ['Channels'],
+      description: 'List child channels under a special content channel. Alias of /channels/{slugOrId}/topics.',
+      params: idParam('slugOrId'),
+      querystring: { type: 'object', properties: listQueryBase },
+      response: { 200: schemas.CommunityPaginatedResponse, 404: schemas.GenericErrorResponse }
+    }
+  }, handler('listChannelTopics'));
+
   // Communities
   fastify.post('/communities', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,

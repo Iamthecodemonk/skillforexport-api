@@ -153,8 +153,12 @@ export async function sendEmail(to, subject, html, text) {
       return { skipped: true, reason: 'SMTP credentials missing (SMTP_USER or SMTP_PASS)' };
     }
 
+    const senderEmail = process.env.SMTP_FROM || emailConfig.auth.user;
+    const senderName = process.env.SMTP_FROM_NAME || 'Skills4Export';
+    const from = senderEmail.includes('<') ? senderEmail : `${senderName} <${senderEmail}>`;
+
     const result = await transporter.sendMail({
-      from: process.env.SMTP_FROM || `SkillForExport <${emailConfig.auth.user}>`,
+      from,
       to,
       subject,
       html,

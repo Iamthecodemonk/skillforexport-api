@@ -734,6 +734,14 @@ export function makeCompatController({ cloudinary = null, notificationRepository
     listNotifications: async (req, reply) => {
       const userId = actorId(req);
       if (!userId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+      if (notificationRepository && typeof notificationRepository.list === 'function') {
+        const { page, perPage, limit, offset } = parsePagination(req.query || {}, 20);
+        const data = await notificationRepository.list(userId, { limit, offset });
+        const total = typeof notificationRepository.count === 'function'
+          ? await notificationRepository.count(userId)
+          : data.length;
+        return reply.send(buildPaginatedResponse(req, { data, page, perPage, total }));
+      }
       return paginateTable(req, reply, 'notifications', { user_id: userId });
     },
 

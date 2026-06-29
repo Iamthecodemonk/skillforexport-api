@@ -2,6 +2,7 @@ import logger from '../../utils/logger.js';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
+import { PASSWORD_POLICY_MESSAGE, isStrongPassword } from '../../application/use-cases/authUseCase.js';
 
 const authLogger = logger.child('AUTH_CONTROLLER');
 
@@ -36,6 +37,10 @@ function buildSuccessResponse({ message = null, data, token }) {
   return response;
 }
 
+function weakPasswordResponse(reply) {
+  return reply.code(422).send(buildValidationResponse({ password: [PASSWORD_POLICY_MESSAGE] }));
+}
+
 export function makeAuthController({ useCase }) {
   return {
     RequestRegistrationOtp: async (req, reply) => {
@@ -64,6 +69,9 @@ export function makeAuthController({ useCase }) {
 
         if (err.message === 'email_taken') {
           return reply.code(409).send(buildErrorResponse('Email already registered'));
+        }
+        if (err.message === 'weak_password') {
+          return weakPasswordResponse(reply);
         }
 
         return reply.code(500).send(buildErrorResponse('An unexpected error occurred'));
@@ -125,6 +133,9 @@ export function makeAuthController({ useCase }) {
         }
         if (err.message === 'email_taken') {
           return reply.code(409).send(buildErrorResponse('Email already registered'));
+        }
+        if (err.message === 'weak_password') {
+          return weakPasswordResponse(reply);
         }
         return reply.code(500).send(buildErrorResponse('An unexpected error occurred'));
       }
@@ -196,6 +207,9 @@ export function makeAuthController({ useCase }) {
         authLogger.error('CompleteRegistration error', { message: err.message, stack: err.stack });
         if (err.message === 'invalid_email_format') {
           return reply.code(422).send(buildValidationResponse({ email: ['email must be a valid email address'] }));
+        }
+        if (err.message === 'weak_password') {
+          return weakPasswordResponse(reply);
         }
         if (err.message === 'invalid_or_expired_otp') {
           return reply.code(401).send(buildErrorResponse('Invalid OTP code. Please check and try again.'));
@@ -372,6 +386,9 @@ export function makeAuthController({ useCase }) {
         if (err.message === 'password_required') {
           return reply.code(422).send(buildValidationResponse({ password: ['password is required'] }));
         }
+        if (err.message === 'weak_password') {
+          return weakPasswordResponse(reply);
+        }
 
         return reply.code(500).send(buildErrorResponse('An unexpected error occurred'));
       }
@@ -424,6 +441,9 @@ export function makeAuthController({ useCase }) {
 
         if (err.message === 'user_not_found') {
           return reply.code(404).send(buildErrorResponse('User not found'));
+        }
+        if (err.message === 'weak_password') {
+          return weakPasswordResponse(reply);
         }
 
         const msg = String(err.message || '').toLowerCase();
@@ -526,6 +546,8 @@ export function makeAuthController({ useCase }) {
           validationErrors.password = ['password is required'];
         if (nextPassword !== password_confirmation) 
           validationErrors.password_confirmation = ['password confirmation does not match'];
+        if (nextPassword && !isStrongPassword(nextPassword))
+          validationErrors.password = [PASSWORD_POLICY_MESSAGE];
         if (Object.keys(validationErrors).length) 
           return reply.code(422).send(buildValidationResponse(validationErrors));
         const user = await useCase.userRepository.findById(userCtx.id);

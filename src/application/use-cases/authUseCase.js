@@ -11,6 +11,17 @@ import dotenv from 'dotenv';
 dotenv.config();
 const authLogger = logger.child('AUTH_USECASE');
 
+export const PASSWORD_POLICY_MESSAGE = 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character';
+
+export function isStrongPassword(password) {
+  return typeof password === 'string'
+    && password.length >= 8
+    && /[A-Z]/.test(password)
+    && /[a-z]/.test(password)
+    && /\d/.test(password)
+    && /[^A-Za-z0-9]/.test(password);
+}
+
 export default class AuthUseCase {
   constructor({ userRepository, profileRepository = null, educationRepository = null, experienceRepository = null, settingsRepository = null, emailQueue, jwtSecret, jwtExpiresIn, passwordResetRepository = null }) {
     this.userRepository = userRepository;
@@ -25,6 +36,7 @@ export default class AuthUseCase {
   }
 
   async RegisterWithEmailPassword({ email, password, refCode = null }) {
+    if (!isStrongPassword(password)) throw new Error('weak_password');
     const existing = await this.userRepository.findByEmail(email);
     if (existing) 
         throw new Error('email_taken');
@@ -296,6 +308,9 @@ export default class AuthUseCase {
     if (!email || !User.isValidEmail(email)) {
       throw new Error('invalid_email_format');
     }
+    if (!isStrongPassword(password)) {
+      throw new Error('weak_password');
+    }
 
     const existing = await this.userRepository.findByEmail(email);
     if (existing && existing.password) {
@@ -365,6 +380,9 @@ export default class AuthUseCase {
     if (!password) {
       throw new Error('password_required');
     }
+    if (!isStrongPassword(password)) {
+      throw new Error('weak_password');
+    }
 
     const entry = await this.userRepository.findLatestOtpByEmailPurpose(email, 'registration');
     if (!entry || entry.is_used || !entry.used_at || new Date(entry.expires_at) <= new Date()) {
@@ -381,6 +399,9 @@ export default class AuthUseCase {
     // Validate email format at domain layer
     if (!email || !User.isValidEmail(email)) {
       throw new Error('invalid_email_format');
+    }
+    if (password && !isStrongPassword(password)) {
+      throw new Error('weak_password');
     }
 
     const existingUser = await this.userRepository.findByEmail(email);
@@ -552,6 +573,9 @@ export default class AuthUseCase {
     // Validate email format
     if (!email || !User.isValidEmail(email)) {
       throw new Error('invalid_email_format');
+    }
+    if (!isStrongPassword(newPassword)) {
+      throw new Error('weak_password');
     }
 
     // First try password_resets repository if available (token-based resets)

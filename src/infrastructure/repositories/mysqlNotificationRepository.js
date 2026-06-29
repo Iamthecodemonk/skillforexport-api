@@ -76,6 +76,52 @@ const parseJson = (value, fallback = null) => {
 
 const displayName = (user) => user && (user.display_name || user.username || null);
 
+const relativeTime = (value) => {
+  const date = value ? new Date(value) : null;
+  const diffSeconds = date && !Number.isNaN(date.getTime()) ? Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000)) : 0;
+  if (diffSeconds < 60) return `${diffSeconds || 1} secs ago`;
+  const minutes = Math.floor(diffSeconds / 60);
+  if (minutes < 60) return `${minutes} min${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} month${months === 1 ? '' : 's'} ago`;
+  const years = Math.floor(months / 12);
+  return `${years} year${years === 1 ? '' : 's'} ago`;
+};
+
+const notificationText = ({ row = {}, actor = null, target = {}, meta = {} }) => {
+  const actorName = actor && actor.name ? actor.name : 'Someone';
+  const targetTitle = target && target.title ? target.title : null;
+  const excerpt = meta.commentExcerpt || meta.answerExcerpt || meta.excerpt || meta.content || null;
+  const raw = row.body || row.message || row.title || meta.title || null;
+  if (raw) {
+    const withActor = String(raw).replace(/^Someone\b/, actorName);
+    if (excerpt && !withActor.includes(excerpt)) return `${withActor}: ${excerpt}`;
+    return withActor;
+  }
+  switch (row.type) {
+    case 'post_comment':
+      return `${actorName} commented on ${targetTitle || 'your post'}${excerpt ? `: ${excerpt}` : ''}`;
+    case 'comment_reply':
+      return `${actorName} replied to your comment${excerpt ? `: ${excerpt}` : ''}`;
+    case 'post_score':
+      return `${actorName} scored your post`;
+    case 'user_follow':
+      return `${actorName} followed you`;
+    case 'followed_user_post':
+      return `${actorName} posted${targetTitle ? `: ${targetTitle}` : ''}`;
+    case 'followed_user_comment':
+      return `${actorName} commented${targetTitle ? ` on ${targetTitle}` : ''}${excerpt ? `: ${excerpt}` : ''}`;
+    case 'followed_user_post_score':
+      return `${actorName} scored a post`;
+    default:
+      return row.title || `${actorName} sent you a notification`;
+  }
+};
+
 const tableColumnCache = new Map();
 
 async function tableColumns(tableName) {
@@ -133,13 +179,20 @@ export default class MysqlNotificationRepository {
       title: row.target_title || (meta.target && meta.target.title) || null,
       url: row.target_url || (meta.target && meta.target.url) || null
     };
+    const text = notificationText({ row, actor, target, meta });
     return {
       id: row.id,
       type: row.type,
       title: row.title || meta.title || row.message || null,
       body: row.body || row.message || null,
+      text,
+      message: text,
+      avatar: actor && actor.avatar ? actor.avatar : null,
       actor,
       target,
+      url: target.url || '/notifications',
+      timeAgo: relativeTime(row.created_at),
+      time_ago: relativeTime(row.created_at),
       readAt: row.read_at || (row.is_read ? row.updated_at || row.created_at : null),
       createdAt: row.created_at
     };

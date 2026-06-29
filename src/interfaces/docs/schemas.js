@@ -230,7 +230,12 @@ export const RegisterSetPasswordBody = {
   required: ['email', 'password'],
   properties: {
     email: { type: 'string' },
-    password: { type: 'string' }
+    password: {
+      type: 'string',
+      minLength: 8,
+      pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$',
+      description: 'At least 8 characters with uppercase, lowercase, number, and special character.'
+    }
   },
   example: { email: 'user@example.com', password: 'P@ssw0rd123' }
 };
@@ -246,7 +251,7 @@ export const ResetPasswordBody = {
     otp: { type: 'string', example: '123456' },
     token: { type: 'string', example: 'f3a8...token' },
     email: { type: 'string', example: 'user@example.com' },
-    password: { type: 'string', example: 'NewP@ssw0rd123' },
+    password: { type: 'string', minLength: 8, pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$', example: 'NewP@ssw0rd123' },
     password_confirmation: { type: 'string', example: 'NewP@ssw0rd123' }
   },
   example: {
@@ -264,6 +269,7 @@ export const RegisterCompleteBody = {
   properties: {
     email: { type: 'string', example: 'user@example.com' },
     name: { type: 'string', example: 'Jane Doe' },
+    password: { type: 'string', minLength: 8, pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$', description: 'Optional if password was already set during registration; otherwise must meet password policy.', example: 'P@ssw0rd123' },
     ref_code: { type: 'string', example: 'ABC123' },
     onboarding: {
       type: 'object',
@@ -291,7 +297,7 @@ export const ChangePasswordBody = {
   description: 'Change the password for the authenticated user.',
   properties: {
     current_password: { type: 'string', example: 'OldP@ssw0rd' },
-    password: { type: 'string', example: 'NewP@ssw0rd123' },
+    password: { type: 'string', minLength: 8, pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$', example: 'NewP@ssw0rd123' },
     password_confirmation: { type: 'string', example: 'NewP@ssw0rd123' }
   }
 };
@@ -397,7 +403,15 @@ export const IdSuccessResponse = {
 export const RegisterBody = {
   type: 'object',
   required: ['email', 'password'],
-  properties: { email: { type: 'string' }, password: { type: 'string' } }
+  properties: {
+    email: { type: 'string' },
+    password: {
+      type: 'string',
+      minLength: 8,
+      pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$',
+      description: 'At least 8 characters with uppercase, lowercase, number, and special character.'
+    }
+  }
 };
 
 export const PostCreateBody = {

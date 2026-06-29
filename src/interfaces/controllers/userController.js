@@ -208,6 +208,14 @@ export function makeUserController({ useCase = null, followerRepository = null, 
             success: false,
             error: { code: 'email_already_exists' }
           });
+        if (err.message === 'weak_password')
+          return reply.code(422).send({
+            success: false,
+            error: {
+              code: 'validation_failed',
+              message: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character'
+            }
+          });
         userLogger.error('createUser error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }

@@ -960,7 +960,12 @@ export default async function registerRoutes(fastify, deps) {
         required: ['email', 'password'],
         properties: {
           email: { type: 'string' },
-          password: { type: 'string' },
+          password: {
+            type: 'string',
+            minLength: 8,
+            pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$',
+            description: 'At least 8 characters with uppercase, lowercase, number, and special character.'
+          },
           role: { type: 'string', enum: ['user', 'admin'] }
         },
         example: { email: 'user@example.com', password: 'P@ssw0rd', role: 'user' }

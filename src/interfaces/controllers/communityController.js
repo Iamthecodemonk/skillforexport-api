@@ -70,6 +70,77 @@ export function makeCommunityController({ useCase = null }) {
       }
     },
 
+    createChannel: async (req, reply) => {
+      try {
+        const actorId = req.user && req.user.id;
+        const actorRole = req.user && req.user.role;
+        if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        if (actorRole !== 'admin') return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+        const { name, slug, icon, description } = req.body || {};
+        const created = await useCase.createChannel({ name, slug, icon, description, ownerId: actorId });
+        return reply.code(201).send({ success: true, data: created });
+      } catch (err) {
+        log.error('createChannel error', { message: err.message });
+        if (err.message === 'slug_taken') return reply.code(409).send({ success: false, error: { code: 'slug_taken' } });
+        if (err.message === 'validation_failed') return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    listChannels: async (req, reply) => {
+      try {
+        const { page, perPage, offset } = parsePagination(req.query || {});
+        const q = req.query && (req.query.q || req.query.search) ? String(req.query.q || req.query.search) : null;
+        const res = await useCase.listChannels({ page, perPage, q, offset });
+        return reply.send(buildPaginatedResponse(req, { data: res.data || [], page: res.page, perPage: res.perPage, total: res.total }));
+      } catch (err) {
+        log.error('listChannels error', { message: err.message });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    getChannel: async (req, reply) => {
+      try {
+        const row = await useCase.getChannel(req.params.slugOrId);
+        if (!row) return reply.code(404).send({ success: false, error: { code: 'channel_not_found' } });
+        return reply.send({ success: true, data: row });
+      } catch (err) {
+        log.error('getChannel error', { message: err.message });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    createChannelTopic: async (req, reply) => {
+      try {
+        const actorId = req.user && req.user.id;
+        const actorRole = req.user && req.user.role;
+        if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        if (actorRole !== 'admin') return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+        const { name, slug, icon, description } = req.body || {};
+        const created = await useCase.createChannelTopic({ channelSlug: req.params.slugOrId, name, slug, icon, description, ownerId: actorId });
+        return reply.code(201).send({ success: true, data: created });
+      } catch (err) {
+        log.error('createChannelTopic error', { message: err.message });
+        if (err.message === 'channel_not_found') return reply.code(404).send({ success: false, error: { code: 'channel_not_found' } });
+        if (err.message === 'slug_taken') return reply.code(409).send({ success: false, error: { code: 'slug_taken' } });
+        if (err.message === 'validation_failed') return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    listChannelTopics: async (req, reply) => {
+      try {
+        const { page, perPage, offset } = parsePagination(req.query || {});
+        const q = req.query && (req.query.q || req.query.search) ? String(req.query.q || req.query.search) : null;
+        const res = await useCase.listChannelTopics({ channelSlug: req.params.slugOrId, page, perPage, q, offset });
+        return reply.send(buildPaginatedResponse(req, { data: res.data || [], page: res.page, perPage: res.perPage, total: res.total }));
+      } catch (err) {
+        log.error('listChannelTopics error', { message: err.message });
+        if (err.message === 'channel_not_found') return reply.code(404).send({ success: false, error: { code: 'channel_not_found' } });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
     joinCommunity: async (req, reply) => {
       try {
         const actorId = req.user && req.user.id;

@@ -19,8 +19,17 @@ export default class MysqlCommunityRepository {
   mapCommunity(row) {
     if (!row) return null;
     const isPrivate = this.isPrivateCommunity(row);
+    const communityType = row.community_type || row.communityType || 'regular';
+    const slug = row.slug || null;
+    const parentCommunityId = row.parent_community_id || row.parentCommunityId || null;
     return {
       ...row,
+      slug,
+      url: slug ? (communityType === 'topic' && row.parent_slug ? `/channels/${row.parent_slug}/topics/${slug}` : `/channels/${slug}`) : null,
+      community_type: communityType,
+      communityType,
+      parent_community_id: parentCommunityId,
+      parentCommunityId,
       is_private: isPrivate ? 1 : 0,
       isPrivate,
       only_admin: this.isAdminOnlyCommunity(row) ? 1 : 0,
@@ -46,6 +55,15 @@ export default class MysqlCommunityRepository {
     }
     if (Object.prototype.hasOwnProperty.call(record, 'description')) {
       payload.description = record.description || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(record, 'slug')) {
+      payload.slug = record.slug || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(record, 'community_type') || Object.prototype.hasOwnProperty.call(record, 'communityType')) {
+      payload.community_type = record.community_type || record.communityType || 'regular';
+    }
+    if (Object.prototype.hasOwnProperty.call(record, 'parent_community_id') || Object.prototype.hasOwnProperty.call(record, 'parentCommunityId')) {
+      payload.parent_community_id = record.parent_community_id || record.parentCommunityId || null;
     }
     if (Object.prototype.hasOwnProperty.call(record, 'default_post_visibility') || Object.prototype.hasOwnProperty.call(record, 'defaultPostVisibility')) {
       payload.default_post_visibility = typeof record.default_post_visibility !== 'undefined'
@@ -78,7 +96,23 @@ export default class MysqlCommunityRepository {
   }
 
   async findById(id) {
-    return this.mapCommunity(await db('communities').where({ id }).first());
+    const row = await db('communities as c')
+      .leftJoin('communities as parent', 'parent.id', 'c.parent_community_id')
+      .where('c.id', id)
+      .select('c.*', 'parent.slug as parent_slug')
+      .first();
+    return this.mapCommunity(row);
+  }
+
+  async findBySlug(slug, { communityType = null, parentCommunityId = null } = {}) {
+    const query = db('communities as c')
+      .leftJoin('communities as parent', 'parent.id', 'c.parent_community_id')
+      .where('c.slug', slug)
+      .select('c.*', 'parent.slug as parent_slug');
+    if (communityType) query.where('c.community_type', communityType);
+    if (parentCommunityId) query.where('c.parent_community_id', parentCommunityId);
+    const row = await query.first();
+    return this.mapCommunity(row);
   }
 
   async create(record) {
@@ -144,12 +178,14 @@ export default class MysqlCommunityRepository {
       .groupBy('p.community_id')
       .as('cmc');
     const qb = db('communities as c')
+      .leftJoin('communities as parent', 'parent.id', 'c.parent_community_id')
       .leftJoin('community_categories as cc', 'cc.id', 'c.category_id')
       .leftJoin(postCounts, 'pc.community_id', 'c.id')
       .leftJoin(postReactionCounts, 'prc.community_id', 'c.id')
       .leftJoin(commentCounts, 'cmc.community_id', 'c.id')
       .select(
         'c.*',
+        'parent.slug as parent_slug',
         'cc.id as community_category_id',
         'cc.name as community_category_name',
         'pc.posts_count',
@@ -169,6 +205,7 @@ export default class MysqlCommunityRepository {
     return rows.map(({
       community_category_id: categoryId,
       community_category_name: categoryName,
+      parent_slug,
       posts_count,
       post_likes_count,
       post_reactions_count,
@@ -176,6 +213,7 @@ export default class MysqlCommunityRepository {
       ...community
     }) => ({
       ...community,
+      parent_slug,
       is_private: this.isPrivateCommunity(community) ? 1 : 0,
       isPrivate: this.isPrivateCommunity(community),
       only_admin: this.isAdminOnlyCommunity(community) ? 1 : 0,
@@ -199,6 +237,69 @@ export default class MysqlCommunityRepository {
       });
     }
     const row = await qb.first();
+    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+    return parseInt(cnt || 0, 10);
+  }
+
+  async listChannels({ offset = 0, limit = 20, q = null } = {}) {
+    const query = db('communities as c')
+      .where('c.community_type', 'channel')
+      .whereNull('c.parent_community_id')
+      .orderBy('c.created_at', 'desc')
+      .offset(offset)
+      .limit(limit)
+      .select('c.*');
+    if (q) {
+      const like = `%${q}%`;
+      query.andWhere((builder) => {
+        builder.where('c.name', 'like', like).orWhere('c.description', 'like', like);
+      });
+    }
+    const rows = await query;
+    return rows.map(row => this.mapCommunity(row));
+  }
+
+  async countChannels({ q = null } = {}) {
+    const query = db('communities as c').where('c.community_type', 'channel').whereNull('c.parent_community_id').count({ cnt: 'c.id' });
+    if (q) {
+      const like = `%${q}%`;
+      query.andWhere((builder) => {
+        builder.where('c.name', 'like', like).orWhere('c.description', 'like', like);
+      });
+    }
+    const row = await query.first();
+    const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
+    return parseInt(cnt || 0, 10);
+  }
+
+  async listTopics(parentCommunityId, { offset = 0, limit = 50, q = null } = {}) {
+    const query = db('communities as c')
+      .leftJoin('communities as parent', 'parent.id', 'c.parent_community_id')
+      .where('c.community_type', 'topic')
+      .where('c.parent_community_id', parentCommunityId)
+      .orderBy('c.created_at', 'desc')
+      .offset(offset)
+      .limit(limit)
+      .select('c.*', 'parent.slug as parent_slug');
+    if (q) {
+      const like = `%${q}%`;
+      query.andWhere((builder) => {
+        builder.where('c.name', 'like', like).orWhere('c.description', 'like', like);
+      });
+    }
+    const rows = await query;
+    return rows.map(row => this.mapCommunity(row));
+  }
+
+  async countTopics(parentCommunityId, { q = null } = {}) {
+    const query = db('communities as c').where('c.community_type', 'topic').where('c.parent_community_id', parentCommunityId).count({ cnt: 'c.id' });
+    if (q) {
+      const like = `%${q}%`;
+      query.andWhere((builder) => {
+        builder.where('c.name', 'like', like).orWhere('c.description', 'like', like);
+      });
+    }
+    const row = await query.first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);
     return parseInt(cnt || 0, 10);
   }

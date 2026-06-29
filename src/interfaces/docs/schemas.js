@@ -1943,6 +1943,18 @@ export const CommunityCreateBody = {
   example: { name: 'Local Chess Club', icon: 'las la-chess', description: 'We meet weekly to play chess', categoryId: null, defaultPostVisibility: 'public', isPrivate: false, onlyAdmin: false, membersOnlyPosting: false }
 };
 
+export const ChannelCreateBody = {
+  type: 'object',
+  required: ['name'],
+  properties: {
+    name: { type: 'string' },
+    slug: { type: 'string', description: 'URL slug. If omitted, generated from name.' },
+    icon: { type: 'string', description: 'Line Awesome icon class/name, for example `las la-newspaper`.' },
+    description: { type: 'string' }
+  },
+  example: { name: 'Industry Updates', slug: 'industry-updates', icon: 'las la-newspaper', description: 'Admin-published updates grouped by topics.' }
+};
+
 export const CommunityUpdateBody = {
   type: 'object',
   properties: { name: { type: 'string' }, icon: { type: 'string', description: 'Line Awesome icon class/name, for example `las la-users` or `la-users`.' }, description: { type: 'string' }, defaultPostVisibility: { type: 'string', enum: ['public','connections','community'] }, isPrivate: { type: 'boolean', description: 'When true, community posts default to visibility=community and stay inside the community.' }, is_private: { type: 'number', enum: [0, 1], description: 'Database/legacy alias for isPrivate.' }, onlyAdmin: { type: 'boolean', description: 'When true, only platform admins/community admins can post; posts from this community cannot be shared to another community.' }, only_admin: { type: 'number', enum: [0, 1], description: 'Database/legacy alias for onlyAdmin.' }, membersOnlyPosting: { type: 'boolean', description: 'When true, only community members can post. When false, any authenticated user can post in the community.' }, members_only_posting: { type: 'number', enum: [0, 1], description: 'Legacy/database alias for membersOnlyPosting.' }, is_active: { type: 'number' } },
@@ -1963,6 +1975,12 @@ export const CommunityResponse = {
         name: { type: 'string' }
       }
     },
+    slug: { type: ['string','null'], description: 'URL slug for special content channels/topics.' },
+    url: { type: ['string','null'], description: 'Frontend URL path for special content channels/topics.' },
+    community_type: { type: 'string', enum: ['regular', 'channel', 'topic'], description: 'regular for normal communities, channel/topic for the special content feature.' },
+    communityType: { type: 'string', enum: ['regular', 'channel', 'topic'] },
+    parent_community_id: { type: ['string','null'], description: 'Parent channel id for topic communities.' },
+    parentCommunityId: { type: ['string','null'] },
     name: { type: 'string' },
     icon: { type: ['string','null'], description: 'Line Awesome icon class/name stored for frontend rendering.' },
     description: { type: 'string' },
@@ -1981,7 +1999,7 @@ export const CommunityResponse = {
     created_at: { type: 'string' }
   }
 };
-CommunityResponse.example = { id: 'community-uuid', categoryId: 'community-category-uuid', category_id: 'community-category-uuid', category: { id: 'community-category-uuid', name: 'Sports' }, name: 'Local Chess Club', icon: 'las la-chess', description: 'We meet weekly to play chess', is_active: 1, members_only_posting: 0, membersOnlyPosting: false, default_post_visibility: 'community', is_private: 1, isPrivate: true, only_admin: 0, onlyAdmin: false, posts_count: 24, post_likes_count: 41, post_reactions_count: 58, comments_count: 103, created_at: '2026-04-12T10:00:00Z' };
+CommunityResponse.example = { id: 'community-uuid', categoryId: 'community-category-uuid', category_id: 'community-category-uuid', category: { id: 'community-category-uuid', name: 'Sports' }, slug: 'local-chess-club', url: '/channels/local-chess-club', community_type: 'regular', communityType: 'regular', parent_community_id: null, parentCommunityId: null, name: 'Local Chess Club', icon: 'las la-chess', description: 'We meet weekly to play chess', is_active: 1, members_only_posting: 0, membersOnlyPosting: false, default_post_visibility: 'community', is_private: 1, isPrivate: true, only_admin: 0, onlyAdmin: false, posts_count: 24, post_likes_count: 41, post_reactions_count: 58, comments_count: 103, created_at: '2026-04-12T10:00:00Z' };
 
 export const CommunityMemberResponse = {
   type: 'object',
@@ -2345,6 +2363,7 @@ export default {
   CommunityCategoryCreateBody,
   CommunityCategoryResponse,
   CommunityCreateBody,
+  ChannelCreateBody,
   CommunityResponse,
   CommunityMemberResponse,
   CommunityUpdateBody,

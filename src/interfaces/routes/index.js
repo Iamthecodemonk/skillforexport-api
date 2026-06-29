@@ -1747,6 +1747,61 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('deleteCategory'));
 
+  // Special content channels. These are backed by community records but are not created through regular /communities.
+  fastify.post('/channels', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'createChannel',
+      tags: ['Channels'],
+      description: 'Create a special content channel. This is separate from regular /communities creation. Only admins can create channels; posts inside channels/topics are admin-only.',
+      body: schemas.ChannelCreateBody,
+      response: { 201: dataResponse(schemas.CommunityResponse), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 409: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse }
+    }
+  }, handler('createChannel'));
+
+  fastify.get('/channels', {
+    schema: {
+      operationId: 'listChannels',
+      tags: ['Channels'],
+      description: 'List special content channels. These are not regular communities and have their own URL surface.',
+      querystring: { type: 'object', properties: listQueryBase },
+      response: { 200: schemas.CommunityPaginatedResponse }
+    }
+  }, handler('listChannels'));
+
+  fastify.get('/channels/:slugOrId', {
+    schema: {
+      operationId: 'getChannel',
+      tags: ['Channels'],
+      description: 'Get a special content channel by slug or id.',
+      params: idParam('slugOrId'),
+      response: { 200: dataResponse(schemas.CommunityResponse), 404: schemas.GenericErrorResponse }
+    }
+  }, handler('getChannel'));
+
+  fastify.post('/channels/:slugOrId/topics', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'createChannelTopic',
+      tags: ['Channels'],
+      description: 'Create a topic under a special content channel. Only admins can create topics; posts inside topics are admin-only.',
+      params: idParam('slugOrId'),
+      body: schemas.ChannelCreateBody,
+      response: { 201: dataResponse(schemas.CommunityResponse), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse, 409: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse }
+    }
+  }, handler('createChannelTopic'));
+
+  fastify.get('/channels/:slugOrId/topics', {
+    schema: {
+      operationId: 'listChannelTopics',
+      tags: ['Channels'],
+      description: 'List topics under a special content channel.',
+      params: idParam('slugOrId'),
+      querystring: { type: 'object', properties: listQueryBase },
+      response: { 200: schemas.CommunityPaginatedResponse, 404: schemas.GenericErrorResponse }
+    }
+  }, handler('listChannelTopics'));
+
   // Communities
   fastify.post('/communities', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,

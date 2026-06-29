@@ -96,6 +96,7 @@ export default class PostUseCase {
     }
     if (this.notificationRepository) {
       try {
+        const notifiedCommunityUserIds = new Set();
         if (pageId && this.pageRepository && typeof this.pageRepository.findById === 'function') {
           const page = await this.pageRepository.findById(pageId);
           await this.notificationRepository.create({
@@ -108,8 +109,9 @@ export default class PostUseCase {
             metadata: { pageId }
           });
         } else if (communityId && community && (community.owner_id || community.ownerId)) {
+          const ownerId = community.owner_id || community.ownerId;
           await this.notificationRepository.create({
-            userId: community.owner_id || community.ownerId,
+            userId: ownerId,
             actorUserId: userId,
             type: 'community_post',
             title: 'New post in your community',
@@ -117,6 +119,33 @@ export default class PostUseCase {
             target: { type: 'post', id: created.id, title: created.title, url: `/posts/${created.id}` },
             metadata: { communityId }
           });
+          notifiedCommunityUserIds.add(ownerId);
+        }
+        const communityType = community && (community.community_type || community.communityType);
+        const parentCommunityId = community && (community.parent_community_id || community.parentCommunityId);
+        if (
+          communityId &&
+          ['channel', 'topic'].includes(communityType) &&
+          this.communityMemberRepository &&
+          typeof this.communityMemberRepository.listMembers === 'function'
+        ) {
+          const memberRows = await this.communityMemberRepository.listMembers(communityId);
+          const parentRows = parentCommunityId ? await this.communityMemberRepository.listMembers(parentCommunityId) : [];
+          const recipientIds = [...new Set([...(memberRows || []), ...(parentRows || [])]
+            .map((member) => member.user_id || member.userId)
+            .filter(Boolean)
+            .filter((memberUserId) => memberUserId !== userId && !notifiedCommunityUserIds.has(memberUserId)))];
+          for (const recipientId of recipientIds) {
+            await this.notificationRepository.create({
+              userId: recipientId,
+              actorUserId: userId,
+              type: 'community_post',
+              title: `New post in ${community.name || 'a channel'}`,
+              body: created.title || 'A new post was published.',
+              target: { type: 'post', id: created.id, title: created.title, url: `/posts/${created.id}` },
+              metadata: { postId: created.id, communityId, parentCommunityId, communityType }
+            });
+          }
         }
         if (!skipFollowerNotification && this.notificationRepository && typeof this.notificationRepository.notifyFollowersOfUser === 'function') {
           await this.notificationRepository.notifyFollowersOfUser(userId, {

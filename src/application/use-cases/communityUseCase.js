@@ -61,6 +61,15 @@ export default class CommunityUseCase {
     return value === true || value === 1 || value === '1';
   }
 
+  slugify(value) {
+    return String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 120);
+  }
+
   async createCommunity({ id = null, categoryId = null, name, icon = null, description = null, ownerId = null, defaultPostVisibility = null, membersOnlyPosting = false, isPrivate = null, onlyAdmin = false }) {
     if (!name || !ownerId) 
         throw new Error('validation_failed');
@@ -77,6 +86,62 @@ export default class CommunityUseCase {
       await this.communityMemberRepository.addMember({ id: uuidv4(), user_id: ownerId, community_id: created.id, role: 'admin' });
     }
     return created;
+  }
+
+  async createChannel({ id = null, name, slug = null, icon = null, description = null, ownerId = null }) {
+    if (!name || !ownerId) throw new Error('validation_failed');
+    const nextSlug = this.slugify(slug || name);
+    if (!nextSlug) throw new Error('validation_failed');
+    if (this.communityRepository && typeof this.communityRepository.findBySlug === 'function') {
+      const existing = await this.communityRepository.findBySlug(nextSlug, { communityType: 'channel' });
+      if (existing) throw new Error('slug_taken');
+    }
+    const created = await this.createCommunity({
+      id,
+      name,
+      icon,
+      description,
+      ownerId,
+      defaultPostVisibility: 'community',
+      membersOnlyPosting: true,
+      isPrivate: true,
+      onlyAdmin: true
+    });
+    return this.communityRepository.update(created.id, {
+      slug: nextSlug,
+      community_type: 'channel',
+      parent_community_id: null
+    });
+  }
+
+  async createChannelTopic({ channelId = null, channelSlug = null, id = null, name, slug = null, icon = null, description = null, ownerId = null }) {
+    if (!name || !ownerId || (!channelId && !channelSlug)) throw new Error('validation_failed');
+    const parent = channelId
+      ? await this.communityRepository.findById(channelId)
+      : await this.communityRepository.findBySlug(channelSlug, { communityType: 'channel' });
+    if (!parent || parent.community_type !== 'channel') throw new Error('channel_not_found');
+    const nextSlug = this.slugify(slug || name);
+    if (!nextSlug) throw new Error('validation_failed');
+    if (this.communityRepository && typeof this.communityRepository.findBySlug === 'function') {
+      const existing = await this.communityRepository.findBySlug(nextSlug, { communityType: 'topic', parentCommunityId: parent.id });
+      if (existing) throw new Error('slug_taken');
+    }
+    const created = await this.createCommunity({
+      id,
+      name,
+      icon,
+      description,
+      ownerId,
+      defaultPostVisibility: 'community',
+      membersOnlyPosting: true,
+      isPrivate: true,
+      onlyAdmin: true
+    });
+    return this.communityRepository.update(created.id, {
+      slug: nextSlug,
+      community_type: 'topic',
+      parent_community_id: parent.id
+    });
   }
   
   async getCommunity(id) {
@@ -163,5 +228,34 @@ export default class CommunityUseCase {
       return this.communityCategoryRepository.listAll();
     }
     return [];
+  }
+
+  async listChannels({ page = 1, perPage = 20, q = null, offset = undefined } = {}) {
+    const limit = parseInt(perPage, 10) || 20;
+    const pg = Math.max(parseInt(page, 10) || 1, 1);
+    const off = typeof offset !== 'undefined' && offset !== null ? Math.max(parseInt(offset, 10) || 0, 0) : (pg - 1) * limit;
+    const data = await this.communityRepository.listChannels({ offset: off, limit, q });
+    const total = await this.communityRepository.countChannels({ q });
+    return { data, page: pg, perPage: limit, total };
+  }
+
+  async getChannel(slugOrId) {
+    if (!slugOrId) throw new Error('id_required');
+    const byId = await this.communityRepository.findById(slugOrId);
+    if (byId && byId.community_type === 'channel') return byId;
+    return this.communityRepository.findBySlug(slugOrId, { communityType: 'channel' });
+  }
+
+  async listChannelTopics({ channelId = null, channelSlug = null, page = 1, perPage = 50, q = null, offset = undefined } = {}) {
+    const parent = channelId
+      ? await this.communityRepository.findById(channelId)
+      : await this.communityRepository.findBySlug(channelSlug, { communityType: 'channel' });
+    if (!parent || parent.community_type !== 'channel') throw new Error('channel_not_found');
+    const limit = parseInt(perPage, 10) || 50;
+    const pg = Math.max(parseInt(page, 10) || 1, 1);
+    const off = typeof offset !== 'undefined' && offset !== null ? Math.max(parseInt(offset, 10) || 0, 0) : (pg - 1) * limit;
+    const data = await this.communityRepository.listTopics(parent.id, { offset: off, limit, q });
+    const total = await this.communityRepository.countTopics(parent.id, { q });
+    return { data, page: pg, perPage: limit, total, channel: parent };
   }
 }

@@ -7,6 +7,11 @@ export class CommunityRepository {
   async listAll() { throw new Error('listAll() not implemented'); }
   async list(params) { throw new Error('list() not implemented'); }
   async count(params) { throw new Error('count() not implemented'); }
+  async findBySlug(slug, params) { throw new Error('findBySlug() not implemented'); }
+  async listChannels(params) { throw new Error('listChannels() not implemented'); }
+  async countChannels(params) { throw new Error('countChannels() not implemented'); }
+  async listTopics(parentCommunityId, params) { throw new Error('listTopics() not implemented'); }
+  async countTopics(parentCommunityId, params) { throw new Error('countTopics() not implemented'); }
 }
 
 export class CommunityRepositoryImpl extends CommunityRepository {
@@ -31,4 +36,14 @@ export class CommunityRepositoryImpl extends CommunityRepository {
     return this.adapter.list(params); }
   async count(params) {
     return this.adapter.count(params); }
+  async findBySlug(slug, params) {
+    return this.adapter.findBySlug(slug, params); }
+  async listChannels(params) {
+    return this.adapter.listChannels(params); }
+  async countChannels(params) {
+    return this.adapter.countChannels(params); }
+  async listTopics(parentCommunityId, params) {
+    return this.adapter.listTopics(parentCommunityId, params); }
+  async countTopics(parentCommunityId, params) {
+    return this.adapter.countTopics(parentCommunityId, params); }
 }

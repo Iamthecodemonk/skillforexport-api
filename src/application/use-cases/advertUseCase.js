@@ -41,9 +41,12 @@ export default class AdvertUseCase {
 
   async createAdvert(actor, body = {}) {
     this.assertAdmin(actor);
-    if (!body.locationId || !body.siteId || !body.duration) throw new Error('validation_error');
+    const locationId = body.locationId || body.pageLocationId || body.page_location_id;
+    const adSizeId = body.adSizeId || body.ad_size_id || body.siteId;
+    const duration = body.duration || body.durationHours || body.duration_hours || body.durationDays || body.duration_days;
+    if (!locationId || !adSizeId || !duration) throw new Error('validation_error');
     const mediaPatch = await this.resolveImageAsset(body);
-    return this.repository.createAdvert({ ...body, ...mediaPatch, createdByUserId: actor.id, status: body.status || 'pending_review' });
+    return this.repository.createAdvert({ ...body, locationId, adSizeId, ...mediaPatch, createdByUserId: actor.id, status: body.status || 'pending_review' });
   }
 
   async updateAdvert(actor, id, body = {}) {
@@ -57,7 +60,12 @@ export default class AdvertUseCase {
     this.assertAdmin(actor);
     if (!ADVERT_STATUSES.includes(status)) throw new Error('validation_error');
     const advert = await this.getAdvert(id);
-    return this.repository.updateAdvert(advert.id, { status });
+    const patch = { status };
+    if (['approved', 'active'].includes(status)) {
+      patch.approvedBy = actor.name || actor.email || actor.id;
+      patch.startsAt = new Date();
+    }
+    return this.repository.updateAdvert(advert.id, patch);
   }
 
   async resolveImageAsset(body = {}) {
@@ -116,7 +124,7 @@ export default class AdvertUseCase {
 
   async createSite(actor, body = {}) {
     this.assertAdmin(actor);
-    if (!body.name) throw new Error('validation_error');
+    if (!body.name && !body.sizeLabel && !body.size_label) throw new Error('validation_error');
     return this.repository.createSite(body);
   }
 

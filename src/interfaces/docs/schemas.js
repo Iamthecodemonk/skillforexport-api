@@ -863,6 +863,8 @@ export const AdvertSiteResponse = {
   properties: {
     id: { type: 'string' },
     name: { type: 'string' },
+    sizeLabel: { type: ['string','null'] },
+    size_label: { type: ['string','null'] },
     description: { type: ['string','null'] },
     status: { type: 'string', enum: ['active','suspended','deleted'] },
     createdAt: { type: 'string' },
@@ -870,6 +872,21 @@ export const AdvertSiteResponse = {
   }
 };
 AdvertSiteResponse.example = { id: 'ad-site-uuid', name: 'Skills4Export web', description: 'Main web application', status: 'active', createdAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
+
+export const AdvertSizeResponse = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    sizeLabel: { type: 'string' },
+    size_label: { type: 'string' },
+    description: { type: ['string','null'] },
+    status: { type: 'string', enum: ['active','suspended','deleted'] },
+    createdAt: { type: 'string' },
+    updatedAt: { type: 'string' }
+  }
+};
+AdvertSizeResponse.example = { id: 'ad-size-uuid', name: '290x500', sizeLabel: '290x500', size_label: '290x500', description: 'Tall feed advert', status: 'active', createdAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
 
 export const AdvertOptionCreateBody = {
   type: 'object',
@@ -882,25 +899,54 @@ export const AdvertOptionCreateBody = {
   example: { name: 'Feed right sidebar', description: 'Homepage and feed sidebar placement', status: 'active' }
 };
 
+export const AdvertSizeCreateBody = {
+  type: 'object',
+  required: ['size_label'],
+  properties: {
+    sizeLabel: { type: 'string', example: '290x500' },
+    size_label: { type: 'string', example: '290x500' },
+    name: { type: 'string', description: 'Alias for sizeLabel/size_label.' },
+    description: { type: 'string' },
+    status: { type: 'string', enum: ['active','suspended','deleted'] }
+  },
+  example: { size_label: '290x500', description: 'Tall feed advert', status: 'active' }
+};
+
 export const AdvertResponse = {
   type: 'object',
   properties: {
     id: { type: 'string' },
     locationId: { type: 'string' },
+    pageLocationId: { type: 'string' },
+    page_location_id: { type: 'string' },
     location: { type: ['object','null'], additionalProperties: true },
     siteId: { type: 'string' },
+    adSizeId: { type: 'string' },
+    ad_size_id: { type: 'string' },
     site: { type: ['object','null'], additionalProperties: true },
+    adSize: { type: ['object','null'], additionalProperties: true },
+    ad_size: { type: ['object','null'], additionalProperties: true },
     duration: { type: ['string','number','null'] },
     durationDays: { type: ['number','null'] },
+    durationHours: { type: ['number','null'] },
+    duration_hours: { type: ['number','null'] },
     imageUrl: { type: ['string','null'] },
+    imagePath: { type: ['string','null'] },
+    image_path: { type: ['string','null'] },
     imageMediaId: { type: ['string','null'] },
     linkUrl: { type: ['string','null'] },
     ownerName: { type: ['string','null'] },
+    adOwner: { type: ['string','null'] },
+    ad_owner: { type: ['string','null'] },
     ownerPhone: { type: ['string','null'] },
+    contactPhone: { type: ['string','null'] },
+    contact_phone: { type: ['string','null'] },
     ownerEmail: { type: ['string','null'] },
     approvedBy: { type: ['string','null'] },
     textAbove: { type: ['string','null'] },
     textBelow: { type: ['string','null'] },
+    adText: { type: ['string','null'] },
+    ad_text: { type: ['string','null'] },
     status: { type: 'string', enum: ['pending_review','approved','active','expired','suspended','deleted'] },
     startsAt: { type: ['string','null'] },
     expiresAt: { type: ['string','null'] },
@@ -910,34 +956,52 @@ export const AdvertResponse = {
     updatedAt: { type: 'string' }
   }
 };
-AdvertResponse.example = { id: 'advert-uuid', locationId: 'ad-location-uuid', location: { id: 'ad-location-uuid', name: 'Feed right sidebar', status: 'active' }, siteId: 'ad-site-uuid', site: { id: 'ad-site-uuid', name: 'Skills4Export web', status: 'active' }, duration: '30 days', durationDays: 30, imageUrl: 'https://res.cloudinary.com/demo/image/upload/ad.png', imageMediaId: null, linkUrl: 'https://example.com', ownerName: 'Acme Exporters', ownerPhone: '+2348012345678', ownerEmail: 'ads@example.com', approvedBy: 'Admin User', textAbove: 'Sponsored', textBelow: 'Export smarter today', status: 'approved', startsAt: '2026-05-07T10:00:00Z', expiresAt: '2026-06-06T10:00:00Z', isExpired: false, createdByUserId: 'admin-user-uuid', createdAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
+AdvertResponse.example = { id: 'advert-uuid', locationId: 'ad-location-uuid', page_location_id: 'ad-location-uuid', location: { id: 'ad-location-uuid', name: 'Feed right sidebar', status: 'active' }, siteId: 'ad-size-uuid', ad_size_id: 'ad-size-uuid', site: { id: 'ad-size-uuid', name: '290x500', sizeLabel: '290x500', status: 'active' }, adSize: { id: 'ad-size-uuid', sizeLabel: '290x500', status: 'active' }, duration: '24 hours', durationHours: 24, duration_hours: 24, imageUrl: 'https://res.cloudinary.com/demo/image/upload/ad.png', image_path: 'https://res.cloudinary.com/demo/image/upload/ad.png', imageMediaId: null, linkUrl: 'https://example.com', ownerName: 'Acme Exporters', ad_owner: 'Acme Exporters', ownerPhone: '+2348012345678', contact_phone: '+2348012345678', ownerEmail: 'ads@example.com', approvedBy: 'Admin User', textBelow: 'Export smarter today', ad_text: 'Export smarter today', status: 'approved', startsAt: '2026-05-07T10:00:00Z', expiresAt: '2026-05-08T10:00:00Z', isExpired: false, createdByUserId: 'admin-user-uuid', createdAt: '2026-05-07T10:00:00Z', updatedAt: '2026-05-07T10:00:00Z' };
 
 export const AdvertCreateBody = {
   type: 'object',
-  required: ['locationId','siteId','duration'],
+  allOf: [
+    { anyOf: [{ required: ['locationId'] }, { required: ['pageLocationId'] }, { required: ['page_location_id'] }] },
+    { anyOf: [{ required: ['siteId'] }, { required: ['adSizeId'] }, { required: ['ad_size_id'] }] },
+    { anyOf: [{ required: ['duration'] }, { required: ['durationDays'] }, { required: ['duration_days'] }, { required: ['durationHours'] }, { required: ['duration_hours'] }] }
+  ],
   properties: {
     locationId: { type: 'string' },
+    pageLocationId: { type: 'string' },
+    page_location_id: { type: 'string' },
     siteId: { type: 'string' },
+    adSizeId: { type: 'string' },
+    ad_size_id: { type: 'string' },
     duration: { type: ['string','number'] },
     durationDays: { type: 'number' },
+    durationHours: { type: 'number' },
+    duration_hours: { type: 'number' },
     imageUrl: { type: 'string', description: 'Resolved from imageMediaId after media upload; kept for legacy records.' },
+    imagePath: { type: 'string' },
+    image_path: { type: 'string' },
     imageMediaId: { type: 'string', description: 'Completed user_assets id from the platform media upload flow.' },
     mediaAssetId: { type: 'string', description: 'Alias for imageMediaId.' },
     imageAssetId: { type: 'string', description: 'Alias for imageMediaId.' },
     mediaPath: { type: 'string', description: 'Legacy alias for imageUrl.' },
     linkUrl: { type: 'string' },
     ownerName: { type: 'string' },
+    adOwner: { type: 'string' },
+    ad_owner: { type: 'string' },
     ownerPhone: { type: 'string' },
+    contactPhone: { type: 'string' },
+    contact_phone: { type: 'string' },
     ownerContact: { type: 'string' },
     ownerEmail: { type: 'string' },
     approvedBy: { type: 'string' },
     textAbove: { type: 'string' },
     textBelow: { type: 'string' },
+    adText: { type: 'string' },
+    ad_text: { type: 'string' },
     status: { type: 'string', enum: ['pending_review','approved','active','expired','suspended','deleted'] },
     startsAt: { type: 'string' },
     expiresAt: { type: 'string' }
   },
-  example: { locationId: 'ad-location-uuid', siteId: 'ad-site-uuid', duration: '30 days', imageMediaId: 'asset-uuid', linkUrl: 'https://example.com', ownerName: 'Acme Exporters', ownerPhone: '+2348012345678', approvedBy: 'Admin User', textAbove: 'Sponsored', textBelow: 'Export smarter today', status: 'pending_review' }
+  example: { page_location_id: 'ad-location-uuid', ad_size_id: 'ad-size-uuid', duration_hours: 24, imageMediaId: 'asset-uuid', linkUrl: 'https://example.com', ad_owner: 'Acme Exporters', contact_phone: '+2348012345678', ad_text: 'Export smarter today', status: 'pending_review' }
 };
 
 function makePaginatedRootSchema(itemSchema, exampleItem) {
@@ -2040,6 +2104,7 @@ export const FreelanceApplicationPaginatedResponse = makePaginatedRootSchema(Fre
 export const AdvertPaginatedResponse = makePaginatedRootSchema(AdvertResponse, AdvertResponse.example);
 export const AdvertLocationPaginatedResponse = makePaginatedRootSchema(AdvertLocationResponse, AdvertLocationResponse.example);
 export const AdvertSitePaginatedResponse = makePaginatedRootSchema(AdvertSiteResponse, AdvertSiteResponse.example);
+export const AdvertSizePaginatedResponse = makePaginatedRootSchema(AdvertSizeResponse, AdvertSizeResponse.example);
 
 export const ReactionBody = {
   type: 'object',
@@ -2334,9 +2399,12 @@ export default {
   AdvertPaginatedResponse,
   AdvertLocationResponse,
   AdvertSiteResponse,
+  AdvertSizeResponse,
   AdvertOptionCreateBody,
+  AdvertSizeCreateBody,
   AdvertLocationPaginatedResponse,
   AdvertSitePaginatedResponse,
+  AdvertSizePaginatedResponse,
   ReactionBody,
   ReactionToggleResponse,
   PostSaveBody,

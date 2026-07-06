@@ -67,6 +67,15 @@ export function makeAdvertController({ useCase }) {
         return reply.send(buildPaginatedResponse(req, { data, page: params.page, perPage: params.perPage, total }));
       } catch (err) { return handleError(reply, err); }
     },
+    listAllAdvertLocations: async (req, reply) => {
+      try {
+        if (!actor(req) || actor(req).role !== 'admin') throw new Error(actor(req) ? 'forbidden' : 'unauthorized');
+        const params = queryParams(req);
+        const data = await useCase.listLocations(params);
+        const total = await useCase.countLocations(params);
+        return reply.send(buildPaginatedResponse(req, { data, page: params.page, perPage: params.perPage, total }));
+      } catch (err) { return handleError(reply, err); }
+    },
     createAdvertLocation: async (req, reply) => {
       try { return created(reply, await useCase.createLocation(actor(req), req.body || {})); }
       catch (err) { return handleError(reply, err); }
@@ -87,6 +96,15 @@ export function makeAdvertController({ useCase }) {
         return reply.send(buildPaginatedResponse(req, { data, page: params.page, perPage: params.perPage, total }));
       } catch (err) { return handleError(reply, err); }
     },
+    listAllAdvertSites: async (req, reply) => {
+      try {
+        if (!actor(req) || actor(req).role !== 'admin') throw new Error(actor(req) ? 'forbidden' : 'unauthorized');
+        const params = queryParams(req);
+        const data = await useCase.listSites(params);
+        const total = await useCase.countSites(params);
+        return reply.send(buildPaginatedResponse(req, { data, page: params.page, perPage: params.perPage, total }));
+      } catch (err) { return handleError(reply, err); }
+    },
     createAdvertSite: async (req, reply) => {
       try { return created(reply, await useCase.createSite(actor(req), req.body || {})); }
       catch (err) { return handleError(reply, err); }
@@ -96,6 +114,35 @@ export function makeAdvertController({ useCase }) {
       catch (err) { return handleError(reply, err); }
     },
     updateAdvertSiteStatus: async (req, reply) => {
+      try { return success(reply, await useCase.updateSiteStatus(actor(req), req.params.id, (req.body || {}).status)); }
+      catch (err) { return handleError(reply, err); }
+    },
+    listAdvertSizes: async (req, reply) => {
+      try {
+        const params = queryParams(req);
+        const data = await useCase.listSites({ ...params, status: params.status || 'active' });
+        const total = await useCase.countSites({ ...params, status: params.status || 'active' });
+        return reply.send(buildPaginatedResponse(req, { data, page: params.page, perPage: params.perPage, total }));
+      } catch (err) { return handleError(reply, err); }
+    },
+    listAllAdvertSizes: async (req, reply) => {
+      try {
+        if (!actor(req) || actor(req).role !== 'admin') throw new Error(actor(req) ? 'forbidden' : 'unauthorized');
+        const params = queryParams(req);
+        const data = await useCase.listSites(params);
+        const total = await useCase.countSites(params);
+        return reply.send(buildPaginatedResponse(req, { data, page: params.page, perPage: params.perPage, total }));
+      } catch (err) { return handleError(reply, err); }
+    },
+    createAdvertSize: async (req, reply) => {
+      try { return created(reply, await useCase.createSite(actor(req), req.body || {})); }
+      catch (err) { return handleError(reply, err); }
+    },
+    updateAdvertSize: async (req, reply) => {
+      try { return success(reply, await useCase.updateSite(actor(req), req.params.id, req.body || {})); }
+      catch (err) { return handleError(reply, err); }
+    },
+    updateAdvertSizeStatus: async (req, reply) => {
       try { return success(reply, await useCase.updateSiteStatus(actor(req), req.params.id, (req.body || {}).status)); }
       catch (err) { return handleError(reply, err); }
     }

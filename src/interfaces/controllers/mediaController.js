@@ -155,11 +155,13 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
         const kind = rawKind === 'image' ? 'post_image' : rawKind;
         const isVideo = kind === 'video' || (mp.mimetype || '').startsWith('video/');
         const isDocument = kind === 'document' || (!isVideo && !(mp.mimetype || '').startsWith('image/'));
-        const folder = isVideo
-          ? (process.env.CLOUDINARY_FOLDER_VIDEOS || process.env.CLOUDINARY_FOLDER_POSTS || 'posts')
-          : isDocument
-            ? (process.env.CLOUDINARY_FOLDER_DOCS || 'documents')
-            : (process.env.CLOUDINARY_FOLDER_POSTS || 'posts');
+        const folder = kind === 'advert_image'
+          ? (process.env.CLOUDINARY_FOLDER_ADVERTS || 'adverts')
+          : isVideo
+            ? (process.env.CLOUDINARY_FOLDER_VIDEOS || process.env.CLOUDINARY_FOLDER_POSTS || 'posts')
+            : isDocument
+              ? (process.env.CLOUDINARY_FOLDER_DOCS || 'documents')
+              : (process.env.CLOUDINARY_FOLDER_POSTS || 'posts');
         const resourceType = isVideo ? 'video' : (isDocument ? 'raw' : 'image');
 
         const result = await cloudinary.uploadFromStream(mp.file, {
@@ -488,4 +490,3 @@ export function makeMediaController({ cloudinary = null, mediaQueue = null, asse
     }
   };
 }
-

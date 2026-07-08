@@ -308,9 +308,6 @@ export default class AuthUseCase {
     if (!email || !User.isValidEmail(email)) {
       throw new Error('invalid_email_format');
     }
-    if (!isStrongPassword(password)) {
-      throw new Error('weak_password');
-    }
 
     const existing = await this.userRepository.findByEmail(email);
     if (existing && existing.password) {

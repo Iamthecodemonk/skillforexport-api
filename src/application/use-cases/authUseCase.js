@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs';
+﻿import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
@@ -62,7 +62,13 @@ export default class AuthUseCase {
   }
 
   normalizeOnboarding(onboarding = {}) {
-    return onboarding && typeof onboarding === 'object' && !Array.isArray(onboarding) ? onboarding : {};
+    if (!onboarding || typeof onboarding !== 'object' || Array.isArray(onboarding)) return {};
+    return {
+      ...onboarding,
+      jobTitle: onboarding.jobTitle || onboarding.job_title || null,
+      company: onboarding.company || onboarding.workplace || onboarding.currentWorkspace || onboarding.current_workspace || null,
+      workplace: onboarding.workplace || onboarding.company || onboarding.currentWorkspace || onboarding.current_workspace || null
+    };
   }
 
   yearToDate(year) {
@@ -81,6 +87,8 @@ export default class AuthUseCase {
     };
     if (location) patch.location = location;
     if (onboarding.jobTitle && !patch.bio) patch.bio = onboarding.jobTitle;
+    if (onboarding.jobTitle) patch.currentJobTitle = onboarding.jobTitle;
+    if (onboarding.company || onboarding.workplace) patch.currentWorkspace = onboarding.company || onboarding.workplace;
 
     const existing = await this.profileRepository.findByUserId(userId);
     if (existing) {
@@ -88,6 +96,8 @@ export default class AuthUseCase {
       if (patch.displayName) updatePatch.displayName = patch.displayName;
       if (patch.location) updatePatch.location = patch.location;
       if (patch.bio && !(existing.bio)) updatePatch.bio = patch.bio;
+      if (patch.currentJobTitle) updatePatch.currentJobTitle = patch.currentJobTitle;
+      if (patch.currentWorkspace) updatePatch.currentWorkspace = patch.currentWorkspace;
       if (Object.keys(updatePatch).length === 0) return existing;
       return this.profileRepository.update(existing.id, updatePatch);
     }
@@ -98,6 +108,8 @@ export default class AuthUseCase {
       displayName: patch.displayName,
       bio: patch.bio || null,
       location: patch.location || null,
+      currentJobTitle: patch.currentJobTitle || null,
+      currentWorkspace: patch.currentWorkspace || null,
       created_at: new Date()
     }));
   }
@@ -135,7 +147,8 @@ export default class AuthUseCase {
     if (accountType === 'student') {
       return typeof this.experienceRepository.listByUserId === 'function' ? this.experienceRepository.listByUserId(userId) : [];
     }
-    if (!onboarding.jobTitle && !onboarding.workplace) {
+    const company = onboarding.company || onboarding.workplace || null;
+    if (!onboarding.jobTitle && !company) {
       return typeof this.experienceRepository.listByUserId === 'function' ? this.experienceRepository.listByUserId(userId) : [];
     }
     const existing = typeof this.experienceRepository.listByUserId === 'function'
@@ -143,13 +156,13 @@ export default class AuthUseCase {
       : [];
     const duplicate = (existing || []).some((item) => {
       const row = this.toPlain(item) || {};
-      return row.title === onboarding.jobTitle && row.company === onboarding.workplace;
+      return row.title === onboarding.jobTitle && row.company === company;
     });
     if (!duplicate) {
       await this.experienceRepository.create(new UserExperience({
         id: uuidv4(),
         userId,
-        company: onboarding.workplace || null,
+        company,
         title: onboarding.jobTitle || null,
         employmentType: 'full-time',
         isCurrent: true
@@ -170,6 +183,8 @@ export default class AuthUseCase {
         acceptedTermsAt: acceptedTerms ? (onboarding.acceptedTermsAt || nowIso) : null,
         state: onboarding.state || null,
         country: onboarding.country || null,
+        jobTitle: onboarding.jobTitle || null,
+        company: onboarding.company || onboarding.workplace || null,
         onboardingCompleted: true,
         completedAt: nowIso
       }

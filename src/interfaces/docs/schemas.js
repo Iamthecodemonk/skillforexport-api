@@ -281,7 +281,8 @@ export const RegisterCompleteBody = {
         country: { type: 'string', example: 'Nigeria' },
         accountType: { type: 'string', enum: ['default', 'student'] },
         jobTitle: { type: 'string', example: 'Product Designer' },
-        workplace: { type: 'string', example: 'Skills4Export' },
+        company: { type: 'string', example: 'Skills4Export' },
+        workplace: { type: 'string', example: 'Skills4Export', description: 'Legacy alias for company.' },
         university: { type: 'string', example: 'University of Lagos' },
         yearStarted: { type: 'string', example: '2024' },
         courseOfStudy: { type: 'string', example: 'Computer Science' }
@@ -289,7 +290,7 @@ export const RegisterCompleteBody = {
     }
   }
 };
-RegisterCompleteBody.example = { email: 'user@example.com', name: 'Jane Doe', ref_code: 'ABC123', onboarding: { acceptedTerms: true, is16OrAbove: true, state: 'Lagos', country: 'Nigeria', accountType: 'student', university: 'University of Lagos', yearStarted: '2024', courseOfStudy: 'Computer Science' } };
+RegisterCompleteBody.example = { email: 'user@example.com', name: 'Jane Doe', ref_code: 'ABC123', onboarding: { acceptedTerms: true, is16OrAbove: true, state: 'Lagos', country: 'Nigeria', accountType: 'default', jobTitle: 'Product Designer', company: 'Skills4Export' } };
 
 export const ChangePasswordBody = {
   type: 'object',

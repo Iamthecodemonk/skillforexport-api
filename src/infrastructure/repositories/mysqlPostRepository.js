@@ -87,6 +87,8 @@ export default class MysqlPostRepository {
       name: row.user_name || null,
       email: row.user_email || null,
       avatar: row.user_avatar || null,
+      current_job_title: row.user_current_job_title || null,
+      currentJobTitle: row.user_current_job_title || null,
       skills: parseJsonArray(row.user_skills),
       is_follow: toBool(row.is_follow),
       isFollow: toBool(row.is_follow)
@@ -155,6 +157,7 @@ export default class MysqlPostRepository {
         'u.email as user_email',
         db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as user_name'),
         'up.avatar as user_avatar',
+        'up.current_job_title as user_current_job_title',
         db.raw(`IFNULL((
           SELECT JSON_ARRAYAGG(JSON_OBJECT('id', us.id, 'skill', us.skill, 'level', us.level))
           FROM user_skills us

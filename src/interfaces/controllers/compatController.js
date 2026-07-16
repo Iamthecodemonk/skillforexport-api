@@ -1091,10 +1091,10 @@ export function makeCompatController({ cloudinary = null, notificationRepository
       }
     },
     reportReasons: async (req, reply) => reply.send({ success: true, data: [
-      { id: 'spam', name: 'Spam' },
-      { id: 'abuse', name: 'Abuse or harassment' },
-      { id: 'misleading', name: 'Misleading information' },
-      { id: 'other', name: 'Other' }
+      { id: 'spam', description: 'Spam' },
+      { id: 'abuse', description: 'Abuse or harassment' },
+      { id: 'misleading', description: 'Misleading information' },
+      { id: 'other', description: 'Other' }
     ] }),
 
     emptyPaginated: async (req, reply) => {

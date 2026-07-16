@@ -57,7 +57,7 @@ const applyQuestionOrdering = (q, { sortField = null, sortDirection = null } = {
 export default class MysqlQuestionRepository {
   toQuestionWithRelations(row) {
     if (!row) return null;
-    const { user_email, user_name, user_avatar, user_skills, is_follow, is_liked, community_name, community_description, community_icon, community_is_active, community_default_post_visibility, ...question } = row;
+    const { user_email, user_name, user_avatar, user_current_job_title, user_skills, is_follow, is_liked, community_name, community_description, community_icon, community_is_active, community_default_post_visibility, ...question } = row;
     const score = parseInt(question.score || 0, 10);
     const user = typeof user_email !== 'undefined' || typeof user_name !== 'undefined'
       ? {
@@ -66,6 +66,8 @@ export default class MysqlQuestionRepository {
           email: user_email || null,
           avatar: user_avatar || null,
           avatarUrl: user_avatar || null,
+          current_job_title: user_current_job_title || null,
+          currentJobTitle: user_current_job_title || null,
           skills: parseJsonArray(user_skills),
           is_follow: toBool(is_follow),
           isFollow: toBool(is_follow)
@@ -141,6 +143,7 @@ export default class MysqlQuestionRepository {
         'u.email as user_email',
         db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as user_name'),
         'up.avatar as user_avatar',
+        'up.current_job_title as user_current_job_title',
         db.raw(`IFNULL((
           SELECT JSON_ARRAYAGG(JSON_OBJECT('id', us.id, 'skill', us.skill, 'level', us.level))
           FROM user_skills us
@@ -192,6 +195,7 @@ export default class MysqlQuestionRepository {
         'u.email as user_email',
         db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as user_name'),
         'up.avatar as user_avatar',
+        'up.current_job_title as user_current_job_title',
         db.raw(`IFNULL((
           SELECT JSON_ARRAYAGG(JSON_OBJECT('id', us.id, 'skill', us.skill, 'level', us.level))
           FROM user_skills us

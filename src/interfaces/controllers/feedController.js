@@ -67,6 +67,8 @@ const compactPost = (row) => ({
     name: row.author_name || null,
     username: row.author_username || null,
     avatar: row.author_avatar || null,
+    currentJobTitle: row.author_current_job_title || null,
+    current_job_title: row.author_current_job_title || null,
     skills: splitSkills(row.author_skills)
   },
   page: row.page_id ? {
@@ -111,6 +113,8 @@ const compactQuestion = (row) => ({
     name: row.author_name || null,
     username: row.author_username || null,
     avatar: row.author_avatar || null,
+    currentJobTitle: row.author_current_job_title || null,
+    current_job_title: row.author_current_job_title || null,
     skills: splitSkills(row.author_skills)
   },
   page: null,
@@ -163,6 +167,7 @@ async function listCompactPosts({ actorId, limit, communityId = null, publicOnly
       db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as author_name'),
       'up.username as author_username',
       'up.avatar as author_avatar',
+      'up.current_job_title as author_current_job_title',
       'c.name as community_name',
       'c.default_post_visibility as community_default_post_visibility',
       'pg.name as page_name',
@@ -220,6 +225,7 @@ export async function getCompactPostItem({ postId, actorId = null } = {}) {
       db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as author_name'),
       'up.username as author_username',
       'up.avatar as author_avatar',
+      'up.current_job_title as author_current_job_title',
       'c.name as community_name',
       'c.default_post_visibility as community_default_post_visibility',
       'pg.name as page_name',
@@ -270,6 +276,7 @@ async function listCompactQuestions({ actorId, limit, communityId = null, public
       db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as author_name'),
       'up.username as author_username',
       'up.avatar as author_avatar',
+      'up.current_job_title as author_current_job_title',
       'c.name as community_name',
       'c.default_post_visibility as community_default_post_visibility',
       db.raw(`IFNULL((

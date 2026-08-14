@@ -2,10 +2,20 @@ const DOCUMENT_KEYS = {
   'privacy-policy': 'privacyPolicy',
   'cookie-policy': 'cookiePolicy',
   'community-regulations': 'communityRegulations',
+  'community-rules': 'communityRules',
   'terms-of-service': 'termsOfService'
 };
 
-const normalizeSlug = (value) => String(value || '').trim().toLowerCase();
+const SLUG_ALIASES = {
+  terms: 'terms-of-service',
+  'terms-and-conditions': 'terms-of-service',
+  'community-rules': 'community-regulations'
+};
+
+const normalizeSlug = (value) => {
+  const slug = String(value || '').trim().toLowerCase();
+  return SLUG_ALIASES[slug] || slug;
+};
 
 export default class LegalDocumentUseCase {
   constructor({ repository }) {
@@ -17,6 +27,8 @@ export default class LegalDocumentUseCase {
     return (rows || []).reduce((acc, doc) => {
       const key = DOCUMENT_KEYS[doc.slug] || doc.slug.replace(/-([a-z])/g, (_, char) => char.toUpperCase());
       acc[key] = doc;
+      if (doc.slug === 'community-regulations') acc.communityRules = doc;
+      if (doc.slug === 'terms-of-service') acc.terms = doc;
       return acc;
     }, {});
   }

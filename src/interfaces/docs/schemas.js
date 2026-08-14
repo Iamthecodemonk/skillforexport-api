@@ -2297,7 +2297,9 @@ export const LegalDocumentsGroupedResponse = {
     privacyPolicy: LegalDocumentResponse,
     cookiePolicy: LegalDocumentResponse,
     communityRegulations: LegalDocumentResponse,
-    termsOfService: LegalDocumentResponse
+    communityRules: LegalDocumentResponse,
+    termsOfService: LegalDocumentResponse,
+    terms: LegalDocumentResponse
   }
 };
 

@@ -213,7 +213,7 @@ export function makeUserController({ useCase = null, followerRepository = null, 
             success: false,
             error: {
               code: 'validation_failed',
-              message: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character'
+              message: 'Password must be at least 8 characters and include at least one number'
             }
           });
         userLogger.error('createUser error', { message: err.message, stack: err.stack });

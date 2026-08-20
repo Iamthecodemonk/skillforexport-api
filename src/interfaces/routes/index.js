@@ -978,8 +978,8 @@ export default async function registerRoutes(fastify, deps) {
           password: {
             type: 'string',
             minLength: 8,
-            pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$',
-            description: 'At least 8 characters with uppercase, lowercase, number, and special character.'
+            pattern: '^(?=.*\\d).{8,}$',
+            description: 'Password must be at least 8 characters and include at least one number.'
           },
           role: { type: 'string', enum: ['user', 'admin'] }
         },

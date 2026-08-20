@@ -233,8 +233,8 @@ export const RegisterSetPasswordBody = {
     password: {
       type: 'string',
       minLength: 8,
-      pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$',
-      description: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.'
+      pattern: '^(?=.*\\d).{8,}$',
+      description: 'Password must be at least 8 characters and include at least one number.'
     }
   },
   example: { email: 'user@example.com', password: 'P@ssw0rd123' }
@@ -251,7 +251,7 @@ export const ResetPasswordBody = {
     otp: { type: 'string', example: '123456' },
     token: { type: 'string', example: 'f3a8...token' },
     email: { type: 'string', example: 'user@example.com' },
-    password: { type: 'string', minLength: 8, pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$', description: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.', example: 'NewP@ssw0rd123' },
+    password: { type: 'string', minLength: 8, pattern: '^(?=.*\\d).{8,}$', description: 'Password must be at least 8 characters and include at least one number.', example: 'password1' },
     password_confirmation: { type: 'string', example: 'NewP@ssw0rd123' }
   },
   example: {
@@ -269,7 +269,7 @@ export const RegisterCompleteBody = {
   properties: {
     email: { type: 'string', example: 'user@example.com' },
     name: { type: 'string', example: 'Jane Doe' },
-    password: { type: 'string', minLength: 8, pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$', description: 'Optional if password was already set during registration; otherwise password must be at least 8 characters and include uppercase, lowercase, number, and special character.', example: 'P@ssw0rd123' },
+    password: { type: 'string', minLength: 8, pattern: '^(?=.*\\d).{8,}$', description: 'Optional if password was already set during registration; otherwise password must be at least 8 characters and include at least one number.', example: 'password1' },
     ref_code: { type: 'string', example: 'ABC123' },
     onboarding: {
       type: 'object',
@@ -298,7 +298,7 @@ export const ChangePasswordBody = {
   description: 'Change the password for the authenticated user.',
   properties: {
     current_password: { type: 'string', example: 'OldP@ssw0rd' },
-    password: { type: 'string', minLength: 8, pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$', description: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.', example: 'NewP@ssw0rd123' },
+    password: { type: 'string', minLength: 8, pattern: '^(?=.*\\d).{8,}$', description: 'Password must be at least 8 characters and include at least one number.', example: 'password1' },
     password_confirmation: { type: 'string', example: 'NewP@ssw0rd123' }
   }
 };
@@ -409,8 +409,8 @@ export const RegisterBody = {
     password: {
       type: 'string',
       minLength: 8,
-      pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$',
-      description: 'At least 8 characters with uppercase, lowercase, number, and special character.'
+      pattern: '^(?=.*\\d).{8,}$',
+      description: 'Password must be at least 8 characters and include at least one number.'
     }
   }
 };

@@ -1,7 +1,7 @@
 import { sendError } from '../errorResponse.js';
 import logger from '../../utils/logger.js';
 
-const PASSWORD_POLICY_MESSAGE = 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character';
+const PASSWORD_POLICY_MESSAGE = 'Password must be at least 8 characters and include at least one number';
 
 export default function errorHandler(serverLogger) {
   return function globalErrorHandler(error, request, reply) {

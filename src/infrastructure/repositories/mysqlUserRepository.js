@@ -333,6 +333,9 @@ export default class MysqlUserRepository {
       totalFollowers: parseInt(row.total_followers || 0, 10),
       following: parseInt(row.total_following || 0, 10)
     };
+    const profileImage = row.avatar || null;
+    const currentJobTitle = row.current_job_title || null;
+    const currentWorkspace = row.current_workspace || null;
 
     return {
       id: row.id,
@@ -341,12 +344,33 @@ export default class MysqlUserRepository {
       role: row.role,
       created_at: row.created_at,
       updated_at: row.updated_at,
+      profile_image: profileImage,
+      profileImage,
+      avatar: profileImage,
+      current_job_title: currentJobTitle,
+      currentJobTitle,
+      current_workspace: currentWorkspace,
+      currentWorkspace,
+      follower_count: stats.followers,
+      followerCount: stats.followers,
+      following_count: stats.following,
+      followingCount: stats.following,
       profile: {
         username: row.username || null,
         displayName: row.display_name || null,
-        avatar: row.avatar || null,
+        avatar: profileImage,
+        profile_image: profileImage,
+        profileImage,
         bio: row.bio || null,
-        location: row.location || null
+        location: row.location || null,
+        current_job_title: currentJobTitle,
+        currentJobTitle,
+        current_workspace: currentWorkspace,
+        currentWorkspace,
+        follower_count: stats.followers,
+        followerCount: stats.followers,
+        following_count: stats.following,
+        followingCount: stats.following
       },
       skills: parseJsonArray(row.skills),
       portfolios: parseJsonArray(row.portfolios),
@@ -380,6 +404,8 @@ export default class MysqlUserRepository {
         'up.username',
         'up.display_name',
         'up.avatar',
+        'up.current_job_title',
+        'up.current_workspace',
         'up.bio',
         'up.location',
         db.raw('(SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id) as total_posts'),

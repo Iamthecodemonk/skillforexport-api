@@ -368,12 +368,18 @@ export default class JobsFreelancersUseCase {
 
   async listAllFreelanceJobs(actor, params = {}) {
     this.assertAdmin(actor);
-    return this.repository.listFreelanceJobs({ ...params, status: params.status || null, statuses: params.statuses || null });
+    const status = !params.status || params.status === 'all' || params.status === 'any'
+      ? null
+      : (params.status === 'pending' ? 'pending_review' : params.status);
+    return this.repository.listFreelanceJobs({ ...params, status, statuses: params.statuses || null });
   }
 
   async countAllFreelanceJobs(actor, params = {}) {
     this.assertAdmin(actor);
-    return this.repository.countFreelanceJobs({ ...params, status: params.status || null, statuses: params.statuses || null });
+    const status = !params.status || params.status === 'all' || params.status === 'any'
+      ? null
+      : (params.status === 'pending' ? 'pending_review' : params.status);
+    return this.repository.countFreelanceJobs({ ...params, status, statuses: params.statuses || null });
   }
 
   async getFreelanceJob(idOrSlug, userId = null) {
@@ -440,6 +446,8 @@ export default class JobsFreelancersUseCase {
 
   async applyToFreelanceJob(actor, id, body = {}) {
     if (!actor || !actor.id) throw new Error('unauthorized');
+    const freelancerProfile = await this.repository.findFreelancer(actor.id);
+    if (!freelancerProfile) throw new Error('freelancer_profile_required');
     const job = await this.getFreelanceJob(id, actor.id);
     if (!PUBLIC_JOB_STATUSES.includes(job.status)) throw new Error('freelance_job_not_found');
     const application = await this.repository.createFreelanceJobApplication({ freelanceJobId: job.id, userId: actor.id, proposal: body.proposal || null, bidAmount: body.bidAmount || null, currency: body.currency || 'NGN', attachmentMediaIds: body.attachmentMediaIds || [] });

@@ -34,6 +34,7 @@ function handleError(reply, err, notFoundCode = 'not_found') {
   if (err.message === 'unauthorized') return sendError(reply, 401, 'unauthorized', 'Unauthorized');
   if (err.message === 'forbidden') return sendError(reply, 403, 'forbidden', 'Forbidden');
   if (err.message === 'validation_error') return sendError(reply, 422, 'validation_error', 'Validation error');
+  if (err.message === 'freelancer_profile_required') return sendError(reply, 422, 'freelancer_profile_required', 'You must register as a freelancer before applying to a freelance job');
   if (err.message === 'already_applied') return sendError(reply, 409, 'already_applied', 'Already applied');
   if (err.message === 'freelancer_profile_exists') return sendError(reply, 409, 'freelancer_profile_exists', 'Freelancer profile already exists');
   if (err.message && err.message.includes('not_found')) return sendError(reply, 404, err.message || notFoundCode, 'Not found');
@@ -189,7 +190,7 @@ export function makeJobsFreelancersController({ useCase }) {
     },
     listAllFreelanceJobs: async (req, reply) => {
       try {
-        const params = queryParams(req);
+        const params = adminQueryParams(req, 100);
         const data = await useCase.listAllFreelanceJobs(actor(req), params);
         const total = await useCase.countAllFreelanceJobs(actor(req), params);
         return reply.send(buildPaginatedResponse(req, { data, page: params.page, perPage: params.perPage, total }));

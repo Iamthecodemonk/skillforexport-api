@@ -285,7 +285,13 @@ export function makeUserController({ useCase = null, followerRepository = null, 
         } catch (e) {
           userLogger.warn('Failed to invalidate profile cache', { err: e.message });
         }
-        return reply.send({ success: true, message: 'Profile updated successfully', data: (typeof updated.toPlainObject === 'function' ? updated.toPlainObject() : updated) });
+        const data = typeof updated.toPlainObject === 'function' ? updated.toPlainObject() : { ...updated };
+        const displayTitle = data.displayTitle || data.display_title || null;
+        data.displayTitle = displayTitle;
+        data.display_title = displayTitle;
+        data.currentJobTitle = data.currentJobTitle || data.current_job_title || null;
+        data.current_job_title = data.current_job_title || data.currentJobTitle || null;
+        return reply.send({ success: true, message: 'Profile updated successfully', data });
       } catch (err) {
         if (err.message === 'profile_not_found')
           return reply.code(404).send({

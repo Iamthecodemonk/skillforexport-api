@@ -13,6 +13,10 @@ const normalizePatch = (patch = {}) => {
     payload.current_job_title = payload.currentJobTitle;
     delete payload.currentJobTitle;
   }
+  if (typeof payload.displayTitle !== 'undefined') {
+    payload.display_title = payload.displayTitle;
+    delete payload.displayTitle;
+  }
   if (typeof payload.currentWorkspace !== 'undefined') {
     payload.current_workspace = payload.currentWorkspace;
     delete payload.currentWorkspace;
@@ -29,6 +33,7 @@ const normalizePatch = (patch = {}) => {
     'website',
     'linkedin',
     'github',
+    'display_title',
     'current_job_title',
     'current_workspace'
   ]);

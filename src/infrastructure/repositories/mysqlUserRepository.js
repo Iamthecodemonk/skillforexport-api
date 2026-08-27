@@ -224,6 +224,8 @@ export default class MysqlUserRepository {
           'website', up.website,
           'linkedin', up.linkedin,
           'github', up.github,
+          'displayTitle', up.display_title,
+          'display_title', up.display_title,
           'currentJobTitle', up.current_job_title,
           'current_job_title', up.current_job_title,
           'currentWorkspace', up.current_workspace,
@@ -334,6 +336,7 @@ export default class MysqlUserRepository {
       following: parseInt(row.total_following || 0, 10)
     };
     const profileImage = row.avatar || null;
+    const displayTitle = row.display_title || null;
     const currentJobTitle = row.current_job_title || null;
     const currentWorkspace = row.current_workspace || null;
 
@@ -351,6 +354,8 @@ export default class MysqlUserRepository {
       currentJobTitle,
       current_workspace: currentWorkspace,
       currentWorkspace,
+      display_title: displayTitle,
+      displayTitle,
       follower_count: stats.followers,
       followerCount: stats.followers,
       following_count: stats.following,
@@ -367,6 +372,8 @@ export default class MysqlUserRepository {
         currentJobTitle,
         current_workspace: currentWorkspace,
         currentWorkspace,
+        display_title: displayTitle,
+        displayTitle,
         follower_count: stats.followers,
         followerCount: stats.followers,
         following_count: stats.following,
@@ -404,6 +411,7 @@ export default class MysqlUserRepository {
         'up.username',
         'up.display_name',
         'up.avatar',
+        'up.display_title',
         'up.current_job_title',
         'up.current_workspace',
         'up.bio',

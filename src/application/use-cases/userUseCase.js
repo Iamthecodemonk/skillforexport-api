@@ -223,6 +223,8 @@ export default class UserUseCase {
         profile_image: profile && (profile.avatar || profile.profile_image || profile.profileImage) || null,
         location: profile && profile.location || null,
         bio: profile && profile.bio || null,
+        display_title: profile && (profile.display_title || profile.displayTitle) || null,
+        displayTitle: profile && (profile.display_title || profile.displayTitle) || null,
         current_job_title: profile && (profile.current_job_title || profile.currentJobTitle) || null,
         current_workspace: profile && (profile.current_workspace || profile.currentWorkspace) || null,
         notification_email: rawSettings && rawSettings.notification_email || null,
@@ -342,7 +344,7 @@ export default class UserUseCase {
       if (byName) throw new Error('username_taken');
     }
 
-    const profile = new UserProfile({ id: uuidv4(), user_id: userId, username: data.username, displayName: data.displayName || data.name, bio: data.bio, location: data.location, avatar: data.avatar, banner: data.banner, website: data.website, linkedin: data.linkedin, github: data.github, currentJobTitle: data.currentJobTitle || data.current_job_title, currentWorkspace: data.currentWorkspace || data.current_workspace, created_at: new Date() });
+    const profile = new UserProfile({ id: uuidv4(), user_id: userId, username: data.username, displayName: data.displayName || data.name, bio: data.bio, location: data.location, avatar: data.avatar, banner: data.banner, website: data.website, linkedin: data.linkedin, github: data.github, displayTitle: data.displayTitle || data.display_title, currentJobTitle: data.currentJobTitle || data.current_job_title, currentWorkspace: data.currentWorkspace || data.current_workspace, created_at: new Date() });
     return this.profileRepository.create(profile);
   }
 
@@ -352,9 +354,11 @@ export default class UserUseCase {
     const normalizedPatch = { ...(patch || {}) };
     if (Object.prototype.hasOwnProperty.call(normalizedPatch, 'displayName')) normalizedPatch.display_name = normalizedPatch.displayName;
     if (Object.prototype.hasOwnProperty.call(normalizedPatch, 'currentJobTitle')) normalizedPatch.current_job_title = normalizedPatch.currentJobTitle;
+    if (Object.prototype.hasOwnProperty.call(normalizedPatch, 'displayTitle')) normalizedPatch.display_title = normalizedPatch.displayTitle;
     if (Object.prototype.hasOwnProperty.call(normalizedPatch, 'currentWorkspace')) normalizedPatch.current_workspace = normalizedPatch.currentWorkspace;
     delete normalizedPatch.displayName;
     delete normalizedPatch.currentJobTitle;
+    delete normalizedPatch.displayTitle;
     delete normalizedPatch.currentWorkspace;
     return this.profileRepository.update(existing.id, normalizedPatch);
   }

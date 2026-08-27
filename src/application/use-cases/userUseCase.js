@@ -177,6 +177,13 @@ export default class UserUseCase {
             answers: parseInt(row.count_answers || 0, 10)
           }
         : await this.getUserStats(userId);
+      const scoreTotals = {
+        posts: parseInt(row.score_posts || 0, 10),
+        questions: parseInt(row.score_questions || 0, 10),
+        comments: parseInt(row.score_comments || 0, 10),
+        answers: parseInt(row.score_answers || 0, 10)
+      };
+      scoreTotals.total = scoreTotals.posts + scoreTotals.questions + scoreTotals.comments + scoreTotals.answers;
       const rawSettings = this.settingsRepository && typeof this.settingsRepository.get === 'function'
         ? await this.settingsRepository.get(userId)
         : null;
@@ -246,7 +253,15 @@ export default class UserUseCase {
         setting,
         settings: setting,
         privacy,
-        scores: { total: 0, byCommunity: [] },
+        scoreTotals,
+        scores: {
+          total: scoreTotals.total,
+          posts: scoreTotals.posts,
+          questions: scoreTotals.questions,
+          comments: scoreTotals.comments,
+          answers: scoreTotals.answers,
+          byCommunity: []
+        },
         alerts,
         created_at: createdAt,
         created_at_human: humanDate(createdAt),

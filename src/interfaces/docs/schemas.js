@@ -1464,7 +1464,21 @@ export const FullProfileResponse = {
       type: 'object',
       properties: {
         total: { type: 'number' },
+        posts: { type: 'number' },
+        questions: { type: 'number' },
+        comments: { type: 'number' },
+        answers: { type: 'number' },
         byCommunity: { type: 'array', items: { type: 'object', additionalProperties: true } }
+      }
+    },
+    scoreTotals: {
+      type: 'object',
+      properties: {
+        posts: { type: 'number' },
+        questions: { type: 'number' },
+        comments: { type: 'number' },
+        answers: { type: 'number' },
+        total: { type: 'number' }
       }
     },
     alerts: {

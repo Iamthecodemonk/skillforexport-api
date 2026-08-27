@@ -242,6 +242,10 @@ export default class MysqlUserRepository {
         (SELECT COUNT(*) FROM questions q WHERE q.user_id = u.id AND (q.moderation_status IS NULL OR q.moderation_status NOT IN ('suspended', 'deleted'))) as count_questions,
         (SELECT COUNT(*) FROM comments cm WHERE cm.user_id = u.id AND (cm.moderation_status IS NULL OR cm.moderation_status NOT IN ('suspended', 'deleted'))) as count_comments,
         (SELECT COUNT(*) FROM answers a WHERE a.user_id = u.id AND (a.moderation_status IS NULL OR a.moderation_status NOT IN ('suspended', 'deleted'))) as count_answers,
+        (SELECT COUNT(*) FROM post_reactions pr JOIN posts p ON p.id = pr.post_id WHERE p.user_id = u.id AND (p.moderation_status IS NULL OR p.moderation_status NOT IN ('suspended', 'deleted'))) as score_posts,
+        (SELECT COUNT(*) FROM question_reactions qr JOIN questions q ON q.id = qr.question_id WHERE q.user_id = u.id AND (q.moderation_status IS NULL OR q.moderation_status NOT IN ('suspended', 'deleted'))) as score_questions,
+        (SELECT COUNT(*) FROM comment_reactions cr JOIN comments cm ON cm.id = cr.comment_id WHERE cm.user_id = u.id AND (cm.moderation_status IS NULL OR cm.moderation_status NOT IN ('suspended', 'deleted'))) as score_comments,
+        (SELECT COUNT(*) FROM answer_reactions ar JOIN answers a ON a.id = ar.answer_id WHERE a.user_id = u.id AND (a.moderation_status IS NULL OR a.moderation_status NOT IN ('suspended', 'deleted'))) as score_answers,
         IFNULL((
           SELECT JSON_ARRAYAGG(JSON_OBJECT(
             'id', f.id,

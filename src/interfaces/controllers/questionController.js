@@ -59,15 +59,21 @@ export function makeQuestionController({ useCase = null, notificationRepository 
           nestedQueryValue(query, 'filters', 'community_id'),
           nestedQueryValue(query, 'filters', 'communityId')
         ) || null;
+        const communitySlug = firstDefined(
+          query.communitySlug,
+          query.community_slug,
+          nestedQueryValue(query, 'filters', 'community_slug'),
+          nestedQueryValue(query, 'filters', 'communitySlug')
+        ) || null;
         const search = firstDefined(query.q, query.search, nestedQueryValue(query, 'filters', 'search')) || null;
         const sortField = firstDefined(query.sortField, query.sort_field, nestedQueryValue(query, 'sort', 'field')) || null;
         const sortDirection = firstDefined(query.sortDirection, query.sort_direction, nestedQueryValue(query, 'sort', 'direction')) || null;
         const actorId = req.user && req.user.id;
-        const publicOnly = !communityId;
-        const rows = await useCase.listQuestions({ limit, offset, communityId, publicOnly, search, sortField, sortDirection, actorId: actorId || null });
+        const publicOnly = !(communityId || communitySlug);
+        const rows = await useCase.listQuestions({ limit, offset, communityId, communitySlug, publicOnly, search, sortField, sortDirection, actorId: actorId || null });
         const data = rows.map(r => (r && r.toPlainObject) ? r.toPlainObject() : r);
         const total = useCase.questionRepository && typeof useCase.questionRepository.countAll === 'function'
-          ? await useCase.questionRepository.countAll({ communityId, publicOnly, search })
+          ? await useCase.questionRepository.countAll({ communityId, communitySlug, publicOnly, search })
           : data.length;
         return reply.send(buildPaginatedResponse(req, { data, page, perPage, total }));
       } catch (err) {

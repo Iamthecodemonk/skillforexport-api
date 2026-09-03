@@ -116,13 +116,19 @@ export function makePostController({ useCase = null }) {
           nestedQueryValue(query, 'filters', 'community_id'),
           nestedQueryValue(query, 'filters', 'communityId')
         ) || null;
+        const communitySlug = firstDefined(
+          query.communitySlug,
+          query.community_slug,
+          nestedQueryValue(query, 'filters', 'community_slug'),
+          nestedQueryValue(query, 'filters', 'communitySlug')
+        ) || null;
         const search = firstDefined(query.q, query.search, nestedQueryValue(query, 'filters', 'search')) || null;
         const sortField = firstDefined(query.sortField, query.sort_field, nestedQueryValue(query, 'sort', 'field')) || null;
         const sortDirection = firstDefined(query.sortDirection, query.sort_direction, nestedQueryValue(query, 'sort', 'direction')) || null;
-        const publicOnly = !communityId;
-        const rows = await useCase.ListPosts({ limit, offset, lastCreatedAt, lastId, userId: actorId || null, communityId, publicOnly, search, sortField, sortDirection });
+        const publicOnly = !(communityId || communitySlug);
+        const rows = await useCase.ListPosts({ limit, offset, lastCreatedAt, lastId, userId: actorId || null, communityId, communitySlug, publicOnly, search, sortField, sortDirection });
         const total = useCase.postRepository && typeof useCase.postRepository.countAll === 'function'
-          ? await useCase.postRepository.countAll({ communityId, publicOnly, search })
+          ? await useCase.postRepository.countAll({ communityId, communitySlug, publicOnly, search })
           : rows.length;
         return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
       } catch (err) {
@@ -144,6 +150,12 @@ export function makePostController({ useCase = null }) {
           nestedQueryValue(query, 'filters', 'community_id'),
           nestedQueryValue(query, 'filters', 'communityId')
         ) || null;
+        const communitySlug = firstDefined(
+          query.communitySlug,
+          query.community_slug,
+          nestedQueryValue(query, 'filters', 'community_slug'),
+          nestedQueryValue(query, 'filters', 'communitySlug')
+        ) || null;
         const search = firstDefined(query.q, query.search, nestedQueryValue(query, 'filters', 'search')) || null;
         const sortField = firstDefined(query.sortField, query.sort_field, nestedQueryValue(query, 'sort', 'field')) || null;
         const sortDirection = firstDefined(query.sortDirection, query.sort_direction, nestedQueryValue(query, 'sort', 'direction')) || null;
@@ -153,6 +165,7 @@ export function makePostController({ useCase = null }) {
           offset,
           userId: actor.id,
           communityId,
+          communitySlug,
           publicOnly: false,
           search,
           sortField,
@@ -161,7 +174,7 @@ export function makePostController({ useCase = null }) {
           status
         });
         const total = useCase.postRepository && typeof useCase.postRepository.countAll === 'function'
-          ? await useCase.postRepository.countAll({ communityId, publicOnly: false, search, includeHidden: true, status })
+          ? await useCase.postRepository.countAll({ communityId, communitySlug, publicOnly: false, search, includeHidden: true, status })
           : rows.length;
         return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
       } catch (err) {

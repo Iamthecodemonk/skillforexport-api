@@ -149,7 +149,7 @@ const applyCompactSearch = (query, alias, term, fields) => {
   });
 };
 
-async function listCompactPosts({ actorId, limit, communityId = null, publicOnly = true, search = null } = {}) {
+async function listCompactPosts({ actorId, limit, communityId = null, communitySlug = null, publicOnly = true, search = null } = {}) {
   const q = db('posts as p')
     .leftJoin('users as u', 'u.id', 'p.user_id')
     .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
@@ -189,6 +189,7 @@ async function listCompactPosts({ actorId, limit, communityId = null, publicOnly
     .limit(limit);
 
   if (communityId) q.where('p.community_id', communityId);
+  else if (communitySlug) q.where('c.slug', communitySlug);
   else if (publicOnly) q.where('p.visibility', 'public');
   applyCompactSearch(q, 'p', search, ['title', 'content']);
   q.orderBy('p.created_at', 'desc');
@@ -260,7 +261,7 @@ export async function getCompactPostItem({ postId, actorId = null } = {}) {
   return row ? compactPost(row) : null;
 }
 
-async function listCompactQuestions({ actorId, limit, communityId = null, publicOnly = true, search = null } = {}) {
+async function listCompactQuestions({ actorId, limit, communityId = null, communitySlug = null, publicOnly = true, search = null } = {}) {
   const q = db('questions as q')
     .leftJoin('users as u', 'u.id', 'q.user_id')
     .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
@@ -291,6 +292,7 @@ async function listCompactQuestions({ actorId, limit, communityId = null, public
     .limit(limit);
 
   if (communityId) q.where('q.community_id', communityId);
+  else if (communitySlug) q.where('c.slug', communitySlug);
   else if (publicOnly) q.whereIn('q.visibility', ['public', 'community_public']);
   applyCompactSearch(q, 'q', search, ['title', 'body']);
   q.orderBy('q.created_at', 'desc');
@@ -308,18 +310,26 @@ async function listCompactQuestions({ actorId, limit, communityId = null, public
   return q;
 }
 
-async function countCompactPosts({ communityId = null, publicOnly = true, search = null } = {}) {
-  const q = db('posts as p').count({ cnt: 'p.id' }).whereNotIn('p.moderation_status', ['suspended', 'deleted']);
+async function countCompactPosts({ communityId = null, communitySlug = null, publicOnly = true, search = null } = {}) {
+  const q = db('posts as p')
+    .leftJoin('communities as c', 'c.id', 'p.community_id')
+    .count({ cnt: 'p.id' })
+    .whereNotIn('p.moderation_status', ['suspended', 'deleted']);
   if (communityId) q.where('p.community_id', communityId);
+  else if (communitySlug) q.where('c.slug', communitySlug);
   else if (publicOnly) q.where('p.visibility', 'public');
   applyCompactSearch(q, 'p', search, ['title', 'content']);
   const row = await q.first();
   return Number((row && (row.cnt || Object.values(row)[0])) || 0);
 }
 
-async function countCompactQuestions({ communityId = null, publicOnly = true, search = null } = {}) {
-  const q = db('questions as q').count({ cnt: 'q.id' }).whereNotIn('q.moderation_status', ['suspended', 'deleted']);
+async function countCompactQuestions({ communityId = null, communitySlug = null, publicOnly = true, search = null } = {}) {
+  const q = db('questions as q')
+    .leftJoin('communities as c', 'c.id', 'q.community_id')
+    .count({ cnt: 'q.id' })
+    .whereNotIn('q.moderation_status', ['suspended', 'deleted']);
   if (communityId) q.where('q.community_id', communityId);
+  else if (communitySlug) q.where('c.slug', communitySlug);
   else if (publicOnly) q.whereIn('q.visibility', ['public', 'community_public']);
   applyCompactSearch(q, 'q', search, ['title', 'body']);
   const row = await q.first();
@@ -350,11 +360,18 @@ export function makeFeedController({ postUseCase = null, questionUseCase = null 
           nestedQueryValue(query, 'filters', 'community_id'),
           nestedQueryValue(query, 'filters', 'communityId')
         ) || null;
+        const communitySlug = firstDefined(
+          query.communitySlug,
+          query.community_slug,
+          nestedQueryValue(query, 'filters', 'community_slug'),
+          nestedQueryValue(query, 'filters', 'communitySlug')
+        ) || null;
         const search = firstDefined(query.q, query.search, nestedQueryValue(query, 'filters', 'search')) || null;
-        const publicOnly = !communityId;
+        const publicOnly = !(communityId || communitySlug);
         const fetchLimit = Math.min(Math.max(limit + offset, limit * 3), 100);
         const redis = req.server && (req.server.redisManager || req.server.redisClient);
-        const cacheKey = `feed:compact:${actorId || 'guest'}:${mode}:${communityId || 'public'}:${search || ''}:${page}:${perPage}`;
+        const communityScope = communityId || communitySlug || 'public';
+        const cacheKey = `feed:compact:${actorId || 'guest'}:${mode}:${communityScope}:${search || ''}:${page}:${perPage}`;
 
         if (redis && typeof redis.getJson === 'function') {
           const cached = await redis.getJson(cacheKey);
@@ -367,10 +384,10 @@ export function makeFeedController({ postUseCase = null, questionUseCase = null 
         }
 
         const [postRows, questionRows, postTotal, questionTotal] = await Promise.all([
-          listCompactPosts({ actorId, limit: fetchLimit, communityId, publicOnly, search }),
-          listCompactQuestions({ actorId, limit: fetchLimit, communityId, publicOnly, search }),
-          countCompactPosts({ communityId, publicOnly, search }),
-          countCompactQuestions({ communityId, publicOnly, search })
+          listCompactPosts({ actorId, limit: fetchLimit, communityId, communitySlug, publicOnly, search }),
+          listCompactQuestions({ actorId, limit: fetchLimit, communityId, communitySlug, publicOnly, search }),
+          countCompactPosts({ communityId, communitySlug, publicOnly, search }),
+          countCompactQuestions({ communityId, communitySlug, publicOnly, search })
         ]);
 
         const data = [
@@ -415,20 +432,26 @@ export function makeFeedController({ postUseCase = null, questionUseCase = null 
           nestedQueryValue(query, 'filters', 'community_id'),
           nestedQueryValue(query, 'filters', 'communityId')
         ) || null;
+        const communitySlug = firstDefined(
+          query.communitySlug,
+          query.community_slug,
+          nestedQueryValue(query, 'filters', 'community_slug'),
+          nestedQueryValue(query, 'filters', 'communitySlug')
+        ) || null;
         const search = firstDefined(query.q, query.search, nestedQueryValue(query, 'filters', 'search')) || null;
         const sortField = firstDefined(query.sortField, query.sort_field, nestedQueryValue(query, 'sort', 'field')) || 'created_at';
         const sortDirection = String(firstDefined(query.sortDirection, query.sort_direction, nestedQueryValue(query, 'sort', 'direction')) || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
-        const publicOnly = !communityId;
+        const publicOnly = !(communityId || communitySlug);
         const fetchLimit = limit + offset;
 
         const [posts, questions, postTotal, questionTotal] = await Promise.all([
-          postUseCase.ListPosts({ limit: fetchLimit, offset: 0, userId: actorId || null, communityId, publicOnly, search, sortField, sortDirection }),
-          questionUseCase.listQuestions({ limit: fetchLimit, offset: 0, communityId, publicOnly, search, sortField, sortDirection, actorId: actorId || null }),
+          postUseCase.ListPosts({ limit: fetchLimit, offset: 0, userId: actorId || null, communityId, communitySlug, publicOnly, search, sortField, sortDirection }),
+          questionUseCase.listQuestions({ limit: fetchLimit, offset: 0, communityId, communitySlug, publicOnly, search, sortField, sortDirection, actorId: actorId || null }),
           postUseCase.postRepository && typeof postUseCase.postRepository.countAll === 'function'
-            ? postUseCase.postRepository.countAll({ communityId, publicOnly, search })
+            ? postUseCase.postRepository.countAll({ communityId, communitySlug, publicOnly, search })
             : Promise.resolve(0),
           questionUseCase.questionRepository && typeof questionUseCase.questionRepository.countAll === 'function'
-            ? questionUseCase.questionRepository.countAll({ communityId, publicOnly, search })
+            ? questionUseCase.questionRepository.countAll({ communityId, communitySlug, publicOnly, search })
             : Promise.resolve(0)
         ]);
 

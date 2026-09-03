@@ -14,9 +14,11 @@ const parseJsonArray = (value) => {
 
 const toBool = (value) => value === true || value === 1 || value === '1';
 
-const applyPostFilters = (q, { communityId = null, publicOnly = false, search = null, status = null } = {}) => {
+const applyPostFilters = (q, { communityId = null, communitySlug = null, publicOnly = false, search = null, status = null } = {}) => {
   if (communityId) {
     q.where('p.community_id', communityId);
+  } else if (communitySlug) {
+    q.where('c.slug', communitySlug);
   } else if (publicOnly) {
     q.where('p.visibility', 'public');
   }
@@ -208,9 +210,9 @@ export default class MysqlPostRepository {
     return this.mapPost(row);
   }
 
-  async list({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, communityId = null, publicOnly = false, search = null, sortField = null, sortDirection = null, includeHidden = false, status = null } = {}) {
+  async list({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, communityId = null, communitySlug = null, publicOnly = false, search = null, sortField = null, sortDirection = null, includeHidden = false, status = null } = {}) {
     const q = this.basePostQuery(userId).limit(limit);
-    applyPostFilters(q, { communityId, publicOnly, search, status });
+    applyPostFilters(q, { communityId, communitySlug, publicOnly, search, status });
     applyPostModerationFilter(q, includeHidden);
     applyPostOrdering(q, { sortField, sortDirection });
     if (lastCreatedAt) {
@@ -259,13 +261,13 @@ export default class MysqlPostRepository {
     return (rows || []).map(row => this.mapPost(row));
   }
 
-  async countAll({ communityId = null, publicOnly = false, search = null, includeHidden = false, status = null } = {}) {
+  async countAll({ communityId = null, communitySlug = null, publicOnly = false, search = null, includeHidden = false, status = null } = {}) {
     const q = db('posts as p')
       .leftJoin('users as u', 'u.id', 'p.user_id')
       .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
       .leftJoin('communities as c', 'c.id', 'p.community_id')
       .count({ cnt: 'p.id' });
-    applyPostFilters(q, { communityId, publicOnly, search, status });
+    applyPostFilters(q, { communityId, communitySlug, publicOnly, search, status });
     applyPostModerationFilter(q, includeHidden);
     const row = await q.first();
     const cnt = row && (row.cnt || row['cnt'] || Object.values(row)[0]);

@@ -170,8 +170,8 @@ export default class PostUseCase {
     return row;
   }
 
-  async ListPosts({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, communityId = null, publicOnly = false, search = null, sortField = null, sortDirection = null, includeHidden = false, status = null } = {}) {
-    return this.postRepository.list({ limit, offset, lastCreatedAt, lastId, userId, communityId, publicOnly, search, sortField, sortDirection, includeHidden, status });
+  async ListPosts({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, communityId = null, communitySlug = null, publicOnly = false, search = null, sortField = null, sortDirection = null, includeHidden = false, status = null } = {}) {
+    return this.postRepository.list({ limit, offset, lastCreatedAt, lastId, userId, communityId, communitySlug, publicOnly, search, sortField, sortDirection, includeHidden, status });
   }
 
   async SharePost({ postId, userId, communityId, comment = null, actorRole = null }) {

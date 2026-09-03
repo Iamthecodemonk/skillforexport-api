@@ -313,8 +313,11 @@ export default async function registerRoutes(fastify, deps) {
       search: { type: 'string' },
       communityId: { type: 'string' },
       community_id: { type: 'string' },
+      communitySlug: { type: 'string', description: 'Stable community/channel/topic slug filter, e.g. `headlines` or `jokes`.' },
+      community_slug: { type: 'string', description: 'Snake-case alias for communitySlug.' },
       'filters[search]': { type: 'string', description: 'Contract-compatible search filter.' },
       'filters[community_id]': { type: 'string', description: 'Contract-compatible community filter.' },
+      'filters[community_slug]': { type: 'string', description: 'Contract-compatible community slug filter.' },
       sortField: { type: 'string', enum: ['created_at', 'updated_at', 'title', 'score', 'comment_count'] },
       sortDirection: { type: 'string', enum: ['asc', 'desc'] },
       'sort[field]': { type: 'string', enum: ['created_at', 'updated_at', 'title', 'score', 'comment_count'], description: 'Contract-compatible sort field.' },
@@ -558,7 +561,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: { 
       operationId: 'listFeeds', 
       tags: ['Feeds'], 
-      description: 'Unified feed endpoint. Without a community filter, returns public posts plus public questions. With `communityId`, `community_id`, or `filters[community_id]`, returns that community feed with posts and questions from that community. Each item includes `type` (`POST` or `QUESTION`). Supports contract query keys `filters[search]`, `sort[field]`, and `sort[direction]`.', 
+      description: 'Unified feed endpoint. Without a community filter, returns public posts plus public questions. With `communityId`, `community_id`, `communitySlug`, `community_slug`, `filters[community_id]`, or `filters[community_slug]`, returns that community feed with posts and questions from that community/channel/topic. Each item includes `type` (`POST` or `QUESTION`). Supports contract query keys `filters[search]`, `sort[field]`, and `sort[direction]`.', 
       querystring: feedQuery, 
       response: { 
         200: genericPaginatedResponse 
@@ -2170,7 +2173,7 @@ export default async function registerRoutes(fastify, deps) {
     });
     return handler('createPost')(req, reply);
   });
-  fastify.get('/post', { schema: { operationId: 'legacyListPosts', tags: ['Posts'], description: 'Legacy alias for GET /posts. Supports contract query keys `filters[search]`, `filters[community_id]`, `sort[field]`, and `sort[direction]`.', querystring: feedQuery, response: { 200: schemas.PostPaginatedResponse } } }, handler('listPosts'));
+  fastify.get('/post', { schema: { operationId: 'legacyListPosts', tags: ['Posts'], description: 'Legacy alias for GET /posts. Supports contract query keys `filters[search]`, `filters[community_id]`, `filters[community_slug]`, `sort[field]`, and `sort[direction]`.', querystring: feedQuery, response: { 200: schemas.PostPaginatedResponse } } }, handler('listPosts'));
   fastify.get('/post/:id', { schema: { operationId: 'legacyGetPost', tags: ['Posts'], description: 'Legacy alias for GET /posts/:id', params: idParam(), response: { 200: dataResponse(schemas.PostResponse), 404: schemas.GenericErrorResponse } } }, handler('getPost'));
   fastify.put('/post/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyUpdatePost', tags: ['Posts'], description: 'Legacy alias for PUT /posts/:id', params: idParam(), body: { type: 'object', properties: { userId: { type: 'string' }, title: { type: 'string' }, content: { type: 'string' } }, additionalProperties: true }, response: { 200: dataResponse(schemas.PostResponse), 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } } }, handler('updatePost'));
   fastify.delete('/post/:id', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyDeletePost', tags: ['Posts'], description: 'Legacy alias for DELETE /posts/:id', params: idParam(), body: { type: 'object', properties: { userId: { type: 'string' } } }, response: { 200: schemas.EmptyArraySuccessResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } } }, handler('deletePost'));
@@ -2227,7 +2230,7 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listPosts',
       tags: ['Posts'],
-      description: 'List posts for the home feed by default. Without a community filter, returns visibility=public only. Pass `communityId`, `community_id`, or `filters[community_id]` to list a community feed. Supports contract query keys `filters[search]`, `sort[field]`, and `sort[direction]`.',
+      description: 'List posts for the home feed by default. Without a community filter, returns visibility=public only. Pass `communityId`, `community_id`, `communitySlug`, `community_slug`, `filters[community_id]`, or `filters[community_slug]` to list a community/channel/topic feed. Supports contract query keys `filters[search]`, `sort[field]`, and `sort[direction]`.',
       querystring: feedQuery,
       response: { 200: schemas.PostPaginatedResponse }
     }
@@ -2247,6 +2250,8 @@ export default async function registerRoutes(fastify, deps) {
           search: { type: 'string' },
           communityId: { type: 'string' },
           community_id: { type: 'string' },
+          communitySlug: { type: 'string' },
+          community_slug: { type: 'string' },
           status: { type: 'string', description: 'Comma-separated moderation statuses, for example `approved,suspended,deleted`.' },
           moderation_status: { type: 'string', description: 'Alias of status.' },
           sortField: { type: 'string' },
@@ -2498,7 +2503,7 @@ export default async function registerRoutes(fastify, deps) {
     });
     return handler('createQuestion')(req, reply);
   });
-  fastify.get('/question', { schema: { operationId: 'legacyListQuestions', tags: ['Questions'], description: 'Legacy alias for GET /questions', querystring: { type: 'object', properties: { ...listQueryBase, communityId: { type: 'string' } } }, response: { 200: schemas.QuestionPaginatedResponse } } }, handler('listQuestions'));
+  fastify.get('/question', { schema: { operationId: 'legacyListQuestions', tags: ['Questions'], description: 'Legacy alias for GET /questions. Supports communityId/communitySlug and contract filter aliases.', querystring: feedQuery, response: { 200: schemas.QuestionPaginatedResponse } } }, handler('listQuestions'));
   fastify.get('/question/:id', { schema: { operationId: 'legacyGetQuestion', tags: ['Questions'], description: 'Legacy alias for GET /questions/:id', params: idParam(), querystring: { type: 'object', properties: { includeAnswers: { type: 'boolean' } } }, response: { 200: dataResponse(schemas.QuestionResponse), 404: schemas.GenericErrorResponse } } }, handler('getQuestion'));
   fastify.post('/question/:questionId/answer', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyCreateAnswer', tags: ['Questions', 'Answers'], description: 'Legacy alias for POST /questions/:questionId/answers', params: idParam('questionId'), body: schemas.AnswerCreateBody, response: { 201: dataResponse(schemas.AnswerResponse), 422: schemas.GenericErrorResponse } } }, handler('createAnswer'));
   fastify.get('/question/:questionId/answer', { schema: { operationId: 'legacyListAnswers', tags: ['Questions', 'Answers'], description: 'Legacy alias for GET /questions/:questionId/answers', params: idParam('questionId'), querystring: { type: 'object', properties: listQueryBase }, response: { 200: schemas.AnswerPaginatedResponse } } }, handler('listAnswers'));
@@ -2533,8 +2538,8 @@ export default async function registerRoutes(fastify, deps) {
     schema: {
       operationId: 'listQuestions',
       tags: ['Questions'],
-      description: 'List questions. Returns a paginator payload at the root and includes community details when a question belongs to a community.',
-      parameters: [{ name: 'page', in: 'query', schema: { type: 'number' } }, { name: 'per_page', in: 'query', schema: { type: 'number' } }, { name: 'perPage', in: 'query', schema: { type: 'number' } }, { name: 'communityId', in: 'query', schema: { type: 'string' } }],
+      description: 'List questions. Returns a paginator payload at the root and includes community details when a question belongs to a community. Supports communityId/communitySlug and contract filter aliases.',
+      querystring: feedQuery,
       response: { 200: schemas.QuestionPaginatedResponse }
     }
   }, handler('listQuestions'));

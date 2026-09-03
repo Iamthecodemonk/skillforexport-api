@@ -7,11 +7,18 @@ export default function makePopulateUser({ userRepository, jwtSecret }) {
   return async function populateUser(req, reply) {
     try {
       const authHeader = req.headers && (req.headers.authorization || req.headers.Authorization);
-      if (!authHeader) return;
-      const parts = String(authHeader).split(' ');
-      if (parts.length !== 2 || parts[0] !== 'Bearer') 
-        return;
-      const token = parts[1];
+      const headerToken = (() => {
+        if (!authHeader) return null;
+        const value = String(authHeader).trim();
+        const parts = value.split(/\s+/);
+        if (parts.length === 2 && ['bearer', 'token'].includes(String(parts[0]).toLowerCase())) return parts[1];
+        if (parts.length === 1 && value.split('.').length === 3) return value;
+        return null;
+      })();
+      const token = headerToken
+        || (req.headers && (req.headers['x-access-token'] || req.headers['x-api-token']))
+        || (req.query && (req.query.api_token || req.query.access_token || req.query.token));
+      if (!token) return;
       let payload = null;
       try {
         payload = jwt.verify(token, jwtSecret);

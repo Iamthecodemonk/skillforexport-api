@@ -14,13 +14,15 @@ const parseJsonArray = (value) => {
 
 const toBool = (value) => value === true || value === 1 || value === '1';
 
-const applyQuestionFilters = (q, { communityId = null, publicOnly = false, search = null, userId = null } = {}) => {
+const applyQuestionFilters = (q, { communityId = null, communitySlug = null, publicOnly = false, search = null, userId = null } = {}) => {
   if (userId) {
     q.where('q.user_id', userId);
   }
 
   if (communityId) {
     q.where('q.community_id', communityId);
+  } else if (communitySlug) {
+    q.where('c.slug', communitySlug);
   } else if (publicOnly) {
     q.whereIn('q.visibility', ['public', 'community_public']);
   }

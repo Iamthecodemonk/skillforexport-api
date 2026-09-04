@@ -2194,18 +2194,26 @@ export const PostSaveBody = {
 
 export const PostReportBody = {
   type: 'object',
-  properties: { userId: { type: 'string' }, reason: { type: 'string' }, details: { type: 'string' } },
+  properties: {
+    userId: { type: 'string', description: 'Ignored when bearer token is present.' },
+    reason: { type: 'string', description: 'Report reason id or short reason.' },
+    details: { type: 'string', description: 'Extra report details.' },
+    report_reason_id: { type: 'string', description: 'Legacy/mobile alias for reason.' },
+    reportReasonId: { type: 'string', description: 'Camel-case alias for report_reason_id.' },
+    additional_notes: { type: 'string', description: 'Legacy/mobile alias for details.' },
+    additionalNotes: { type: 'string', description: 'Camel-case alias for additional_notes.' }
+  },
   example: { reason: 'spam', details: 'This post contains unsolicited ads' }
 };
 
 export const PostReportResponse = {
   type: 'object',
-  properties: { id: { type: 'string' }, post_id: { type: 'string' }, user_id: { type: 'string' }, reason: { type: 'string' }, details: { type: 'string' }, created_at: { type: 'string' } }
+  properties: { id: { type: 'string' }, post_id: { type: 'string' }, postId: { type: 'string' }, target_id: { type: 'string' }, targetId: { type: 'string' }, target_type: { type: 'string' }, targetType: { type: 'string' }, user_id: { type: 'string' }, reason: { type: 'string' }, details: { type: 'string' }, created_at: { type: 'string' } }
 };
 
 export const CommentReportResponse = {
   type: 'object',
-  properties: { id: { type: 'string' }, comment_id: { type: 'string' }, user_id: { type: 'string' }, reason: { type: 'string' }, details: { type: 'string' }, created_at: { type: 'string' } }
+  properties: { id: { type: 'string' }, comment_id: { type: 'string' }, commentId: { type: 'string' }, target_id: { type: 'string' }, targetId: { type: 'string' }, target_type: { type: 'string' }, targetType: { type: 'string' }, user_id: { type: 'string' }, reason: { type: 'string' }, details: { type: 'string' }, created_at: { type: 'string' } }
 };
 
 export const PostShareBody = {

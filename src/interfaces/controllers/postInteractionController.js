@@ -27,7 +27,8 @@ export function makePostInteractionController({ useCase = null, notificationRepo
         const { id: postId } = req.params;
         const body = req.body || {};
         const actorId = req.user && req.user.id;
-        const { reason, details } = body;
+        const reason = body.reason || body.report_reason_id || body.reportReasonId || null;
+        const details = body.details || body.additional_notes || body.additionalNotes || null;
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const rep = await useCase.reportPost({ postId, userId: actorId, reason, details });
         if (notificationRepository && postRepository) {
@@ -49,6 +50,7 @@ export function makePostInteractionController({ useCase = null, notificationRepo
         return reply.code(201).send({ success: true, message: 'Post reported successfully', data: rep });
       } catch (err) {
         piLogger.error('reportPost error', { message: err.message });
+        if (err.message === 'post_not_found') return reply.code(404).send({ success: false, error: { code: 'post_not_found', message: 'Post not found' } });
         if (err.message === 'post_required' || err.message === 'user_required') return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
       }
@@ -59,7 +61,8 @@ export function makePostInteractionController({ useCase = null, notificationRepo
         const { id: commentId } = req.params;
         const body = req.body || {};
         const actorId = req.user && req.user.id;
-        const { reason, details } = body;
+        const reason = body.reason || body.report_reason_id || body.reportReasonId || null;
+        const details = body.details || body.additional_notes || body.additionalNotes || null;
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const rep = await useCase.reportComment({ commentId, userId: actorId, reason, details });
         if (notificationRepository && commentRepository) {

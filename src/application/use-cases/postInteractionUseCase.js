@@ -25,9 +25,11 @@ export default class PostInteractionUseCase {
   async reportPost({ postId, userId, reason = null, details = null }) {
     if (!postId) throw new Error('post_required');
     if (!userId) throw new Error('user_required');
+    const post = await db('posts').where({ id: postId }).first();
+    if (!post) throw new Error('post_not_found');
     const payload = { id: uuidv4(), user_id: userId, target_id: postId, target_type: 'post', reason, details, created_at: new Date() };
     await db('generic_reports').insert(payload);
-    return payload;
+    return { ...payload, post_id: postId, postId, targetId: postId, targetType: 'post' };
   }
 
   async reportComment({ commentId, userId, reason = null, details = null }) {
@@ -35,6 +37,6 @@ export default class PostInteractionUseCase {
     if (!userId) throw new Error('user_required');
     const payload = { id: uuidv4(), user_id: userId, target_id: commentId, target_type: 'comment', reason, details, created_at: new Date() };
     await db('generic_reports').insert(payload);
-    return payload;
+    return { ...payload, comment_id: commentId, commentId, targetId: commentId, targetType: 'comment' };
   }
 }

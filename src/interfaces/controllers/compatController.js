@@ -308,6 +308,13 @@ async function reportCountRows(targetType) {
   const rows = [];
   const generic = await applyGenericReportTypeWhere(db('generic_reports'), targetType).select('target_id').count({ reports_count: 'id' }).groupBy('target_id');
   rows.push(...generic);
+  if (targetType === 'post') {
+    const legacyPosts = await db('post_reports').select('post_id as target_id').count({ reports_count: 'id' }).groupBy('post_id');
+    rows.push(...legacyPosts);
+  } else if (targetType === 'comment') {
+    const legacyComments = await db('comment_reports').select('comment_id as target_id').count({ reports_count: 'id' }).groupBy('comment_id');
+    rows.push(...legacyComments);
+  }
 
   const totals = new Map();
   for (const row of rows) {
@@ -327,12 +334,37 @@ async function reportDetails(targetType, targetId) {
     .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
     .select('r.*', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
   const rows = await applyGenericReportTargetWhere(query, targetId, targetType);
-  return rows.map(mapReportRow);
+  const details = rows.map(mapReportRow);
+  if (targetType === 'post') {
+    const legacyRows = await db('post_reports as r')
+      .leftJoin('users as u', 'u.id', 'r.user_id')
+      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+      .whereRaw(
+        'CAST(r.post_id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci',
+        [targetId]
+      )
+      .select('r.id', 'r.user_id', 'r.post_id as target_id', db.raw('? as target_type', ['post']), 'r.reason', 'r.details', 'r.created_at', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
+    details.push(...legacyRows.map(mapReportRow));
+  } else if (targetType === 'comment') {
+    const legacyRows = await db('comment_reports as r')
+      .leftJoin('users as u', 'u.id', 'r.user_id')
+      .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
+      .whereRaw(
+        'CAST(r.comment_id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci',
+        [targetId]
+      )
+      .select('r.id', 'r.user_id', 'r.comment_id as target_id', db.raw('? as target_type', ['comment']), 'r.reason', 'r.details', 'r.created_at', 'u.email as reporter_email', db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as reporter_name'), 'up.avatar as reporter_avatar');
+    details.push(...legacyRows.map(mapReportRow));
+  }
+  return details.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 }
 
 async function findReportForTarget(targetType, targetId) {
   return applyGenericReportTypeWhere(db('generic_reports'), targetType)
-    .where('target_id', targetId)
+    .whereRaw(
+      'CAST(target_id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci',
+      [targetId]
+    )
     .first();
 }
 
@@ -383,6 +415,10 @@ async function notifyFlaggedOwner({ notificationRepository, targetType, targetId
 function mapReportRow(row) {
   return {
     id: row.id,
+    targetType: row.target_type || null,
+    target_type: row.target_type || null,
+    targetId: row.target_id || null,
+    target_id: row.target_id || null,
     reason: row.reason || null,
     details: row.details || null,
     created_at: row.created_at,

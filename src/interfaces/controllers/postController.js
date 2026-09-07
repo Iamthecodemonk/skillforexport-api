@@ -11,6 +11,23 @@ const nestedQueryValue = (query, group, key) => {
   return query[`${group}[${key}]`];
 };
 
+const invalidateCompactFeedCache = async (req) => {
+  try {
+    const redis = req.server && (req.server.redisManager || req.server.redisClient);
+    if (!redis || typeof redis.keys !== 'function') return;
+    const keys = await redis.keys('feed:compact:*');
+    if (!keys || keys.length === 0) return;
+    if (redis.client && typeof redis.client === 'function') {
+      const client = redis.client();
+      if (client && typeof client.del === 'function') await client.del(...keys);
+      return;
+    }
+    if (typeof redis.del === 'function') await redis.del(...keys);
+  } catch (err) {
+    postLogger.warn('compact feed cache invalidation failed', { message: err && err.message });
+  }
+};
+
 export function makePostController({ useCase = null }) {
   if (!useCase) {
     postLogger.error('makePostController requires a useCase');
@@ -45,6 +62,7 @@ export function makePostController({ useCase = null }) {
         } catch (cacheErr) {
           postLogger.warn('feed cache invalidation failed', { message: cacheErr && cacheErr.message });
         }
+        await invalidateCompactFeedCache(req);
 
         return reply.code(201).send({ success: true, message: 'Post created successfully', data: created });
       } catch (err) {
@@ -192,6 +210,7 @@ export function makePostController({ useCase = null }) {
         const { comment } = body;
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const shared = await useCase.SharePost({ postId, userId: actorId, communityId, comment, actorRole: req.user && req.user.role });
+        await invalidateCompactFeedCache(req);
         return reply.code(201).send({ success: true, data: shared });
       } catch (err) {
         const expectedErrors = new Set(['post_required', 'user_required', 'post_not_found', 'community_not_found', 'community_inactive', 'not_a_member', 'admin_only_community', 'admin_only_community_share_disabled']);

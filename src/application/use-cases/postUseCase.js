@@ -177,7 +177,6 @@ export default class PostUseCase {
   async SharePost({ postId, userId, communityId, comment = null, actorRole = null }) {
     if (!postId) throw new Error('post_required');
     if (!userId) throw new Error('user_required');
-    if (!communityId) throw new Error('community_required');
 
     const original = await this.postRepository.findById(postId, { userId });
     if (!original) throw new Error('post_not_found');
@@ -194,7 +193,8 @@ export default class PostUseCase {
       communityId,
       title: original.title ? `Shared: ${original.title}` : 'Shared post',
       content: trimmedComment || original.content || 'Shared a post',
-      visibility: 'community',
+      // An omitted/null community is an "Everyone" repost.
+      visibility: communityId ? 'community' : 'public',
       parentPostId: original.id,
       actorRole,
       skipFollowerNotification: true
@@ -218,7 +218,7 @@ export default class PostUseCase {
       ...shared,
       originalPostId: original.id,
       comment: trimmedComment,
-      communityId: shared.community_id || communityId,
+      communityId: shared.community_id || null,
       createdAt: shared.created_at
     };
   }

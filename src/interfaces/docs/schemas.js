@@ -2219,11 +2219,11 @@ export const CommentReportResponse = {
 export const PostShareBody = {
   type: 'object',
   properties: {
-    communityId: { type: 'string' },
-    community_id: { type: 'string' },
+    communityId: { type: ['string', 'null'], description: 'Destination community. Send null or omit to share with Everyone.' },
+    community_id: { type: ['string', 'null'], description: 'Alias for communityId.' },
     comment: { type: 'string' }
   },
-  example: { communityId: 'community-uuid', comment: 'My thoughts on this post' }
+  example: { communityId: null, comment: 'My thoughts on this post' }
 };
 
 export const PostShareResponse = {

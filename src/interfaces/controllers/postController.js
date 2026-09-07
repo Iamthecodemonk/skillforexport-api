@@ -194,7 +194,7 @@ export function makePostController({ useCase = null }) {
         const shared = await useCase.SharePost({ postId, userId: actorId, communityId, comment, actorRole: req.user && req.user.role });
         return reply.code(201).send({ success: true, data: shared });
       } catch (err) {
-        const expectedErrors = new Set(['post_required', 'user_required', 'community_required', 'post_not_found', 'community_not_found', 'community_inactive', 'not_a_member', 'admin_only_community', 'admin_only_community_share_disabled']);
+        const expectedErrors = new Set(['post_required', 'user_required', 'post_not_found', 'community_not_found', 'community_inactive', 'not_a_member', 'admin_only_community', 'admin_only_community_share_disabled']);
         if (!expectedErrors.has(err.message)) {
           postLogger.error('sharePost error', { message: err.message, stack: err.stack });
         }
@@ -204,7 +204,7 @@ export function makePostController({ useCase = null }) {
         if (err.message === 'not_a_member') return reply.code(403).send({ success: false, error: { code: 'not_a_member' } });
         if (err.message === 'admin_only_community') return reply.code(403).send({ success: false, error: { code: 'admin_only_community', message: 'Only admins can post in this community' } });
         if (err.message === 'admin_only_community_share_disabled') return reply.code(403).send({ success: false, error: { code: 'admin_only_community_share_disabled', message: 'Posts from this community cannot be shared to another community' } });
-        if (err.message === 'post_required' || err.message === 'user_required' || err.message === 'community_required') {
+        if (err.message === 'post_required' || err.message === 'user_required') {
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         }
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });

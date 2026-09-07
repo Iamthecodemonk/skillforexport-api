@@ -2184,7 +2184,7 @@ export default async function registerRoutes(fastify, deps) {
   fastify.put('/post/:postId/comment/:id/follow', { preHandler: deps && deps.authRequired ? deps.authRequired : undefined, schema: { operationId: 'legacyFollowComment', tags: ['Comments'], description: 'Legacy comment follow compatibility no-op', params: twoIdParams('postId', 'id'), response: { 200: dataResponse({ type: 'object', properties: { following: { type: 'boolean' } } }) } } }, async (req, reply) => reply.send({ success: true, message: 'Followed successfully.', data: { following: true } }));
   fastify.post('/post/:id/repost', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { operationId: 'legacyRepostPost', tags: ['Posts'], description: 'Legacy alias for POST /posts/:id/shares', params: idParam(), body: schemas.PostShareBody, response: { 201: dataResponse(schemas.PostShareResponse), 422: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } }
+    schema: { operationId: 'legacyRepostPost', tags: ['Posts'], description: 'Legacy alias for POST /posts/:id/shares. Omit communityId or send null to share with Everyone.', params: idParam(), body: schemas.PostShareBody, response: { 201: dataResponse(schemas.PostShareResponse), 422: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } }
   }, async (req, reply) => {
     req.body = Object.assign({}, req.body || {}, {
       communityId: (req.body || {}).communityId || (req.body || {}).community_id,
@@ -2274,9 +2274,9 @@ export default async function registerRoutes(fastify, deps) {
   fastify.post('/posts/:id/shares', {
     preHandler: deps && deps.rateLimiters ? [deps.rateLimiters.createPost, deps.authRequired] : (deps && deps.authRequired ? deps.authRequired : undefined),
     schema: {
-      operationId: 'sharePostToCommunity',
+      operationId: 'sharePost',
       tags: ['Posts', 'Sharing'],
-      description: 'Share an existing post into a community. The created post keeps parent_post_id/originalPostId as the original post reference.',
+      description: 'Share an existing post into a community, or omit communityId/send null to share with Everyone. The created post keeps parent_post_id/originalPostId as the original post reference.',
       params: idParam(),
       body: schemas.PostShareBody,
       response: { 201: { type: 'object', properties: { success: { type: 'boolean' }, data: schemas.PostShareResponse } }, 422: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse }

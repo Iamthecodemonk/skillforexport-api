@@ -95,6 +95,22 @@ export default class MysqlPageRepository {
     return row || null;
   }
 
+  async findBySlug(slug) {
+    if (!slug) return null;
+    const row = await db('pages').where({ slug }).first();
+    return this.mapPage(row);
+  }
+
+  async findByOwnerAndType(ownerId, pageType) {
+    if (!ownerId || !pageType) return null;
+    const row = await db('pages')
+      .where({ owner_id: ownerId, page_type: pageType })
+      .whereNotIn('moderation_status', ['deleted'])
+      .orderBy('created_at', 'asc')
+      .first();
+    return this.mapPage(row);
+  }
+
   async list({ limit = 20, offset = 0, includeHidden = false } = {}) {
     const q = db('pages').orderBy('created_at', 'desc').limit(limit).offset(offset);
     this.applyModerationFilter(q, includeHidden);

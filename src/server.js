@@ -347,9 +347,11 @@ export default async function startServer() {
     const authExperienceAdapter = new MysqlUserExperienceRepository();
     const authEducationRepo = new UserEducationRepositoryImpl({ adapter: authEducationAdapter });
     const authExperienceRepo = new UserExperienceRepositoryImpl({ adapter: authExperienceAdapter });
+    const authPageAdapter = new MysqlPageRepository();
+    const authPageRepo = new PageRepositoryImpl({ adapter: authPageAdapter });
     userSettingsRepo = new MysqlUserSettingsRepository();
     const passwordResetAdapter = new MysqlPasswordResetRepository();
-    authUseCase = new AuthUseCase({ userRepository: userRepo, profileRepository: profileRepo, educationRepository: authEducationRepo, experienceRepository: authExperienceRepo, settingsRepository: userSettingsRepo, emailQueue: emailQueue, jwtSecret: process.env.JWT_SECRET, jwtExpiresIn: process.env.JWT_EXPIRES_IN, passwordResetRepository: passwordResetAdapter });
+    authUseCase = new AuthUseCase({ userRepository: userRepo, profileRepository: profileRepo, educationRepository: authEducationRepo, experienceRepository: authExperienceRepo, settingsRepository: userSettingsRepo, pageRepository: authPageRepo, emailQueue: emailQueue, jwtSecret: process.env.JWT_SECRET, jwtExpiresIn: process.env.JWT_EXPIRES_IN, passwordResetRepository: passwordResetAdapter });
     authController = makeAuthController({ useCase: authUseCase });
     // oauth controller (Google)
     const oauthController = makeOauthController({ useCase: authUseCase });

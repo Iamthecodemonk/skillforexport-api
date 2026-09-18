@@ -153,7 +153,7 @@ export function makeAuthController({ useCase }) {
         }
 
         // password is optional here because a temporary hashed password may be stored with the OTP
-        const { user, token, profile = null, education = [], experiences = [], onboardingCompleted = false, settings = null } = await useCase.CompleteRegistration({
+        const { user, token, profile = null, education = [], experiences = [], studentPage = null, onboardingCompleted = false, settings = null } = await useCase.CompleteRegistration({
           email,
           name,
           refCode,
@@ -191,6 +191,7 @@ export function makeAuthController({ useCase }) {
               profile,
               education,
               experiences,
+              studentPage,
               settings,
               onboardingCompleted
             }

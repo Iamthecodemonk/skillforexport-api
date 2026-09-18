@@ -322,7 +322,7 @@ export const RegisterCompleteBody = {
     }
   }
 };
-RegisterCompleteBody.example = { email: 'user@example.com', name: 'Jane Doe', ref_code: 'ABC123', onboarding: { acceptedTerms: true, is16OrAbove: true, state: 'Lagos', country: 'Nigeria', accountType: 'default', jobTitle: 'Product Designer', company: 'Skills4Export' } };
+RegisterCompleteBody.example = { email: 'student@example.com', name: 'Jane Doe', ref_code: 'ABC123', onboarding: { acceptedTerms: true, is16OrAbove: true, state: 'Lagos', country: 'Nigeria', accountType: 'student', university: 'University of Lagos', courseOfStudy: 'Computer Science' } };
 
 export const ChangePasswordBody = {
   type: 'object',
@@ -365,6 +365,7 @@ export const AuthSuccessResponse = {
         profile: { type: ['object', 'null'], additionalProperties: true },
         education: { type: 'array', items: { type: 'object', additionalProperties: true } },
         experiences: { type: 'array', items: { type: 'object', additionalProperties: true } },
+        studentPage: { type: ['object', 'null'], additionalProperties: true, description: 'Auto-created basic student page when onboarding.accountType is student.' },
         settings: { type: ['object', 'null'], additionalProperties: true },
         onboardingCompleted: { type: 'boolean' }
       }

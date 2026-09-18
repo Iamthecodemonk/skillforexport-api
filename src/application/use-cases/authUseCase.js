@@ -20,12 +20,13 @@ export function isStrongPassword(password) {
 }
 
 export default class AuthUseCase {
-  constructor({ userRepository, profileRepository = null, educationRepository = null, experienceRepository = null, settingsRepository = null, emailQueue, jwtSecret, jwtExpiresIn, passwordResetRepository = null }) {
+  constructor({ userRepository, profileRepository = null, educationRepository = null, experienceRepository = null, settingsRepository = null, pageRepository = null, emailQueue, jwtSecret, jwtExpiresIn, passwordResetRepository = null }) {
     this.userRepository = userRepository;
     this.profileRepository = profileRepository;
     this.educationRepository = educationRepository;
     this.experienceRepository = experienceRepository;
     this.settingsRepository = settingsRepository;
+    this.pageRepository = pageRepository;
     this.emailQueue = emailQueue;
     this.jwtSecret = jwtSecret || process.env.JWT_SECRET || 'secret';
     this.jwtExpiresIn = jwtExpiresIn || '7d';
@@ -64,8 +65,31 @@ export default class AuthUseCase {
       ...onboarding,
       jobTitle: onboarding.jobTitle || onboarding.job_title || null,
       company: onboarding.company || onboarding.workplace || onboarding.currentWorkspace || onboarding.current_workspace || null,
-      workplace: onboarding.workplace || onboarding.company || onboarding.currentWorkspace || onboarding.current_workspace || null
+      workplace: onboarding.workplace || onboarding.company || onboarding.currentWorkspace || onboarding.current_workspace || null,
+      courseOfStudy: onboarding.courseOfStudy || onboarding.course_of_study || onboarding.course || null,
+      university: onboarding.university || onboarding.school || onboarding.institution || null
     };
+  }
+
+  slugify(value) {
+    const base = String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80);
+    return base || `student-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  async uniquePageSlug(base) {
+    const root = this.slugify(base);
+    if (!this.pageRepository || typeof this.pageRepository.findBySlug !== 'function') return root;
+    for (let index = 0; index < 20; index += 1) {
+      const slug = index === 0 ? root : `${root}-${index + 1}`;
+      const existing = await this.pageRepository.findBySlug(slug).catch(() => null);
+      if (!existing) return slug;
+    }
+    return `${root}-${uuidv4().slice(0, 8)}`;
   }
 
   yearToDate(year) {
@@ -182,9 +206,54 @@ export default class AuthUseCase {
         country: onboarding.country || null,
         jobTitle: onboarding.jobTitle || null,
         company: onboarding.company || onboarding.workplace || null,
+        courseOfStudy: onboarding.courseOfStudy || null,
+        university: onboarding.university || null,
         onboardingCompleted: true,
         completedAt: nowIso
       }
+    });
+  }
+
+  async ensureStudentPage({ userId, name, email, onboarding = {} }) {
+    if (!this.pageRepository || typeof this.pageRepository.create !== 'function') return null;
+    const accountType = String(onboarding.accountType || onboarding.account_type || '').toLowerCase();
+    if (accountType !== 'student') return null;
+
+    if (typeof this.pageRepository.findByOwnerAndType === 'function') {
+      const existing = await this.pageRepository.findByOwnerAndType(userId, 'student').catch(() => null);
+      if (existing) return existing;
+    } else if (typeof this.pageRepository.listByOwner === 'function') {
+      const pages = await this.pageRepository.listByOwner(userId, { limit: 100, offset: 0 }).catch(() => []);
+      const existing = (pages || []).find((page) => {
+        const type = String(page && (page.page_type || page.pageType || page.type || '')).toLowerCase();
+        return type === 'student';
+      });
+      if (existing) return existing;
+    }
+
+    const pageName = name || (email ? String(email).split('@')[0] : 'Student');
+    const slug = await this.uniquePageSlug(`${pageName}-student`);
+    const metadata = {
+      type: 'student',
+      pageType: 'student',
+      autoCreated: true
+    };
+    if (onboarding.courseOfStudy) metadata.courseOfStudy = onboarding.courseOfStudy;
+    if (onboarding.university) metadata.university = onboarding.university;
+    if (email) metadata.email = email;
+
+    return this.pageRepository.create({
+      id: uuidv4(),
+      owner_id: userId,
+      category_id: null,
+      page_type: 'student',
+      name: pageName,
+      slug,
+      description: null,
+      metadata,
+      is_approved: 1,
+      is_active: 1,
+      moderation_status: 'approved'
     });
   }
 
@@ -193,17 +262,19 @@ export default class AuthUseCase {
     const userId = userObj && userObj.id;
     if (!userId) return { user, profile: null, education: [], experiences: [], settings: null, onboardingCompleted: false };
     const normalizedOnboarding = this.normalizeOnboarding(onboarding);
-    const [profile, education, experiences, settings] = await Promise.all([
+    const [profile, education, experiences, settings, studentPage] = await Promise.all([
       this.ensureProfile({ userId, name, onboarding: normalizedOnboarding }),
       this.ensureEducation({ userId, onboarding: normalizedOnboarding }),
       this.ensureExperience({ userId, onboarding: normalizedOnboarding }),
-      this.saveOnboardingSettings({ userId, onboarding: normalizedOnboarding })
+      this.saveOnboardingSettings({ userId, onboarding: normalizedOnboarding }),
+      this.ensureStudentPage({ userId, name, email: userObj.email, onboarding: normalizedOnboarding })
     ]);
     return {
       user,
       profile: this.toPlain(profile),
       education: (education || []).map((item) => this.toPlain(item)),
       experiences: (experiences || []).map((item) => this.toPlain(item)),
+      studentPage: this.toPlain(studentPage),
       settings,
       onboardingCompleted: true
     };

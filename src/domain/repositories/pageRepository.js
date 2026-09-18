@@ -38,6 +38,16 @@ export class PageRepositoryImpl extends PageRepository {
     return this.adapter.findByName(name);
   }
 
+  async findBySlug(slug) {
+    if (typeof this.adapter.findBySlug !== 'function') throw new Error('findBySlug_not_implemented');
+    return this.adapter.findBySlug(slug);
+  }
+
+  async findByOwnerAndType(ownerId, pageType) {
+    if (typeof this.adapter.findByOwnerAndType !== 'function') throw new Error('findByOwnerAndType_not_implemented');
+    return this.adapter.findByOwnerAndType(ownerId, pageType);
+  }
+
   async list({ limit = 20, offset = 0 } = {}) {
     return this.adapter.list({ limit, offset });
   }

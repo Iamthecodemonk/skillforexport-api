@@ -31,8 +31,8 @@ export class QuestionRepositoryImpl extends QuestionRepository {
     return created ? new Question(created) : null;
   }
 
-  async findById(id) {
-    const row = await this.adapter.findById(id);
+  async findById(id, options = {}) {
+    const row = await this.adapter.findById(id, options);
     return row ? new Question(row) : null;
   }
 

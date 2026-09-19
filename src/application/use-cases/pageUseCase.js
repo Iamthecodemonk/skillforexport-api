@@ -53,14 +53,23 @@ export default class PageUseCase {
       staff_size: 'staffSize',
       business_category: 'businessCategory',
       course_of_study: 'courseOfStudy',
+      course_name: 'courseOfStudy',
+      courseName: 'courseOfStudy',
+      institution: 'university',
       graduation_date: 'graduationDate'
     };
+    if (typeof merged.courseOfStudy === 'undefined' && typeof merged.courseName !== 'undefined') {
+      merged.courseOfStudy = merged.courseName;
+    }
+    if (typeof merged.university === 'undefined' && typeof merged.institution !== 'undefined') {
+      merged.university = merged.institution;
+    }
     for (const [legacyKey, canonicalKey] of Object.entries(aliases)) {
       if (typeof data[legacyKey] !== 'undefined' && typeof data[canonicalKey] === 'undefined') {
         merged[canonicalKey] = data[legacyKey];
       }
     }
-    for (const key of ['slogan', 'contactEmail', 'website', 'staffSize', 'businessCategory', 'email', 'phone', 'courseOfStudy', 'graduationDate', 'skills']) {
+    for (const key of ['slogan', 'contactEmail', 'website', 'staffSize', 'businessCategory', 'email', 'phone', 'courseOfStudy', 'university', 'graduationDate', 'skills']) {
       if (typeof data[key] !== 'undefined') {
         merged[key] = data[key];
       }

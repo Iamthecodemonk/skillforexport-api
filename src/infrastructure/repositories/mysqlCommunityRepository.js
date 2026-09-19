@@ -2,6 +2,10 @@ import db from '../knexConfig.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export default class MysqlCommunityRepository {
+  toBool(value) {
+    return value === true || value === 1 || value === '1';
+  }
+
   isAdminOnlyCommunity(row = {}) {
     const explicit = typeof row.only_admin !== 'undefined' ? row.only_admin : row.onlyAdmin;
     return !(explicit === 0 || explicit === false || explicit === '0' || typeof explicit === 'undefined' || explicit === null);
@@ -22,6 +26,8 @@ export default class MysqlCommunityRepository {
     const communityType = row.community_type || row.communityType || 'regular';
     const slug = row.slug || null;
     const parentCommunityId = row.parent_community_id || row.parentCommunityId || null;
+    const isJoined = this.toBool(row.is_joined);
+    const membersCount = parseInt(row.members_count || 0, 10);
     return {
       ...row,
       slug,
@@ -34,7 +40,13 @@ export default class MysqlCommunityRepository {
       isPrivate,
       only_admin: this.isAdminOnlyCommunity(row) ? 1 : 0,
       onlyAdmin: this.isAdminOnlyCommunity(row),
-      membersOnlyPosting: !(row.members_only_posting === 0 || row.members_only_posting === false || row.members_only_posting === '0')
+      membersOnlyPosting: !(row.members_only_posting === 0 || row.members_only_posting === false || row.members_only_posting === '0'),
+      members_count: membersCount,
+      membersCount,
+      is_joined: isJoined,
+      isJoined,
+      is_following: isJoined,
+      isFollowing: isJoined
     };
   }
 
@@ -95,12 +107,21 @@ export default class MysqlCommunityRepository {
     return payload;
   }
 
-  async findById(id) {
-    const row = await db('communities as c')
+  async findById(id, { userId = null } = {}) {
+    const query = db('communities as c')
       .leftJoin('communities as parent', 'parent.id', 'c.parent_community_id')
       .where('c.id', id)
-      .select('c.*', 'parent.slug as parent_slug')
-      .first();
+      .select(
+        'c.*',
+        'parent.slug as parent_slug',
+        db.raw('(SELECT COUNT(*) FROM community_members cm WHERE cm.community_id = c.id) as members_count')
+      );
+    if (userId) {
+      query.select(db.raw('EXISTS(SELECT 1 FROM community_members cmv WHERE cmv.community_id = c.id AND cmv.user_id = ?) as is_joined', [userId]));
+    } else {
+      query.select(db.raw('false as is_joined'));
+    }
+    const row = await query.first();
     return this.mapCommunity(row);
   }
 
@@ -155,7 +176,7 @@ export default class MysqlCommunityRepository {
     return rows.map(row => this.mapCommunity(row));
   }
 
-  async list({ offset = 0, limit = 20, q = null, categoryId = null } = {}) {
+  async list({ offset = 0, limit = 20, q = null, categoryId = null, userId = null } = {}) {
     const postCounts = db('posts')
       .select('community_id')
       .count({ posts_count: 'id' })
@@ -177,12 +198,19 @@ export default class MysqlCommunityRepository {
       .whereNotNull('p.community_id')
       .groupBy('p.community_id')
       .as('cmc');
+    const memberCounts = db('community_members')
+      .select('community_id')
+      .count({ members_count: 'id' })
+      .whereNotNull('community_id')
+      .groupBy('community_id')
+      .as('mc');
     const qb = db('communities as c')
       .leftJoin('communities as parent', 'parent.id', 'c.parent_community_id')
       .leftJoin('community_categories as cc', 'cc.id', 'c.category_id')
       .leftJoin(postCounts, 'pc.community_id', 'c.id')
       .leftJoin(postReactionCounts, 'prc.community_id', 'c.id')
       .leftJoin(commentCounts, 'cmc.community_id', 'c.id')
+      .leftJoin(memberCounts, 'mc.community_id', 'c.id')
       .select(
         'c.*',
         'parent.slug as parent_slug',
@@ -191,8 +219,14 @@ export default class MysqlCommunityRepository {
         'pc.posts_count',
         'prc.post_likes_count',
         'prc.post_reactions_count',
-        'cmc.comments_count'
+        'cmc.comments_count',
+        'mc.members_count'
       );
+    if (userId) {
+      qb.select(db.raw('EXISTS(SELECT 1 FROM community_members cmv WHERE cmv.community_id = c.id AND cmv.user_id = ?) as is_joined', [userId]));
+    } else {
+      qb.select(db.raw('false as is_joined'));
+    }
     if (categoryId) qb.where('c.category_id', categoryId);
     if (q) {
       const like = `%${q}%`;
@@ -210,6 +244,8 @@ export default class MysqlCommunityRepository {
       post_likes_count,
       post_reactions_count,
       comments_count,
+      members_count,
+      is_joined,
       ...community
     }) => ({
       ...community,
@@ -223,7 +259,13 @@ export default class MysqlCommunityRepository {
       posts_count: parseInt(posts_count || 0, 10),
       post_likes_count: parseInt(post_likes_count || 0, 10),
       post_reactions_count: parseInt(post_reactions_count || 0, 10),
-      comments_count: parseInt(comments_count || 0, 10)
+      comments_count: parseInt(comments_count || 0, 10),
+      members_count: parseInt(members_count || 0, 10),
+      membersCount: parseInt(members_count || 0, 10),
+      is_joined: this.toBool(is_joined),
+      isJoined: this.toBool(is_joined),
+      is_following: this.toBool(is_joined),
+      isFollowing: this.toBool(is_joined)
     }));
   }
 

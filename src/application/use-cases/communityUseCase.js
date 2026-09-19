@@ -144,9 +144,9 @@ export default class CommunityUseCase {
     });
   }
   
-  async getCommunity(id) {
+  async getCommunity(id, { userId = null } = {}) {
     if (!id) throw new Error('id_required');
-    return this.communityRepository.findById(id);
+    return this.communityRepository.findById(id, { userId });
   }
   
   async updateCommunity({ id, updates = {} }) {
@@ -208,13 +208,13 @@ export default class CommunityUseCase {
     return this.communityMemberRepository.listMembers(communityId);
   }
 
-  async listCommunities({ page = 1, perPage = 20, q = null, categoryId = null, offset = undefined } = {}) {
+  async listCommunities({ page = 1, perPage = 20, q = null, categoryId = null, offset = undefined, userId = null } = {}) {
     const limit = parseInt(perPage, 10) || 20;
     const pg = Math.max(parseInt(page, 10) || 1, 1);
     const off = typeof offset !== 'undefined' && offset !== null ? Math.max(parseInt(offset, 10) || 0, 0) : (pg - 1) * limit;
 
     if (this.communityRepository && typeof this.communityRepository.list === 'function') {
-      const data = await this.communityRepository.list({ offset: off, limit, q, categoryId });
+      const data = await this.communityRepository.list({ offset: off, limit, q, categoryId, userId });
       const total = await (typeof this.communityRepository.count === 'function' ? this.communityRepository.count({ q, categoryId }) : (data.length || 0));
       return { data, page: pg, perPage: limit, total };
     }

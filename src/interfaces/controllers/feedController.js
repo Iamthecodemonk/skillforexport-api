@@ -45,6 +45,27 @@ const splitSkills = (value) => String(value || '')
   .filter(Boolean)
   .slice(0, 3);
 
+const studentAuthorSelects = (ownerColumn) => [
+  db.raw(`(SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseOfStudy')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseName'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1) as author_course_name`),
+  db.raw(`(SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.university')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.institution'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1) as author_institution`),
+  db.raw(`COALESCE(
+    NULLIF(CONCAT_WS(' at ',
+      NULLIF((SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseOfStudy')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseName'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1), ''),
+      NULLIF((SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.university')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.institution'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1), '')
+    ), ''),
+    NULLIF(up.display_title, ''),
+    NULLIF(CONCAT_WS(' at ', NULLIF(up.current_job_title, ''), NULLIF(up.current_workspace, '')), '')
+  ) as author_display_title`)
+];
+
+const authorStudentFields = (row) => ({
+  courseName: row.author_course_name || null,
+  course_name: row.author_course_name || null,
+  institution: row.author_institution || null,
+  displayTitle: row.author_display_title || row.author_current_job_title || null,
+  display_title: row.author_display_title || row.author_current_job_title || null
+});
+
 const mapMedia = (value) => parseJsonArray(value).map((item) => ({
   id: item.id || null,
   type: item.type || item.media_type || item.kind || null,
@@ -69,6 +90,7 @@ const compactPost = (row) => ({
     avatar: row.author_avatar || null,
     currentJobTitle: row.author_current_job_title || null,
     current_job_title: row.author_current_job_title || null,
+    ...authorStudentFields(row),
     skills: splitSkills(row.author_skills)
   },
   page: row.page_id ? {
@@ -81,7 +103,13 @@ const compactPost = (row) => ({
     name: row.community_name || null,
     default_post_visibility: row.community_default_post_visibility || null,
     is_private: row.community_default_post_visibility === 'community' ? 1 : 0,
-    isPrivate: row.community_default_post_visibility === 'community'
+    isPrivate: row.community_default_post_visibility === 'community',
+    members_count: Number(row.community_members_count || 0),
+    membersCount: Number(row.community_members_count || 0),
+    is_joined: boolValue(row.community_is_joined),
+    isJoined: boolValue(row.community_is_joined),
+    is_following: boolValue(row.community_is_joined),
+    isFollowing: boolValue(row.community_is_joined)
   } : null,
   media: mapMedia(row.media),
   is_follow: boolValue(row.is_following),
@@ -115,6 +143,7 @@ const compactQuestion = (row) => ({
     avatar: row.author_avatar || null,
     currentJobTitle: row.author_current_job_title || null,
     current_job_title: row.author_current_job_title || null,
+    ...authorStudentFields(row),
     skills: splitSkills(row.author_skills)
   },
   page: null,
@@ -123,7 +152,13 @@ const compactQuestion = (row) => ({
     name: row.community_name || null,
     default_post_visibility: row.community_default_post_visibility || null,
     is_private: row.community_default_post_visibility === 'community' ? 1 : 0,
-    isPrivate: row.community_default_post_visibility === 'community'
+    isPrivate: row.community_default_post_visibility === 'community',
+    members_count: Number(row.community_members_count || 0),
+    membersCount: Number(row.community_members_count || 0),
+    is_joined: boolValue(row.community_is_joined),
+    isJoined: boolValue(row.community_is_joined),
+    is_following: boolValue(row.community_is_joined),
+    isFollowing: boolValue(row.community_is_joined)
   } : null,
   media: [],
   is_follow: boolValue(row.is_following),
@@ -168,8 +203,10 @@ async function listCompactPosts({ actorId, limit, communityId = null, communityS
       'up.username as author_username',
       'up.avatar as author_avatar',
       'up.current_job_title as author_current_job_title',
+      ...studentAuthorSelects('p.user_id'),
       'c.name as community_name',
       'c.default_post_visibility as community_default_post_visibility',
+      db.raw('(SELECT COUNT(*) FROM community_members cm WHERE cm.community_id = p.community_id) as community_members_count'),
       'pg.name as page_name',
       'pg.avatar as page_avatar',
       db.raw(`IFNULL((
@@ -198,10 +235,11 @@ async function listCompactPosts({ actorId, limit, communityId = null, communityS
     q.select(
       db.raw('EXISTS(SELECT 1 FROM followers f WHERE f.follower_id = ? AND f.following_id = p.user_id) as is_following', [actorId]),
       db.raw('EXISTS(SELECT 1 FROM post_reactions pr2 WHERE pr2.user_id = ? AND pr2.post_id = p.id) as is_scored', [actorId]),
-      db.raw('EXISTS(SELECT 1 FROM post_saves ps WHERE ps.user_id = ? AND ps.post_id = p.id) as is_saved', [actorId])
+      db.raw('EXISTS(SELECT 1 FROM post_saves ps WHERE ps.user_id = ? AND ps.post_id = p.id) as is_saved', [actorId]),
+      db.raw('EXISTS(SELECT 1 FROM community_members cmv WHERE cmv.user_id = ? AND cmv.community_id = p.community_id) as community_is_joined', [actorId])
     );
   } else {
-    q.select(db.raw('false as is_following'), db.raw('false as is_scored'), db.raw('false as is_saved'));
+    q.select(db.raw('false as is_following'), db.raw('false as is_scored'), db.raw('false as is_saved'), db.raw('false as community_is_joined'));
   }
 
   return q;
@@ -227,8 +265,10 @@ export async function getCompactPostItem({ postId, actorId = null } = {}) {
       'up.username as author_username',
       'up.avatar as author_avatar',
       'up.current_job_title as author_current_job_title',
+      ...studentAuthorSelects('p.user_id'),
       'c.name as community_name',
       'c.default_post_visibility as community_default_post_visibility',
+      db.raw('(SELECT COUNT(*) FROM community_members cm WHERE cm.community_id = p.community_id) as community_members_count'),
       'pg.name as page_name',
       'pg.avatar as page_avatar',
       db.raw(`IFNULL((
@@ -251,10 +291,11 @@ export async function getCompactPostItem({ postId, actorId = null } = {}) {
     q.select(
       db.raw('EXISTS(SELECT 1 FROM followers f WHERE f.follower_id = ? AND f.following_id = p.user_id) as is_following', [actorId]),
       db.raw('EXISTS(SELECT 1 FROM post_reactions pr2 WHERE pr2.user_id = ? AND pr2.post_id = p.id) as is_scored', [actorId]),
-      db.raw('EXISTS(SELECT 1 FROM post_saves ps WHERE ps.user_id = ? AND ps.post_id = p.id) as is_saved', [actorId])
+      db.raw('EXISTS(SELECT 1 FROM post_saves ps WHERE ps.user_id = ? AND ps.post_id = p.id) as is_saved', [actorId]),
+      db.raw('EXISTS(SELECT 1 FROM community_members cmv WHERE cmv.user_id = ? AND cmv.community_id = p.community_id) as community_is_joined', [actorId])
     );
   } else {
-    q.select(db.raw('false as is_following'), db.raw('false as is_scored'), db.raw('false as is_saved'));
+    q.select(db.raw('false as is_following'), db.raw('false as is_scored'), db.raw('false as is_saved'), db.raw('false as community_is_joined'));
   }
 
   const row = await q.first();
@@ -278,8 +319,10 @@ async function listCompactQuestions({ actorId, limit, communityId = null, commun
       'up.username as author_username',
       'up.avatar as author_avatar',
       'up.current_job_title as author_current_job_title',
+      ...studentAuthorSelects('q.user_id'),
       'c.name as community_name',
       'c.default_post_visibility as community_default_post_visibility',
+      db.raw('(SELECT COUNT(*) FROM community_members cm WHERE cm.community_id = q.community_id) as community_members_count'),
       db.raw(`IFNULL((
         SELECT GROUP_CONCAT(us.skill ORDER BY us.created_at DESC SEPARATOR '||')
         FROM user_skills us
@@ -301,10 +344,11 @@ async function listCompactQuestions({ actorId, limit, communityId = null, commun
     q.select(
       db.raw('EXISTS(SELECT 1 FROM followers f WHERE f.follower_id = ? AND f.following_id = q.user_id) as is_following', [actorId]),
       db.raw('EXISTS(SELECT 1 FROM question_reactions qr2 WHERE qr2.user_id = ? AND qr2.question_id = q.id) as is_scored', [actorId]),
-      db.raw('EXISTS(SELECT 1 FROM saved_items si WHERE si.user_id = ? AND si.target_id = q.id AND si.target_type = ?) as is_saved', [actorId, 'question'])
+      db.raw('EXISTS(SELECT 1 FROM saved_items si WHERE si.user_id = ? AND si.target_id = q.id AND si.target_type = ?) as is_saved', [actorId, 'question']),
+      db.raw('EXISTS(SELECT 1 FROM community_members cmv WHERE cmv.user_id = ? AND cmv.community_id = q.community_id) as community_is_joined', [actorId])
     );
   } else {
-    q.select(db.raw('false as is_following'), db.raw('false as is_scored'), db.raw('false as is_saved'));
+    q.select(db.raw('false as is_following'), db.raw('false as is_scored'), db.raw('false as is_saved'), db.raw('false as community_is_joined'));
   }
 
   return q;

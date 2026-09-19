@@ -14,6 +14,19 @@ const parseJsonArray = (value) => {
 
 const toBool = (value) => value === true || value === 1 || value === '1';
 
+const studentPageMetadataSelects = (ownerColumn) => [
+  db.raw(`(SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseOfStudy')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseName'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1) as user_course_name`),
+  db.raw(`(SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.university')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.institution'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1) as user_institution`),
+  db.raw(`COALESCE(
+    NULLIF(CONCAT_WS(' at ',
+      NULLIF((SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseOfStudy')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseName'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1), ''),
+      NULLIF((SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.university')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.institution'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1), '')
+    ), ''),
+    NULLIF(up.display_title, ''),
+    NULLIF(CONCAT_WS(' at ', NULLIF(up.current_job_title, ''), NULLIF(up.current_workspace, '')), '')
+  ) as user_display_title`)
+];
+
 const applyQuestionFilters = (q, { communityId = null, communitySlug = null, publicOnly = false, search = null, userId = null } = {}) => {
   if (userId) {
     q.where('q.user_id', userId);
@@ -59,7 +72,7 @@ const applyQuestionOrdering = (q, { sortField = null, sortDirection = null } = {
 export default class MysqlQuestionRepository {
   toQuestionWithRelations(row) {
     if (!row) return null;
-    const { user_email, user_name, user_avatar, user_current_job_title, user_skills, is_follow, is_liked, community_name, community_description, community_icon, community_is_active, community_default_post_visibility, ...question } = row;
+    const { user_email, user_name, user_avatar, user_current_job_title, user_course_name, user_institution, user_display_title, user_skills, is_follow, is_liked, community_name, community_description, community_icon, community_is_active, community_default_post_visibility, community_members_count, community_is_joined, ...question } = row;
     const score = parseInt(question.score || 0, 10);
     const user = typeof user_email !== 'undefined' || typeof user_name !== 'undefined'
       ? {
@@ -70,6 +83,11 @@ export default class MysqlQuestionRepository {
           avatarUrl: user_avatar || null,
           current_job_title: user_current_job_title || null,
           currentJobTitle: user_current_job_title || null,
+          course_name: user_course_name || null,
+          courseName: user_course_name || null,
+          institution: user_institution || null,
+          display_title: user_display_title || user_current_job_title || null,
+          displayTitle: user_display_title || user_current_job_title || null,
           skills: parseJsonArray(user_skills),
           is_follow: toBool(is_follow),
           isFollow: toBool(is_follow)
@@ -101,7 +119,13 @@ export default class MysqlQuestionRepository {
             is_active: typeof community_is_active === 'undefined' ? undefined : community_is_active,
             default_post_visibility: community_default_post_visibility || null,
             is_private: community_default_post_visibility === 'community' ? 1 : 0,
-            isPrivate: community_default_post_visibility === 'community'
+            isPrivate: community_default_post_visibility === 'community',
+            members_count: parseInt(community_members_count || 0, 10),
+            membersCount: parseInt(community_members_count || 0, 10),
+            is_joined: toBool(community_is_joined),
+            isJoined: toBool(community_is_joined),
+            is_following: toBool(community_is_joined),
+            isFollowing: toBool(community_is_joined)
           }
         : null
     };
@@ -146,6 +170,7 @@ export default class MysqlQuestionRepository {
         db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as user_name'),
         'up.avatar as user_avatar',
         'up.current_job_title as user_current_job_title',
+        ...studentPageMetadataSelects('q.user_id'),
         db.raw(`IFNULL((
           SELECT JSON_ARRAYAGG(JSON_OBJECT('id', us.id, 'skill', us.skill, 'level', us.level))
           FROM user_skills us
@@ -156,6 +181,7 @@ export default class MysqlQuestionRepository {
         'c.icon as community_icon',
         'c.is_active as community_is_active',
         'c.default_post_visibility as community_default_post_visibility',
+        db.raw('(SELECT COUNT(*) FROM community_members cm WHERE cm.community_id = q.community_id) as community_members_count'),
         db.raw('COALESCE(ac.total_answers, 0) as total_answers'),
         db.raw('COALESCE(ac.total_answerers, 0) as total_answerers'),
         db.raw('(SELECT COUNT(*) FROM question_reactions qr WHERE qr.question_id = q.id) as score')
@@ -163,10 +189,11 @@ export default class MysqlQuestionRepository {
     if (actorId) {
       q.select(
         db.raw('EXISTS(SELECT 1 FROM followers f WHERE f.follower_id = ? AND f.following_id = q.user_id) as is_follow', [actorId]),
-        db.raw('EXISTS(SELECT 1 FROM question_reactions qr2 WHERE qr2.user_id = ? AND qr2.question_id = q.id) as is_liked', [actorId])
+        db.raw('EXISTS(SELECT 1 FROM question_reactions qr2 WHERE qr2.user_id = ? AND qr2.question_id = q.id) as is_liked', [actorId]),
+        db.raw('EXISTS(SELECT 1 FROM community_members cmv WHERE cmv.user_id = ? AND cmv.community_id = q.community_id) as community_is_joined', [actorId])
       );
     } else {
-      q.select(db.raw('false as is_follow'), db.raw('false as is_liked'));
+      q.select(db.raw('false as is_follow'), db.raw('false as is_liked'), db.raw('false as community_is_joined'));
     }
     applyQuestionModerationFilter(q, includeHidden);
     const row = await q.first();
@@ -198,6 +225,7 @@ export default class MysqlQuestionRepository {
         db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as user_name'),
         'up.avatar as user_avatar',
         'up.current_job_title as user_current_job_title',
+        ...studentPageMetadataSelects('q.user_id'),
         db.raw(`IFNULL((
           SELECT JSON_ARRAYAGG(JSON_OBJECT('id', us.id, 'skill', us.skill, 'level', us.level))
           FROM user_skills us
@@ -208,6 +236,7 @@ export default class MysqlQuestionRepository {
         'c.icon as community_icon',
         'c.is_active as community_is_active',
         'c.default_post_visibility as community_default_post_visibility',
+        db.raw('(SELECT COUNT(*) FROM community_members cm WHERE cm.community_id = q.community_id) as community_members_count'),
         db.raw('COALESCE(ac.total_answers, 0) as total_answers'),
         db.raw('COALESCE(ac.total_answerers, 0) as total_answerers'),
         db.raw('(SELECT COUNT(*) FROM question_reactions qr WHERE qr.question_id = q.id) as score')
@@ -215,10 +244,11 @@ export default class MysqlQuestionRepository {
     if (actorId) {
       q.select(
         db.raw('EXISTS(SELECT 1 FROM followers f WHERE f.follower_id = ? AND f.following_id = q.user_id) as is_follow', [actorId]),
-        db.raw('EXISTS(SELECT 1 FROM question_reactions qr2 WHERE qr2.user_id = ? AND qr2.question_id = q.id) as is_liked', [actorId])
+        db.raw('EXISTS(SELECT 1 FROM question_reactions qr2 WHERE qr2.user_id = ? AND qr2.question_id = q.id) as is_liked', [actorId]),
+        db.raw('EXISTS(SELECT 1 FROM community_members cmv WHERE cmv.user_id = ? AND cmv.community_id = q.community_id) as community_is_joined', [actorId])
       );
     } else {
-      q.select(db.raw('false as is_follow'), db.raw('false as is_liked'));
+      q.select(db.raw('false as is_follow'), db.raw('false as is_liked'), db.raw('false as community_is_joined'));
     }
     applyQuestionFilters(q, options);
     applyQuestionModerationFilter(q, options.includeHidden);

@@ -14,6 +14,27 @@ const parseJsonArray = (value) => {
 
 const toBool = (value) => value === true || value === 1 || value === '1';
 
+const studentPageMetadataSelects = (ownerColumn) => [
+  db.raw(`(
+    SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseOfStudy')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseName')))
+    FROM pages sp
+    WHERE sp.owner_id = ${ownerColumn}
+      AND sp.page_type = 'student'
+      AND COALESCE(sp.moderation_status, 'approved') <> 'deleted'
+    ORDER BY sp.created_at ASC
+    LIMIT 1
+  ) as user_course_name`),
+  db.raw(`(
+    SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.university')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.institution')))
+    FROM pages sp
+    WHERE sp.owner_id = ${ownerColumn}
+      AND sp.page_type = 'student'
+      AND COALESCE(sp.moderation_status, 'approved') <> 'deleted'
+    ORDER BY sp.created_at ASC
+    LIMIT 1
+  ) as user_institution`)
+];
+
 const applyPostFilters = (q, { communityId = null, communitySlug = null, publicOnly = false, search = null, status = null } = {}) => {
   if (communityId) {
     q.where('p.community_id', communityId);
@@ -91,6 +112,11 @@ export default class MysqlPostRepository {
       avatar: row.user_avatar || null,
       current_job_title: row.user_current_job_title || null,
       currentJobTitle: row.user_current_job_title || null,
+      course_name: row.user_course_name || null,
+      courseName: row.user_course_name || null,
+      institution: row.user_institution || null,
+      display_title: row.user_display_title || row.user_current_job_title || null,
+      displayTitle: row.user_display_title || row.user_current_job_title || null,
       skills: parseJsonArray(row.user_skills),
       is_follow: toBool(row.is_follow),
       isFollow: toBool(row.is_follow)
@@ -103,7 +129,13 @@ export default class MysqlPostRepository {
           is_active: typeof row.community_is_active === 'undefined' ? undefined : row.community_is_active,
           default_post_visibility: row.community_default_post_visibility || null,
           is_private: row.community_default_post_visibility === 'community' ? 1 : 0,
-          isPrivate: row.community_default_post_visibility === 'community'
+          isPrivate: row.community_default_post_visibility === 'community',
+          members_count: parseInt(row.community_members_count || 0, 10),
+          membersCount: parseInt(row.community_members_count || 0, 10),
+          is_joined: toBool(row.community_is_joined),
+          isJoined: toBool(row.community_is_joined),
+          is_following: toBool(row.community_is_joined),
+          isFollowing: toBool(row.community_is_joined)
         }
       : null;
 
@@ -160,6 +192,15 @@ export default class MysqlPostRepository {
         db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as user_name'),
         'up.avatar as user_avatar',
         'up.current_job_title as user_current_job_title',
+        db.raw(`COALESCE(
+          NULLIF(CONCAT_WS(' at ',
+            NULLIF((SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseOfStudy')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseName'))) FROM pages sp WHERE sp.owner_id = p.user_id AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1), ''),
+            NULLIF((SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.university')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.institution'))) FROM pages sp WHERE sp.owner_id = p.user_id AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1), '')
+          ), ''),
+          NULLIF(up.display_title, ''),
+          NULLIF(CONCAT_WS(' at ', NULLIF(up.current_job_title, ''), NULLIF(up.current_workspace, '')), '')
+        ) as user_display_title`),
+        ...studentPageMetadataSelects('p.user_id'),
         db.raw(`IFNULL((
           SELECT JSON_ARRAYAGG(JSON_OBJECT('id', us.id, 'skill', us.skill, 'level', us.level))
           FROM user_skills us
@@ -169,6 +210,7 @@ export default class MysqlPostRepository {
         'c.description as community_description',
         'c.is_active as community_is_active',
         'c.default_post_visibility as community_default_post_visibility',
+        db.raw('(SELECT COUNT(*) FROM community_members cm WHERE cm.community_id = p.community_id) as community_members_count'),
         'pg.name as page_name',
         'pg.slug as page_slug',
         'pg.avatar as page_avatar',
@@ -189,14 +231,16 @@ export default class MysqlPostRepository {
         db.raw('EXISTS(SELECT 1 FROM followers f WHERE f.follower_id = ? AND f.following_id = p.user_id) as is_follow', [userId]),
         db.raw('EXISTS(SELECT 1 FROM post_reactions pr2 WHERE pr2.user_id = ? AND pr2.post_id = p.id) as is_liked', [userId]),
         db.raw('EXISTS(SELECT 1 FROM post_saves ps WHERE ps.user_id = ? AND ps.post_id = p.id) as is_saved', [userId]),
-        db.raw('EXISTS(SELECT 1 FROM generic_reports r WHERE r.user_id = ? AND r.target_id = p.id AND r.target_type = ?) as is_report', [userId, 'post'])
+        db.raw('EXISTS(SELECT 1 FROM generic_reports r WHERE r.user_id = ? AND r.target_id = p.id AND r.target_type = ?) as is_report', [userId, 'post']),
+        db.raw('EXISTS(SELECT 1 FROM community_members cmv WHERE cmv.user_id = ? AND cmv.community_id = p.community_id) as community_is_joined', [userId])
       );
     } else {
       q.select(
         db.raw('false as is_follow'),
         db.raw('false as is_liked'),
         db.raw('false as is_saved'),
-        db.raw('false as is_report')
+        db.raw('false as is_report'),
+        db.raw('false as community_is_joined')
       );
     }
 

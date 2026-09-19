@@ -147,7 +147,19 @@ export function makeCommunityController({ useCase = null }) {
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const { id } = req.params;
         const added = await useCase.joinCommunity({ communityId: id, userId: actorId });
-        return reply.code(200).send({ success: true, data: added });
+        const community = await useCase.getCommunity(id, { userId: actorId });
+        return reply.code(200).send({
+          success: true,
+          data: {
+            ...added,
+            is_joined: true,
+            isJoined: true,
+            is_following: true,
+            isFollowing: true,
+            members_count: community ? community.members_count : 0,
+            membersCount: community ? community.membersCount : 0
+          }
+        });
       } catch (err) {
         log.error('joinCommunity error', { message: err.message });
         if (err.message === 'validation_failed') 
@@ -162,7 +174,20 @@ export function makeCommunityController({ useCase = null }) {
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const { id } = req.params;
         const removed = await useCase.leaveCommunity({ communityId: id, userId: actorId });
-        return reply.code(200).send({ success: true, data: removed || {} });
+        const community = await useCase.getCommunity(id, { userId: actorId });
+        return reply.code(200).send({
+          success: true,
+          data: {
+            ...(removed || {}),
+            removed: Boolean(removed),
+            is_joined: false,
+            isJoined: false,
+            is_following: false,
+            isFollowing: false,
+            members_count: community ? community.members_count : 0,
+            membersCount: community ? community.membersCount : 0
+          }
+        });
       } catch (err) {
         log.error('leaveCommunity error', { message: err.message });
         if (err.message === 'validation_failed') 
@@ -189,7 +214,8 @@ export function makeCommunityController({ useCase = null }) {
         const q = req.query && (req.query.q || req.query.search) ? String(req.query.q || req.query.search) : null;
         const categoryId = req.query && (req.query.categoryId || req.query.category_id) ? String(req.query.categoryId || req.query.category_id) : null;
 
-        const res = await useCase.listCommunities({ page, perPage, q, categoryId, offset });
+        const userId = req.user && req.user.id || null;
+        const res = await useCase.listCommunities({ page, perPage, q, categoryId, offset, userId });
         return reply.send(buildPaginatedResponse(req, { data: res.data || [], page: res.page, perPage: res.perPage, total: res.total }));
       } catch (err) {
         log.error('listCommunities error', { message: err.message });
@@ -210,7 +236,8 @@ export function makeCommunityController({ useCase = null }) {
     getCommunity: async (req, reply) => {
       try {
         const { id } = req.params;
-        const row = await useCase.getCommunity(id);
+        const userId = req.user && req.user.id || null;
+        const row = await useCase.getCommunity(id, { userId });
         if (!row) 
             return reply.code(404).send({ success: false, error: { code: 'community_not_found' } });
         return reply.send({ success: true, data: row });

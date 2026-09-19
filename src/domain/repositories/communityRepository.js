@@ -19,8 +19,8 @@ export class CommunityRepositoryImpl extends CommunityRepository {
     super(); 
     if (!adapter) 
         throw new Error('adapter is required'); this.adapter = adapter; }
-  async findById(id) { 
-    return this.adapter.findById(id); 
+  async findById(id, options = {}) { 
+    return this.adapter.findById(id, options); 
  }
   async create(record) { 
     return this.adapter.create(record); }

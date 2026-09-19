@@ -504,7 +504,14 @@ export const QuestionResponse = {
         name: { type: ['string','null'] },
         email: { type: ['string','null'] },
         avatar: { type: ['string','null'] },
-        avatarUrl: { type: ['string','null'] }
+        avatarUrl: { type: ['string','null'] },
+        current_job_title: { type: ['string','null'] },
+        currentJobTitle: { type: ['string','null'] },
+        course_name: { type: ['string','null'] },
+        courseName: { type: ['string','null'] },
+        institution: { type: ['string','null'] },
+        display_title: { type: ['string','null'] },
+        displayTitle: { type: ['string','null'] }
       }
     },
     community: {
@@ -512,7 +519,13 @@ export const QuestionResponse = {
       properties: {
         id: { type: 'string' },
         name: { type: ['string','null'] },
-        description: { type: ['string','null'] }
+        description: { type: ['string','null'] },
+        members_count: { type: 'number' },
+        membersCount: { type: 'number' },
+        is_joined: { type: 'boolean' },
+        isJoined: { type: 'boolean' },
+        is_following: { type: 'boolean' },
+        isFollowing: { type: 'boolean' }
       }
     },
     score: { type: 'number' },
@@ -536,7 +549,7 @@ QuestionResponse.example = {
   acceptedAnswerId: null,
   createdAt: '2026-04-01T12:00:00Z',
   updatedAt: '2026-04-01T12:00:00Z',
-  user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null, avatarUrl: null },
+  user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null, avatarUrl: null, current_job_title: null, currentJobTitle: null, course_name: 'Computer Science', courseName: 'Computer Science', institution: 'University of Lagos', display_title: 'Computer Science at University of Lagos', displayTitle: 'Computer Science at University of Lagos' },
   community: { id: 'community-uuid', name: 'Local Chess Club', description: 'We meet weekly to play chess' },
   score: 3,
   is_liked: false,
@@ -596,7 +609,14 @@ export const PostResponse = {
         id: { type: 'string' },
         name: { type: 'string', nullable: true },
         email: { type: 'string', nullable: true },
-        avatar: { type: 'string', nullable: true }
+        avatar: { type: 'string', nullable: true },
+        current_job_title: { type: ['string','null'] },
+        currentJobTitle: { type: ['string','null'] },
+        course_name: { type: ['string','null'] },
+        courseName: { type: ['string','null'] },
+        institution: { type: ['string','null'] },
+        display_title: { type: ['string','null'] },
+        displayTitle: { type: ['string','null'] }
       }
     },
     community: {
@@ -607,7 +627,13 @@ export const PostResponse = {
         name: { type: 'string', nullable: true },
         description: { type: 'string', nullable: true },
         is_active: { type: 'number' },
-        default_post_visibility: { type: 'string', nullable: true }
+        default_post_visibility: { type: 'string', nullable: true },
+        members_count: { type: 'number' },
+        membersCount: { type: 'number' },
+        is_joined: { type: 'boolean' },
+        isJoined: { type: 'boolean' },
+        is_following: { type: 'boolean' },
+        isFollowing: { type: 'boolean' }
       }
     },
     page: { type: 'object', nullable: true, additionalProperties: true },
@@ -637,7 +663,7 @@ PostResponse.example = {
   is_saved: false,
   is_report: false,
   type: 'POST',
-  user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null },
+  user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null, current_job_title: null, currentJobTitle: null, course_name: 'Computer Science', courseName: 'Computer Science', institution: 'University of Lagos', display_title: 'Computer Science at University of Lagos', displayTitle: 'Computer Science at University of Lagos' },
   community: null,
   page: null,
   created_at: '2026-04-09T12:00:00Z',
@@ -1846,6 +1872,9 @@ export const PageCreateBody = {
     email: { type: 'string', format: 'email', description: 'Student page metadata shortcut.' },
     phone: { type: 'string', description: 'Student page metadata shortcut.' },
     courseOfStudy: { type: 'string', description: 'Student page metadata shortcut.' },
+    courseName: { type: 'string', description: 'Alias for courseOfStudy.' },
+    institution: { type: 'string', description: 'Student institution/university.' },
+    university: { type: 'string', description: 'Alias for institution.' },
     graduationDate: { type: 'string', format: 'date', description: 'Student page metadata shortcut.' },
     skills: { anyOf: [{ type: 'array', items: { type: 'string' } }, { type: 'string' }], description: 'Student page metadata shortcut.' },
     metadata: {
@@ -1860,6 +1889,9 @@ export const PageCreateBody = {
         email: { type: 'string', format: 'email' },
         phone: { type: 'string' },
         courseOfStudy: { type: 'string' },
+        courseName: { type: 'string' },
+        institution: { type: 'string' },
+        university: { type: 'string' },
         graduationDate: { type: 'string', format: 'date' },
         skills: { anyOf: [{ type: 'array', items: { type: 'string' } }, { type: 'string' }] }
       }
@@ -1893,6 +1925,7 @@ export const PageCreateBody = {
           email: 'student@email.com',
           phone: '+234 000 000 0000',
           courseOfStudy: 'Computer Science',
+          university: 'University of Lagos',
           graduationDate: '2026-05-26',
           skills: ['C++', 'JavaScript']
         }
@@ -1904,7 +1937,7 @@ export const PageCreateBody = {
     name: 'Sunday Godswill',
     slug: 'sunday-godswill',
     description: '<p>Student about text</p>',
-    metadata: { courseOfStudy: 'Computer Science', graduationDate: '2026-05-26', skills: ['C++', 'JavaScript'] }
+    metadata: { courseOfStudy: 'Computer Science', university: 'University of Lagos', graduationDate: '2026-05-26', skills: ['C++', 'JavaScript'] }
   }
 };
 
@@ -2129,16 +2162,22 @@ export const CommunityResponse = {
     post_likes_count: { type: 'number', description: 'Total number of like reactions on posts under this community' },
     post_reactions_count: { type: 'number', description: 'Total number of all post reactions under this community' },
     comments_count: { type: 'number', description: 'Total number of comments on posts under this community' },
+    members_count: { type: 'number', description: 'Total community members' },
+    membersCount: { type: 'number', description: 'Camel-case alias of members_count' },
+    is_joined: { type: 'boolean', description: 'Whether the authenticated viewer has joined this community.' },
+    isJoined: { type: 'boolean', description: 'Camel-case alias of is_joined.' },
+    is_following: { type: 'boolean', description: 'Alias of is_joined because community follow and membership use the same relationship.' },
+    isFollowing: { type: 'boolean', description: 'Camel-case alias of is_following.' },
     created_at: { type: 'string' }
   }
 };
-CommunityResponse.example = { id: 'community-uuid', categoryId: 'community-category-uuid', category_id: 'community-category-uuid', category: { id: 'community-category-uuid', name: 'Sports' }, slug: 'local-chess-club', url: '/channels/local-chess-club', community_type: 'regular', communityType: 'regular', parent_community_id: null, parentCommunityId: null, name: 'Local Chess Club', icon: 'las la-chess', description: 'We meet weekly to play chess', is_active: 1, members_only_posting: 0, membersOnlyPosting: false, default_post_visibility: 'community', is_private: 1, isPrivate: true, only_admin: 0, onlyAdmin: false, posts_count: 24, post_likes_count: 41, post_reactions_count: 58, comments_count: 103, created_at: '2026-04-12T10:00:00Z' };
+CommunityResponse.example = { id: 'community-uuid', categoryId: 'community-category-uuid', category_id: 'community-category-uuid', category: { id: 'community-category-uuid', name: 'Sports' }, slug: 'local-chess-club', url: '/channels/local-chess-club', community_type: 'regular', communityType: 'regular', parent_community_id: null, parentCommunityId: null, name: 'Local Chess Club', icon: 'las la-chess', description: 'We meet weekly to play chess', is_active: 1, members_only_posting: 0, membersOnlyPosting: false, default_post_visibility: 'community', is_private: 1, isPrivate: true, only_admin: 0, onlyAdmin: false, posts_count: 24, post_likes_count: 41, post_reactions_count: 58, comments_count: 103, members_count: 120, membersCount: 120, is_joined: true, isJoined: true, is_following: true, isFollowing: true, created_at: '2026-04-12T10:00:00Z' };
 
 export const CommunityMemberResponse = {
   type: 'object',
-  properties: { id: { type: 'string' }, userId: { type: 'string' }, communityId: { type: 'string' }, role: { type: 'string' } }
+  properties: { id: { type: 'string' }, userId: { type: 'string' }, communityId: { type: 'string' }, role: { type: 'string' }, is_joined: { type: 'boolean' }, isJoined: { type: 'boolean' }, is_following: { type: 'boolean' }, isFollowing: { type: 'boolean' }, members_count: { type: 'number' }, membersCount: { type: 'number' } }
 };
-CommunityMemberResponse.example = { id: 'membership-uuid', userId: 'user-uuid', communityId: 'community-uuid', role: 'member' };
+CommunityMemberResponse.example = { id: 'membership-uuid', userId: 'user-uuid', communityId: 'community-uuid', role: 'member', is_joined: true, isJoined: true, is_following: true, isFollowing: true, members_count: 120, membersCount: 120 };
 
 export const CommentListResponse = { type: 'array', items: CommentResponse };
 

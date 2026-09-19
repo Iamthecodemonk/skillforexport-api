@@ -23,7 +23,7 @@ export default class MysqlPageRepository {
     page.type = page.type || page.pageType || page.page_type || metadataType || 'business';
     page.pageType = page.pageType || page.type || page.page_type || metadataType || 'business';
     if (page.metadata && typeof page.metadata === 'object') {
-      const metadataFields = ['slogan', 'contactEmail', 'website', 'staffSize', 'businessCategory', 'email', 'phone', 'courseOfStudy', 'graduationDate', 'skills'];
+      const metadataFields = ['slogan', 'contactEmail', 'website', 'staffSize', 'businessCategory', 'email', 'phone', 'courseOfStudy', 'university', 'graduationDate', 'skills'];
       for (const field of metadataFields) {
         if (typeof page[field] === 'undefined' && typeof page.metadata[field] !== 'undefined') {
           page[field] = page.metadata[field];

@@ -70,6 +70,7 @@ import errorHandler from './interfaces/middleware/errorHandler.js';
 import { getDatabaseMetrics } from './infrastructure/knexConfig.js';
 import { createPerformanceMonitor } from './utils/performanceMonitor.js';
 import { makePerformanceController } from './interfaces/controllers/performanceController.js';
+import { getFeedCacheMetrics } from './utils/feedCache.js';
 
 import CommentUseCase from './application/use-cases/commentUseCase.js';
 import ReactionUseCase from './application/use-cases/reactionUseCase.js';
@@ -375,7 +376,8 @@ export default async function startServer() {
     ...healthController,
     ...makePerformanceController({
       getRequestMetrics: () => performanceMonitor.snapshot(),
-      getDatabaseMetrics
+      getDatabaseMetrics,
+      getFeedCacheMetrics
     })
   };
   let notificationRepository = null;

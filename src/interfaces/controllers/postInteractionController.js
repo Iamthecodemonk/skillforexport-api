@@ -1,4 +1,5 @@
 import logger from '../../utils/logger.js';
+import { invalidateFeedCache } from '../../utils/feedCache.js';
 
 const piLogger = logger.child('POST_INTERACTION_CONTROLLER');
 
@@ -14,6 +15,7 @@ export function makePostInteractionController({ useCase = null, notificationRepo
         if (!actorId) 
           return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const res = await useCase.toggleSave({ postId, userId: actorId });
+        await invalidateFeedCache(req);
         return reply.send({ success: true, message: res.saved ? 'Post saved successfully' : 'Post unsaved successfully', data: res });
       } catch (err) {
         piLogger.error('toggleSave error', { message: err.message });
@@ -31,6 +33,7 @@ export function makePostInteractionController({ useCase = null, notificationRepo
         const details = body.details || body.additional_notes || body.additionalNotes || null;
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         const rep = await useCase.reportPost({ postId, userId: actorId, reason, details });
+        await invalidateFeedCache(req);
         if (notificationRepository && postRepository) {
           try {
             const post = await postRepository.findById(postId, { includeHidden: true });

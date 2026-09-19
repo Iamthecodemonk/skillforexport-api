@@ -2,7 +2,7 @@ import logger from '../../utils/logger.js';
 
 const performanceLogger = logger.child('PERFORMANCE_CONTROLLER');
 
-export function makePerformanceController({ getRequestMetrics, getDatabaseMetrics }) {
+export function makePerformanceController({ getRequestMetrics, getDatabaseMetrics, getFeedCacheMetrics }) {
   return {
     performanceMetrics: async (req, reply) => {
       try {
@@ -21,7 +21,8 @@ export function makePerformanceController({ getRequestMetrics, getDatabaseMetric
               memory: process.memoryUsage()
             },
             requests: typeof getRequestMetrics === 'function' ? getRequestMetrics() : null,
-            database: typeof getDatabaseMetrics === 'function' ? getDatabaseMetrics() : null
+            database: typeof getDatabaseMetrics === 'function' ? getDatabaseMetrics() : null,
+            feedCache: typeof getFeedCacheMetrics === 'function' ? getFeedCacheMetrics() : null
           }
         });
       } catch (error) {

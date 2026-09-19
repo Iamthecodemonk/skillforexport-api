@@ -5,6 +5,7 @@ import { parsePagination, buildPaginatedResponse } from '../paginationResponse.j
 import os from 'os';
 import fs from 'fs';
 import path from 'path';
+import { invalidateFeedCache } from '../../utils/feedCache.js';
 
 const userLogger = logger.child('USER_CONTROLLER');
 
@@ -41,22 +42,7 @@ async function enqueueProfileImageFromUrl({ req, reply, useCase, mediaQueue, use
   return reply.code(202).send({ success: true, data: { jobId: job.id } });
 }
 
-const invalidateCompactFeedCache = async (req) => {
-  try {
-    const redis = req.server && (req.server.redisManager || req.server.redisClient);
-    if (!redis || typeof redis.keys !== 'function') return;
-    const keys = await redis.keys('feed:compact:*');
-    if (!keys || keys.length === 0) return;
-    if (redis.client && typeof redis.client === 'function') {
-      const client = redis.client();
-      if (client && typeof client.del === 'function') await client.del(...keys);
-      return;
-    }
-    if (typeof redis.del === 'function') await redis.del(...keys);
-  } catch (err) {
-    userLogger.warn('compact feed cache invalidation failed', { message: err && err.message });
-  }
-};
+const invalidateCompactFeedCache = invalidateFeedCache;
 
 const invalidateUserProfileCaches = async (req, userIds = []) => {
   try {

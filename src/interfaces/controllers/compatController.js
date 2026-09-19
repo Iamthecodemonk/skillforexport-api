@@ -3,6 +3,7 @@ import db from '../../infrastructure/knexConfig.js';
 import { formatDateForSql } from '../../utils/date.js';
 import { buildPaginatedResponse, parsePagination } from '../paginationResponse.js';
 import logger from '../../utils/logger.js';
+import { invalidateFeedCache } from '../../utils/feedCache.js';
 import MysqlPostRepository from '../../infrastructure/repositories/mysqlPostRepository.js';
 import MysqlCommentRepository from '../../infrastructure/repositories/mysqlCommentRepository.js';
 import MysqlQuestionRepository from '../../infrastructure/repositories/mysqlQuestionRepository.js';
@@ -96,22 +97,7 @@ const normalizeSettings = (source = {}) => {
   };
 };
 
-async function invalidateCompactFeedCache(req) {
-  try {
-    const redis = req.server && (req.server.redisManager || req.server.redisClient);
-    if (!redis || typeof redis.keys !== 'function') return;
-    const keys = await redis.keys('feed:compact:*');
-    if (!keys || keys.length === 0) return;
-    if (redis.client && typeof redis.client === 'function') {
-      const client = redis.client();
-      if (client && typeof client.del === 'function') await client.del(...keys);
-      return;
-    }
-    if (typeof redis.del === 'function') await redis.del(...keys);
-  } catch (err) {
-    compatLogger.warn('compact feed cache invalidation failed', { message: err && err.message });
-  }
-}
+const invalidateCompactFeedCache = invalidateFeedCache;
 
 const notificationPreferencesFromSettings = (settings = {}) => ({
   inApp: {

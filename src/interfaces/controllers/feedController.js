@@ -1,6 +1,7 @@
 import logger from '../../utils/logger.js';
 import { buildPaginatedResponse, parsePagination } from '../paginationResponse.js';
 import db from '../../infrastructure/knexConfig.js';
+import { rememberFeedResponse } from '../../utils/feedCache.js';
 
 const feedLogger = logger.child('FEED_CONTROLLER');
 
@@ -433,73 +434,29 @@ export function makeFeedController({ postUseCase = null, questionUseCase = null 
         const search = firstDefined(query.q, query.search, nestedQueryValue(query, 'filters', 'search')) || null;
         const publicOnly = !(communityId || communitySlug);
         const fetchLimit = Math.min(Math.max(limit + offset, limit * 3), 100);
-        const redis = req.server && (req.server.redisManager || req.server.redisClient);
         const communityScope = communityId || communitySlug || 'public';
-        const cacheKey = `feed:compact:${actorId || 'guest'}:${mode}:${communityScope}:${search || ''}:${page}:${perPage}`;
-
-        if (redis && typeof redis.getJson === 'function') {
-          const cached = await redis.getJson(cacheKey);
-          if (cached) return reply.send(cached);
-        } else if (redis && typeof redis.get === 'function') {
-          const cached = await redis.get(cacheKey);
-          if (cached) {
-            try { return reply.send(JSON.parse(cached)); } catch (_) { /* ignore invalid cache */ }
-          }
-        }
-
-        const [postRows, questionRows] = await Promise.all([
-          postUseCase.ListPosts({
-            limit: fetchLimit,
-            offset: 0,
-            userId: actorId || null,
-            communityId,
-            communitySlug,
-            publicOnly,
-            search,
-            sortField: mode === 'popular' ? 'score' : 'created_at',
-            sortDirection: 'desc',
-            includeTotal: true
-          }),
-          questionUseCase.listQuestions({
-            limit: fetchLimit,
-            offset: 0,
-            communityId,
-            communitySlug,
-            publicOnly,
-            search,
-            sortField: 'created_at',
-            sortDirection: 'desc',
-            actorId: actorId || null,
-            includeTotal: true
-          })
-        ]);
-
-        const postTotal = Number(postRows && postRows.total || 0);
-        const questionTotal = Number(questionRows && questionRows.total || 0);
-
-        const data = [
-          ...(postRows || []).map(compactPost),
-          ...(questionRows || []).map(compactQuestion)
-        ]
-          .sort((a, b) => {
-            const diff = compactSortValue(b, mode) - compactSortValue(a, mode);
-            if (diff !== 0) return diff;
-            return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-          })
-          .slice(offset, offset + limit);
-
-        const response = buildPaginatedResponse(req, {
-          data,
-          page,
-          perPage,
-          total: Number(postTotal || 0) + Number(questionTotal || 0)
+        const response = await rememberFeedResponse(req, {
+          namespace: 'compact',
+          identity: { actorId: actorId || 'guest', mode, communityScope, search, page, perPage }
+        }, async () => {
+          const [postRows, questionRows] = await Promise.all([
+            postUseCase.ListPosts({ limit: fetchLimit, offset: 0, userId: actorId || null, communityId, communitySlug, publicOnly, search, sortField: mode === 'popular' ? 'score' : 'created_at', sortDirection: 'desc', includeTotal: true }),
+            questionUseCase.listQuestions({ limit: fetchLimit, offset: 0, communityId, communitySlug, publicOnly, search, sortField: 'created_at', sortDirection: 'desc', actorId: actorId || null, includeTotal: true })
+          ]);
+          const data = [...(postRows || []).map(compactPost), ...(questionRows || []).map(compactQuestion)]
+            .sort((a, b) => {
+              const diff = compactSortValue(b, mode) - compactSortValue(a, mode);
+              if (diff !== 0) return diff;
+              return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+            })
+            .slice(offset, offset + limit);
+          return buildPaginatedResponse(req, {
+            data,
+            page,
+            perPage,
+            total: Number(postRows && postRows.total || 0) + Number(questionRows && questionRows.total || 0)
+          });
         });
-
-        if (redis && typeof redis.setJson === 'function') {
-          await redis.setJson(cacheKey, response, { EX: 20 });
-        } else if (redis && typeof redis.set === 'function') {
-          await redis.set(cacheKey, JSON.stringify(response), 'EX', 20);
-        }
 
         return reply.send(response);
       } catch (err) {
@@ -531,31 +488,32 @@ export function makeFeedController({ postUseCase = null, questionUseCase = null 
         const publicOnly = !(communityId || communitySlug);
         const fetchLimit = limit + offset;
 
-        const [posts, questions] = await Promise.all([
-          postUseCase.ListPosts({ limit: fetchLimit, offset: 0, userId: actorId || null, communityId, communitySlug, publicOnly, search, sortField, sortDirection, includeTotal: true }),
-          questionUseCase.listQuestions({ limit: fetchLimit, offset: 0, communityId, communitySlug, publicOnly, search, sortField, sortDirection, actorId: actorId || null, includeTotal: true })
-        ]);
-
-        const postTotal = Number(posts && posts.total || 0);
-        const questionTotal = Number(questions && questions.total || 0);
-
-        const direction = sortDirection === 'asc' ? 1 : -1;
-        const data = [...(posts || []), ...(questions || [])]
-          .sort((a, b) => {
-            const av = sortableValue(a, sortField);
-            const bv = sortableValue(b, sortField);
-            if (av < bv) return -1 * direction;
-            if (av > bv) return 1 * direction;
-            return String(a.id || '').localeCompare(String(b.id || '')) * direction;
-          })
-          .slice(offset, offset + limit);
-
-        return reply.send(buildPaginatedResponse(req, {
-          data,
-          page,
-          perPage,
-          total: Number(postTotal || 0) + Number(questionTotal || 0)
-        }));
+        const response = await rememberFeedResponse(req, {
+          namespace: 'full',
+          identity: { actorId: actorId || 'guest', communityId, communitySlug, search, sortField, sortDirection, page, perPage }
+        }, async () => {
+          const [posts, questions] = await Promise.all([
+            postUseCase.ListPosts({ limit: fetchLimit, offset: 0, userId: actorId || null, communityId, communitySlug, publicOnly, search, sortField, sortDirection, includeTotal: true }),
+            questionUseCase.listQuestions({ limit: fetchLimit, offset: 0, communityId, communitySlug, publicOnly, search, sortField, sortDirection, actorId: actorId || null, includeTotal: true })
+          ]);
+          const direction = sortDirection === 'asc' ? 1 : -1;
+          const data = [...(posts || []), ...(questions || [])]
+            .sort((a, b) => {
+              const av = sortableValue(a, sortField);
+              const bv = sortableValue(b, sortField);
+              if (av < bv) return -1 * direction;
+              if (av > bv) return 1 * direction;
+              return String(a.id || '').localeCompare(String(b.id || '')) * direction;
+            })
+            .slice(offset, offset + limit);
+          return buildPaginatedResponse(req, {
+            data,
+            page,
+            perPage,
+            total: Number(posts && posts.total || 0) + Number(questions && questions.total || 0)
+          });
+        });
+        return reply.send(response);
       } catch (err) {
         feedLogger.error('listFeeds error', { message: err.message, stack: err.stack });
         return reply.code(500).send({ success: false, error: { code: 'internal_error' } });

@@ -1,4 +1,5 @@
 import logger from '../../utils/logger.js';
+import { invalidateFeedCache } from '../../utils/feedCache.js';
 import { buildPaginatedResponse, parsePagination } from '../paginationResponse.js';
 
 const questionLogger = logger.child('QUESTION_CONTROLLER');
@@ -27,6 +28,7 @@ export function makeQuestionController({ useCase = null, notificationRepository 
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         if (!title || !body) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         const created = await useCase.createQuestion({ userId: actorId, communityId, title, body, visibility });
+        await invalidateFeedCache(req);
         if (notificationRepository && typeof notificationRepository.notifyFollowersOfUser === 'function') {
           try {
             const question = created && created.toPlainObject ? created.toPlainObject() : created;
@@ -107,6 +109,7 @@ export function makeQuestionController({ useCase = null, notificationRepository 
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         if (!content) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         const created = await useCase.createAnswer({ questionId, userId: actorId, parentAnswerId, content });
+        await invalidateFeedCache(req);
         if (notificationRepository) {
           try {
             const question = await useCase.getQuestion({ id: questionId, includeAnswers: false });

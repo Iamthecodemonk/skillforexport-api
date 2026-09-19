@@ -1,4 +1,5 @@
 import logger from '../../utils/logger.js';
+import { invalidateFeedCache } from '../../utils/feedCache.js';
 import { buildPaginatedResponse, parsePagination } from '../paginationResponse.js';
 
 const postLogger = logger.child('POST_CONTROLLER');
@@ -11,22 +12,7 @@ const nestedQueryValue = (query, group, key) => {
   return query[`${group}[${key}]`];
 };
 
-const invalidateCompactFeedCache = async (req) => {
-  try {
-    const redis = req.server && (req.server.redisManager || req.server.redisClient);
-    if (!redis || typeof redis.keys !== 'function') return;
-    const keys = await redis.keys('feed:compact:*');
-    if (!keys || keys.length === 0) return;
-    if (redis.client && typeof redis.client === 'function') {
-      const client = redis.client();
-      if (client && typeof client.del === 'function') await client.del(...keys);
-      return;
-    }
-    if (typeof redis.del === 'function') await redis.del(...keys);
-  } catch (err) {
-    postLogger.warn('compact feed cache invalidation failed', { message: err && err.message });
-  }
-};
+const invalidateCompactFeedCache = invalidateFeedCache;
 
 export function makePostController({ useCase = null }) {
   if (!useCase) {

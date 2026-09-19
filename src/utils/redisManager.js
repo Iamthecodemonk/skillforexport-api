@@ -117,6 +117,16 @@ class RedisManager {
     }
   }
 
+  async incr(key) {
+    if (!this._client) return null;
+    try {
+      return await this._client.incr(this._key(key));
+    } catch (e) {
+      log.warn('Redis INCR failed', { key, err: e.message });
+      return null;
+    }
+  }
+
   async keys(pattern) {
     if (!this._client) return [];
     try {

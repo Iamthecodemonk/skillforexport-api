@@ -1,4 +1,5 @@
 import logger from '../../utils/logger.js';
+import { invalidateFeedCache } from '../../utils/feedCache.js';
 import { buildPaginatedResponse, parsePagination } from '../paginationResponse.js';
 
 const commentLogger = logger.child('COMMENT_CONTROLLER');
@@ -17,6 +18,7 @@ export function makeCommentController({ useCase = null, notificationRepository =
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         if (!content) return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         const created = await useCase.createComment({ postId, userId: actorId, parentCommentId, content });
+        await invalidateFeedCache(req);
         if (notificationRepository && postRepository) {
           try {
             const post = await postRepository.findById(postId, { userId: actorId });
@@ -89,6 +91,7 @@ export function makeCommentController({ useCase = null, notificationRepository =
         const actorRole = req.user && req.user.role;
         if (!actorId) return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         await useCase.deleteComment({ id, userId: actorId, actorRole });
+        await invalidateFeedCache(req);
         return reply.code(200).send({ success: true, message: 'Comment deleted successfully', data: { id } });
       } catch (err) {
         commentLogger.error('deleteComment error', { message: err.message });

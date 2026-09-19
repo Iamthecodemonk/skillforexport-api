@@ -107,6 +107,8 @@ export default class MysqlPostRepository {
       course_name: row.user_course_name || null,
       courseName: row.user_course_name || null,
       institution: row.user_institution || null,
+      institution_name: row.user_institution || null,
+      institutionName: row.user_institution || null,
       display_title: row.user_display_title || row.user_current_job_title || null,
       displayTitle: row.user_display_title || row.user_current_job_title || null,
       skills: parseJsonArray(row.user_skills),

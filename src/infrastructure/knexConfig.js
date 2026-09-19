@@ -101,4 +101,21 @@ export function getDatabaseMetrics() {
   };
 }
 
+export async function checkDatabaseHealth(timeoutMs = 2000) {
+  let timeout;
+  try {
+    await Promise.race([
+      db.raw('SELECT 1 AS healthy'),
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('database_health_timeout')), timeoutMs);
+      })
+    ]);
+    return { status: 'ready' };
+  } catch (error) {
+    return { status: 'error', message: error.message };
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
 export default db;

@@ -47,8 +47,8 @@ const splitSkills = (value) => String(value || '')
   .slice(0, 3);
 
 const studentAuthorSelects = (ownerColumn) => [
-  db.raw(`(SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseOfStudy')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseName'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1) as author_course_name`),
-  db.raw(`(SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.university')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.institution'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1) as author_institution`),
+  db.raw(`(SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseOfStudy')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseName')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.course_name')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.course'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1) as author_course_name`),
+  db.raw(`(SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.university')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.institution')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.institutionName')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.institution_name')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.school'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1) as author_institution`),
   db.raw(`COALESCE(
     NULLIF(CONCAT_WS(' at ',
       NULLIF((SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseOfStudy')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseName'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1), ''),
@@ -63,6 +63,8 @@ const authorStudentFields = (row) => ({
   courseName: row.author_course_name || null,
   course_name: row.author_course_name || null,
   institution: row.author_institution || null,
+  institutionName: row.author_institution || null,
+  institution_name: row.author_institution || null,
   displayTitle: row.author_display_title || row.author_current_job_title || null,
   display_title: row.author_display_title || row.author_current_job_title || null
 });
@@ -128,9 +130,11 @@ const compactPost = (row) => ({
     currentJobTitle: row.user ? firstDefined(row.user.currentJobTitle, row.user.current_job_title, null) : row.author_current_job_title || null,
     current_job_title: row.user ? firstDefined(row.user.current_job_title, row.user.currentJobTitle, null) : row.author_current_job_title || null,
     ...(row.user ? {
-      courseName: firstDefined(row.user.courseName, row.user.course_name, null),
-      course_name: firstDefined(row.user.course_name, row.user.courseName, null),
-      institution: row.user.institution || null,
+      courseName: firstDefined(row.user.courseName, row.user.course_name) || null,
+      course_name: firstDefined(row.user.course_name, row.user.courseName) || null,
+      institution: firstDefined(row.user.institution, row.user.institutionName, row.user.institution_name) || null,
+      institutionName: firstDefined(row.user.institutionName, row.user.institution_name, row.user.institution) || null,
+      institution_name: firstDefined(row.user.institution_name, row.user.institutionName, row.user.institution) || null,
       displayTitle: firstDefined(row.user.displayTitle, row.user.display_title, row.user.currentJobTitle, row.user.current_job_title, null),
       display_title: firstDefined(row.user.display_title, row.user.displayTitle, row.user.current_job_title, row.user.currentJobTitle, null)
     } : authorStudentFields(row)),
@@ -171,9 +175,11 @@ const compactQuestion = (row) => ({
     currentJobTitle: row.user ? firstDefined(row.user.currentJobTitle, row.user.current_job_title, null) : row.author_current_job_title || null,
     current_job_title: row.user ? firstDefined(row.user.current_job_title, row.user.currentJobTitle, null) : row.author_current_job_title || null,
     ...(row.user ? {
-      courseName: firstDefined(row.user.courseName, row.user.course_name, null),
-      course_name: firstDefined(row.user.course_name, row.user.courseName, null),
-      institution: row.user.institution || null,
+      courseName: firstDefined(row.user.courseName, row.user.course_name) || null,
+      course_name: firstDefined(row.user.course_name, row.user.courseName) || null,
+      institution: firstDefined(row.user.institution, row.user.institutionName, row.user.institution_name) || null,
+      institutionName: firstDefined(row.user.institutionName, row.user.institution_name, row.user.institution) || null,
+      institution_name: firstDefined(row.user.institution_name, row.user.institutionName, row.user.institution) || null,
       displayTitle: firstDefined(row.user.displayTitle, row.user.display_title, row.user.currentJobTitle, row.user.current_job_title, null),
       display_title: firstDefined(row.user.display_title, row.user.displayTitle, row.user.current_job_title, row.user.currentJobTitle, null)
     } : authorStudentFields(row)),

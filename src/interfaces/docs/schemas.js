@@ -510,6 +510,8 @@ export const QuestionResponse = {
         course_name: { type: ['string','null'] },
         courseName: { type: ['string','null'] },
         institution: { type: ['string','null'] },
+        institution_name: { type: ['string','null'] },
+        institutionName: { type: ['string','null'] },
         display_title: { type: ['string','null'] },
         displayTitle: { type: ['string','null'] }
       }
@@ -549,7 +551,7 @@ QuestionResponse.example = {
   acceptedAnswerId: null,
   createdAt: '2026-04-01T12:00:00Z',
   updatedAt: '2026-04-01T12:00:00Z',
-  user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null, avatarUrl: null, current_job_title: null, currentJobTitle: null, course_name: 'Computer Science', courseName: 'Computer Science', institution: 'University of Lagos', display_title: 'Computer Science at University of Lagos', displayTitle: 'Computer Science at University of Lagos' },
+  user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null, avatarUrl: null, current_job_title: null, currentJobTitle: null, course_name: 'Computer Science', courseName: 'Computer Science', institution: 'University of Lagos', institution_name: 'University of Lagos', institutionName: 'University of Lagos', display_title: 'Computer Science at University of Lagos', displayTitle: 'Computer Science at University of Lagos' },
   community: { id: 'community-uuid', name: 'Local Chess Club', description: 'We meet weekly to play chess' },
   score: 3,
   is_liked: false,
@@ -615,6 +617,8 @@ export const PostResponse = {
         course_name: { type: ['string','null'] },
         courseName: { type: ['string','null'] },
         institution: { type: ['string','null'] },
+        institution_name: { type: ['string','null'] },
+        institutionName: { type: ['string','null'] },
         display_title: { type: ['string','null'] },
         displayTitle: { type: ['string','null'] }
       }
@@ -663,7 +667,7 @@ PostResponse.example = {
   is_saved: false,
   is_report: false,
   type: 'POST',
-  user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null, current_job_title: null, currentJobTitle: null, course_name: 'Computer Science', courseName: 'Computer Science', institution: 'University of Lagos', display_title: 'Computer Science at University of Lagos', displayTitle: 'Computer Science at University of Lagos' },
+  user: { id: 'user-uuid', name: 'janedoe', email: 'jane@example.com', avatar: null, current_job_title: null, currentJobTitle: null, course_name: 'Computer Science', courseName: 'Computer Science', institution: 'University of Lagos', institution_name: 'University of Lagos', institutionName: 'University of Lagos', display_title: 'Computer Science at University of Lagos', displayTitle: 'Computer Science at University of Lagos' },
   community: null,
   page: null,
   created_at: '2026-04-09T12:00:00Z',

@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
+    "start:worker": "node src/worker.js",
     "dev": "nodemon --watch src --ext js --exec node src/index.js",
     "perf:baseline": "node scripts/performance-baseline.js"
   },

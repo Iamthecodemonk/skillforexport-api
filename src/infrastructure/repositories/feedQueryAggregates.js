@@ -8,8 +8,19 @@ export const userSkillsAggregate = () => db('user_skills')
 export const studentPageAggregate = () => db('pages')
   .select('owner_id')
   .select(
-    db.raw("MAX(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.courseOfStudy')), JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.courseName')))) as course_name"),
-    db.raw("MAX(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.university')), JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.institution')))) as institution")
+    db.raw(`MAX(COALESCE(
+      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.courseOfStudy')),
+      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.courseName')),
+      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.course_name')),
+      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.course'))
+    )) as course_name`),
+    db.raw(`MAX(COALESCE(
+      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.university')),
+      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.institution')),
+      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.institutionName')),
+      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.institution_name')),
+      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.school'))
+    )) as institution`)
   )
   .where('page_type', 'student')
   .whereRaw("COALESCE(moderation_status, 'approved') <> 'deleted'")

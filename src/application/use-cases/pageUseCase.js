@@ -56,6 +56,9 @@ export default class PageUseCase {
       course_name: 'courseOfStudy',
       courseName: 'courseOfStudy',
       institution: 'university',
+      institution_name: 'university',
+      institutionName: 'university',
+      school: 'university',
       graduation_date: 'graduationDate'
     };
     if (typeof merged.courseOfStudy === 'undefined' && typeof merged.courseName !== 'undefined') {

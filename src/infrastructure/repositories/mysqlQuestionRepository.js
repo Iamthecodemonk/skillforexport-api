@@ -84,6 +84,8 @@ export default class MysqlQuestionRepository {
           course_name: user_course_name || null,
           courseName: user_course_name || null,
           institution: user_institution || null,
+          institution_name: user_institution || null,
+          institutionName: user_institution || null,
           display_title: user_display_title || user_current_job_title || null,
           displayTitle: user_display_title || user_current_job_title || null,
           skills: parseJsonArray(user_skills),

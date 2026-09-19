@@ -366,6 +366,32 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('health'));
 
+  fastify.get('/health/live', {
+    schema: {
+      operationId: 'getLiveness',
+      tags: ['Health'],
+      description: 'Lightweight process liveness check. Does not call external dependencies.',
+      response: {
+        200: {
+          type: 'object',
+          additionalProperties: true
+        }
+      }
+    }
+  }, handler('liveness'));
+
+  fastify.get('/health/ready', {
+    schema: {
+      operationId: 'getReadiness',
+      tags: ['Health'],
+      description: 'Dependency readiness check for MySQL, Redis, and queue initialization.',
+      response: {
+        200: { type: 'object', additionalProperties: true },
+        503: { type: 'object', additionalProperties: true }
+      }
+    }
+  }, handler('readiness'));
+
   fastify.get('/admin/performance', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: {

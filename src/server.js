@@ -67,7 +67,7 @@ import jwt from 'jsonwebtoken';
 import authRequired from './interfaces/middleware/authRequired.js';
 import makePopulateUser from './interfaces/middleware/populateUser.js';
 import errorHandler from './interfaces/middleware/errorHandler.js';
-import { getDatabaseMetrics } from './infrastructure/knexConfig.js';
+import db, { checkDatabaseHealth, getDatabaseMetrics } from './infrastructure/knexConfig.js';
 import { createPerformanceMonitor } from './utils/performanceMonitor.js';
 import { makePerformanceController } from './interfaces/controllers/performanceController.js';
 import { getFeedCacheMetrics } from './utils/feedCache.js';
@@ -224,6 +224,7 @@ export default async function startServer() {
   let mediaWorker = null;
   let redisConnection = null;
   let queueInitError = null;
+  const workersEnabled = String(process.env.RUN_QUEUE_WORKERS || 'true').toLowerCase() !== 'false';
   const deploymentEnv = process.env.DEPLOYMENT_ENV;
   const redisHostDefault = deploymentEnv === 'docker' ? 'redis' : 'localhost';
   const redisHost = process.env.REDIS_HOST;
@@ -242,7 +243,7 @@ export default async function startServer() {
       };
 
       emailQueue = createEmailQueue(connectionOptions.connection);
-      emailWorker = createEmailWorker(connectionOptions.connection);
+      if (workersEnabled) emailWorker = createEmailWorker(connectionOptions.connection);
       mediaQueue = createMediaQueue(connectionOptions.connection);
       redisConnection = connectionOptions.connection;
 
@@ -324,7 +325,16 @@ export default async function startServer() {
   }
 
   // Create health controller with queue status info and cloudinary health
-  const healthController = makeHealthController({ emailQueue, emailWorker, queueInitError, cloudinary });
+  const healthController = makeHealthController({
+    emailQueue,
+    emailWorker,
+    queueInitError,
+    cloudinary,
+    redisClient: redisClientForLimits,
+    checkDatabaseHealth,
+    workersEnabled,
+    getQueueInitError: () => queueInitError
+  });
 
   // Register multipart plugin for file uploads (requires @fastify/multipart installed)
   try {
@@ -602,7 +612,7 @@ export default async function startServer() {
           try {
             const assetAdapter = new MysqlUserAssetRepository();
             const postMediaAdapter = new MysqlPostMediaRepository();
-            if (mediaQueue && !mediaWorker && redisConnection) {
+            if (workersEnabled && mediaQueue && !mediaWorker && redisConnection) {
               mediaWorker = createMediaWorker(redisConnection, { cloudinary, profileRepository: profileRepo, assetAdapter, postMediaAdapter, pageRepository: pageRepo, redisClient: redisClientForLimits, concurrency });
             }
             // Attach asset adapter to postUseCase so posts can validate asset readiness
@@ -798,6 +808,23 @@ export default async function startServer() {
   // No separate /mobile mount — unified API flow under /api
 
   // Email queue already initialized above
+  app.addHook('onClose', async () => {
+    serverLogger.info('Closing application resources');
+    await Promise.allSettled([
+      mediaWorker && typeof mediaWorker.close === 'function' ? mediaWorker.close() : Promise.resolve(),
+      emailWorker && typeof emailWorker.close === 'function' ? emailWorker.close() : Promise.resolve()
+    ]);
+    await Promise.allSettled([
+      mediaQueue && typeof mediaQueue.close === 'function' ? mediaQueue.close() : Promise.resolve(),
+      emailQueue && typeof emailQueue.close === 'function' ? emailQueue.close() : Promise.resolve()
+    ]);
+    if (redisClientForLimits && typeof redisClientForLimits.quit === 'function') {
+      await redisClientForLimits.quit().catch(() => redisClientForLimits.disconnect());
+    }
+    await db.destroy();
+    serverLogger.info('Application resources closed');
+  });
+
   // start
   const port = config.port || 3000;
   await app.listen({ port, host: '0.0.0.0' });

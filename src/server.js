@@ -67,6 +67,9 @@ import jwt from 'jsonwebtoken';
 import authRequired from './interfaces/middleware/authRequired.js';
 import makePopulateUser from './interfaces/middleware/populateUser.js';
 import errorHandler from './interfaces/middleware/errorHandler.js';
+import { getDatabaseMetrics } from './infrastructure/knexConfig.js';
+import { createPerformanceMonitor } from './utils/performanceMonitor.js';
+import { makePerformanceController } from './interfaces/controllers/performanceController.js';
 
 import CommentUseCase from './application/use-cases/commentUseCase.js';
 import ReactionUseCase from './application/use-cases/reactionUseCase.js';
@@ -157,6 +160,12 @@ export default async function startServer() {
       }
     }
   });
+  const performanceMonitor = createPerformanceMonitor({
+    slowRequestMs: parseInt(process.env.SLOW_REQUEST_MS || '1000', 10),
+    sampleSize: parseInt(process.env.PERFORMANCE_SAMPLE_SIZE || '500', 10)
+  });
+  app.addHook('onRequest', performanceMonitor.onRequest);
+  app.addHook('onResponse', performanceMonitor.onResponse);
   // Add a tolerant JSON parser only for follow/unfollow routes to avoid global behavior changes.
   //i did this because i was having issues normal follow and unfollow routes dont real require a json body sha
   try {
@@ -362,7 +371,13 @@ export default async function startServer() {
   }
 
   // register app routes
-  const controllers = { ...healthController };
+  const controllers = {
+    ...healthController,
+    ...makePerformanceController({
+      getRequestMetrics: () => performanceMonitor.snapshot(),
+      getDatabaseMetrics
+    })
+  };
   let notificationRepository = null;
   try {
     notificationRepository = new MysqlNotificationRepository();

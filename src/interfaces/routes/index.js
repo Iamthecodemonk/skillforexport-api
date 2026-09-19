@@ -348,11 +348,52 @@ export default async function registerRoutes(fastify, deps) {
       response: {
         200: {
           type: 'object',
-          properties: { status: { type: 'string' } }
+          properties: {
+            success: { type: 'boolean' },
+            data: {
+              type: 'object',
+              additionalProperties: true,
+              properties: {
+                status: { type: 'string' },
+                timestamp: { type: 'string' },
+                emailQueue: { type: 'object', additionalProperties: true },
+                cloudinary: { type: 'object', additionalProperties: true }
+              }
+            }
+          }
         }
       }
     }
   }, handler('health'));
+
+  fastify.get('/admin/performance', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: {
+      operationId: 'getPerformanceMetrics',
+      tags: ['Admin', 'Health'],
+      description: 'Admin-only process, request-latency, slow-query, and MySQL pool metrics collected since this API process started.',
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: {
+              type: 'object',
+              additionalProperties: true,
+              properties: {
+                timestamp: { type: 'string' },
+                process: { type: 'object', additionalProperties: true },
+                requests: { type: ['object', 'null'], additionalProperties: true },
+                database: { type: ['object', 'null'], additionalProperties: true }
+              }
+            }
+          }
+        },
+        401: schemas.AuthErrorResponse,
+        403: schemas.GenericErrorResponse
+      }
+    }
+  }, handler('performanceMetrics'));
 
   // ========== Jobs, Alerts, Freelancers ==========
   fastify.get('/admin/jobs', {

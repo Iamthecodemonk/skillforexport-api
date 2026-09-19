@@ -38,7 +38,9 @@ export class QuestionRepositoryImpl extends QuestionRepository {
 
   async list(options = {}) {
     const rows = await this.adapter.list(options);
-    return (rows || []).map(r => new Question(r));
+    const questions = (rows || []).map(r => new Question(r));
+    if (rows && typeof rows.total !== 'undefined') questions.total = rows.total;
+    return questions;
   }
 
   async countAll(options = {}) {

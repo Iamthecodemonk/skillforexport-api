@@ -74,55 +74,81 @@ const mapMedia = (value) => parseJsonArray(value).map((item) => ({
   displayOrder: Number(item.displayOrder ?? item.display_order ?? 0)
 }));
 
+const compactSkills = (value) => {
+  if (!Array.isArray(value)) return splitSkills(value);
+  return value
+    .map((item) => typeof item === 'string' ? item : item && (item.skill || item.name))
+    .filter(Boolean)
+    .slice(0, 3);
+};
+
+const compactCommunity = (row) => {
+  const community = row.community || null;
+  const id = community ? community.id : row.community_id;
+  if (!id) return null;
+  const visibility = community
+    ? (community.default_post_visibility || community.defaultPostVisibility)
+    : row.community_default_post_visibility;
+  const joined = community
+    ? firstDefined(community.is_joined, community.isJoined, community.is_following, community.isFollowing)
+    : row.community_is_joined;
+  const membersCount = community
+    ? firstDefined(community.members_count, community.membersCount, 0)
+    : row.community_members_count;
+  return {
+    id,
+    name: community ? community.name || null : row.community_name || null,
+    default_post_visibility: visibility || null,
+    is_private: visibility === 'community' ? 1 : 0,
+    isPrivate: visibility === 'community',
+    members_count: Number(membersCount || 0),
+    membersCount: Number(membersCount || 0),
+    is_joined: boolValue(joined),
+    isJoined: boolValue(joined),
+    is_following: boolValue(joined),
+    isFollowing: boolValue(joined)
+  };
+};
+
 const compactPost = (row) => ({
   type: 'post',
   id: row.id,
   title: row.title,
   content: row.content,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
+  createdAt: row.created_at || row.createdAt,
+  updatedAt: row.updated_at || row.updatedAt,
   score: Number(row.score || 0),
-  commentsCount: Number(row.comments_count || 0),
+  commentsCount: Number(firstDefined(row.comments_count, row.comment_count, row.commentsCount, 0)),
   author: {
-    id: row.user_id,
-    name: row.author_name || null,
-    username: row.author_username || null,
-    avatar: row.author_avatar || null,
-    currentJobTitle: row.author_current_job_title || null,
-    current_job_title: row.author_current_job_title || null,
-    ...authorStudentFields(row),
-    skills: splitSkills(row.author_skills)
+    id: row.user ? row.user.id : row.user_id,
+    name: row.user ? row.user.name || null : row.author_name || null,
+    username: row.user ? row.user.username || null : row.author_username || null,
+    avatar: row.user ? (row.user.avatar || row.user.avatarUrl || null) : row.author_avatar || null,
+    currentJobTitle: row.user ? firstDefined(row.user.currentJobTitle, row.user.current_job_title, null) : row.author_current_job_title || null,
+    current_job_title: row.user ? firstDefined(row.user.current_job_title, row.user.currentJobTitle, null) : row.author_current_job_title || null,
+    ...(row.user ? {
+      courseName: firstDefined(row.user.courseName, row.user.course_name, null),
+      course_name: firstDefined(row.user.course_name, row.user.courseName, null),
+      institution: row.user.institution || null,
+      displayTitle: firstDefined(row.user.displayTitle, row.user.display_title, row.user.currentJobTitle, row.user.current_job_title, null),
+      display_title: firstDefined(row.user.display_title, row.user.displayTitle, row.user.current_job_title, row.user.currentJobTitle, null)
+    } : authorStudentFields(row)),
+    skills: compactSkills(row.user ? row.user.skills : row.author_skills)
   },
-  page: row.page_id ? {
-    id: row.page_id,
-    name: row.page_name || null,
-    avatar: row.page_avatar || null
-  } : null,
-  community: row.community_id ? {
-    id: row.community_id,
-    name: row.community_name || null,
-    default_post_visibility: row.community_default_post_visibility || null,
-    is_private: row.community_default_post_visibility === 'community' ? 1 : 0,
-    isPrivate: row.community_default_post_visibility === 'community',
-    members_count: Number(row.community_members_count || 0),
-    membersCount: Number(row.community_members_count || 0),
-    is_joined: boolValue(row.community_is_joined),
-    isJoined: boolValue(row.community_is_joined),
-    is_following: boolValue(row.community_is_joined),
-    isFollowing: boolValue(row.community_is_joined)
-  } : null,
-  media: mapMedia(row.media),
-  is_follow: boolValue(row.is_following),
-  isFollow: boolValue(row.is_following),
-  is_followed: boolValue(row.is_following),
-  isFollowed: boolValue(row.is_following),
-  is_liked: boolValue(row.is_scored),
-  isLiked: boolValue(row.is_scored),
+  page: row.page || (row.page_id ? { id: row.page_id, name: row.page_name || null, avatar: row.page_avatar || null } : null),
+  community: compactCommunity(row),
+  media: row.media_path ? mapMedia(row.media_path) : mapMedia(row.media),
+  is_follow: boolValue(firstDefined(row.is_follow, row.isFollow, row.is_following)),
+  isFollow: boolValue(firstDefined(row.isFollow, row.is_follow, row.is_following)),
+  is_followed: boolValue(firstDefined(row.is_followed, row.isFollowed, row.is_following)),
+  isFollowed: boolValue(firstDefined(row.isFollowed, row.is_followed, row.is_following)),
+  is_liked: boolValue(firstDefined(row.is_liked, row.isLiked, row.is_scored)),
+  isLiked: boolValue(firstDefined(row.isLiked, row.is_liked, row.is_scored)),
   is_saved: boolValue(row.is_saved),
   isSaved: boolValue(row.is_saved),
   viewerState: {
-    isFollowing: boolValue(row.is_following),
-    isScored: boolValue(row.is_scored),
+    isFollowing: boolValue(firstDefined(row.is_follow, row.isFollow, row.is_following)),
+    isScored: boolValue(firstDefined(row.is_liked, row.isLiked, row.is_scored)),
     isSaved: boolValue(row.is_saved)
   }
 });
@@ -131,47 +157,41 @@ const compactQuestion = (row) => ({
   type: 'question',
   id: row.id,
   title: row.title,
-  content: row.body,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
+  content: row.body || row.content,
+  createdAt: row.created_at || row.createdAt,
+  updatedAt: row.updated_at || row.updatedAt,
   score: Number(row.score || 0),
-  answersCount: Number(row.answers_count || 0),
+  answersCount: Number(firstDefined(row.answers_count, row.answersCount, row.totalAnswers, 0)),
   author: {
-    id: row.user_id,
-    name: row.author_name || null,
-    username: row.author_username || null,
-    avatar: row.author_avatar || null,
-    currentJobTitle: row.author_current_job_title || null,
-    current_job_title: row.author_current_job_title || null,
-    ...authorStudentFields(row),
-    skills: splitSkills(row.author_skills)
+    id: row.user ? row.user.id : row.user_id,
+    name: row.user ? row.user.name || null : row.author_name || null,
+    username: row.user ? row.user.username || null : row.author_username || null,
+    avatar: row.user ? (row.user.avatar || row.user.avatarUrl || null) : row.author_avatar || null,
+    currentJobTitle: row.user ? firstDefined(row.user.currentJobTitle, row.user.current_job_title, null) : row.author_current_job_title || null,
+    current_job_title: row.user ? firstDefined(row.user.current_job_title, row.user.currentJobTitle, null) : row.author_current_job_title || null,
+    ...(row.user ? {
+      courseName: firstDefined(row.user.courseName, row.user.course_name, null),
+      course_name: firstDefined(row.user.course_name, row.user.courseName, null),
+      institution: row.user.institution || null,
+      displayTitle: firstDefined(row.user.displayTitle, row.user.display_title, row.user.currentJobTitle, row.user.current_job_title, null),
+      display_title: firstDefined(row.user.display_title, row.user.displayTitle, row.user.current_job_title, row.user.currentJobTitle, null)
+    } : authorStudentFields(row)),
+    skills: compactSkills(row.user ? row.user.skills : row.author_skills)
   },
   page: null,
-  community: row.community_id ? {
-    id: row.community_id,
-    name: row.community_name || null,
-    default_post_visibility: row.community_default_post_visibility || null,
-    is_private: row.community_default_post_visibility === 'community' ? 1 : 0,
-    isPrivate: row.community_default_post_visibility === 'community',
-    members_count: Number(row.community_members_count || 0),
-    membersCount: Number(row.community_members_count || 0),
-    is_joined: boolValue(row.community_is_joined),
-    isJoined: boolValue(row.community_is_joined),
-    is_following: boolValue(row.community_is_joined),
-    isFollowing: boolValue(row.community_is_joined)
-  } : null,
+  community: compactCommunity(row),
   media: [],
-  is_follow: boolValue(row.is_following),
-  isFollow: boolValue(row.is_following),
-  is_followed: boolValue(row.is_following),
-  isFollowed: boolValue(row.is_following),
+  is_follow: boolValue(firstDefined(row.is_follow, row.isFollow, row.is_following)),
+  isFollow: boolValue(firstDefined(row.isFollow, row.is_follow, row.is_following)),
+  is_followed: boolValue(firstDefined(row.is_followed, row.isFollowed, row.is_following)),
+  isFollowed: boolValue(firstDefined(row.isFollowed, row.is_followed, row.is_following)),
   is_saved: boolValue(row.is_saved),
   isSaved: boolValue(row.is_saved),
-  is_liked: boolValue(row.is_scored),
-  isLiked: boolValue(row.is_scored),
+  is_liked: boolValue(firstDefined(row.is_liked, row.isLiked, row.is_scored)),
+  isLiked: boolValue(firstDefined(row.isLiked, row.is_liked, row.is_scored)),
   viewerState: {
-    isFollowing: boolValue(row.is_following),
-    isScored: boolValue(row.is_scored),
+    isFollowing: boolValue(firstDefined(row.is_follow, row.isFollow, row.is_following)),
+    isScored: boolValue(firstDefined(row.is_liked, row.isLiked, row.is_scored)),
     isSaved: boolValue(row.is_saved)
   }
 });
@@ -427,12 +447,35 @@ export function makeFeedController({ postUseCase = null, questionUseCase = null 
           }
         }
 
-        const [postRows, questionRows, postTotal, questionTotal] = await Promise.all([
-          listCompactPosts({ actorId, limit: fetchLimit, communityId, communitySlug, publicOnly, search }),
-          listCompactQuestions({ actorId, limit: fetchLimit, communityId, communitySlug, publicOnly, search }),
-          countCompactPosts({ communityId, communitySlug, publicOnly, search }),
-          countCompactQuestions({ communityId, communitySlug, publicOnly, search })
+        const [postRows, questionRows] = await Promise.all([
+          postUseCase.ListPosts({
+            limit: fetchLimit,
+            offset: 0,
+            userId: actorId || null,
+            communityId,
+            communitySlug,
+            publicOnly,
+            search,
+            sortField: mode === 'popular' ? 'score' : 'created_at',
+            sortDirection: 'desc',
+            includeTotal: true
+          }),
+          questionUseCase.listQuestions({
+            limit: fetchLimit,
+            offset: 0,
+            communityId,
+            communitySlug,
+            publicOnly,
+            search,
+            sortField: 'created_at',
+            sortDirection: 'desc',
+            actorId: actorId || null,
+            includeTotal: true
+          })
         ]);
+
+        const postTotal = Number(postRows && postRows.total || 0);
+        const questionTotal = Number(questionRows && questionRows.total || 0);
 
         const data = [
           ...(postRows || []).map(compactPost),
@@ -488,16 +531,13 @@ export function makeFeedController({ postUseCase = null, questionUseCase = null 
         const publicOnly = !(communityId || communitySlug);
         const fetchLimit = limit + offset;
 
-        const [posts, questions, postTotal, questionTotal] = await Promise.all([
-          postUseCase.ListPosts({ limit: fetchLimit, offset: 0, userId: actorId || null, communityId, communitySlug, publicOnly, search, sortField, sortDirection }),
-          questionUseCase.listQuestions({ limit: fetchLimit, offset: 0, communityId, communitySlug, publicOnly, search, sortField, sortDirection, actorId: actorId || null }),
-          postUseCase.postRepository && typeof postUseCase.postRepository.countAll === 'function'
-            ? postUseCase.postRepository.countAll({ communityId, communitySlug, publicOnly, search })
-            : Promise.resolve(0),
-          questionUseCase.questionRepository && typeof questionUseCase.questionRepository.countAll === 'function'
-            ? questionUseCase.questionRepository.countAll({ communityId, communitySlug, publicOnly, search })
-            : Promise.resolve(0)
+        const [posts, questions] = await Promise.all([
+          postUseCase.ListPosts({ limit: fetchLimit, offset: 0, userId: actorId || null, communityId, communitySlug, publicOnly, search, sortField, sortDirection, includeTotal: true }),
+          questionUseCase.listQuestions({ limit: fetchLimit, offset: 0, communityId, communitySlug, publicOnly, search, sortField, sortDirection, actorId: actorId || null, includeTotal: true })
         ]);
+
+        const postTotal = Number(posts && posts.total || 0);
+        const questionTotal = Number(questions && questions.total || 0);
 
         const direction = sortDirection === 'asc' ? 1 : -1;
         const data = [...(posts || []), ...(questions || [])]

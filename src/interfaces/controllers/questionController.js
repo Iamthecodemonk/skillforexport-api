@@ -70,11 +70,11 @@ export function makeQuestionController({ useCase = null, notificationRepository 
         const sortDirection = firstDefined(query.sortDirection, query.sort_direction, nestedQueryValue(query, 'sort', 'direction')) || null;
         const actorId = req.user && req.user.id;
         const publicOnly = !(communityId || communitySlug);
-        const rows = await useCase.listQuestions({ limit, offset, communityId, communitySlug, publicOnly, search, sortField, sortDirection, actorId: actorId || null });
+        const rows = await useCase.listQuestions({ limit, offset, communityId, communitySlug, publicOnly, search, sortField, sortDirection, actorId: actorId || null, includeTotal: true });
         const data = rows.map(r => (r && r.toPlainObject) ? r.toPlainObject() : r);
-        const total = useCase.questionRepository && typeof useCase.questionRepository.countAll === 'function'
-          ? await useCase.questionRepository.countAll({ communityId, communitySlug, publicOnly, search })
-          : data.length;
+        const total = rows.length || offset === 0
+          ? Number(rows.total || 0)
+          : await useCase.questionRepository.countAll({ communityId, communitySlug, publicOnly, search });
         return reply.send(buildPaginatedResponse(req, { data, page, perPage, total }));
       } catch (err) {
         questionLogger.error('listQuestions error', { message: err.message, stack: err.stack });

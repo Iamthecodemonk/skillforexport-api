@@ -23,6 +23,13 @@ export default class Question {
     total_answers = 0,
     totalAnswerers = 0,
     total_answerers = 0,
+    score = 0,
+    is_liked = false,
+    isLiked = false,
+    is_saved = false,
+    isSaved = false,
+    is_follow = false,
+    isFollow = false,
     answers = [],
     type = 'QUESTION'
   } = {}) {
@@ -40,6 +47,13 @@ export default class Question {
     this.community = community;
     this.totalAnswers = parseInt(totalAnswers || total_answers || 0, 10);
     this.totalAnswerers = parseInt(totalAnswerers || total_answerers || 0, 10);
+    this.score = parseInt(score || 0, 10);
+    this.is_liked = [true, 1, '1'].includes(is_liked) || [true, 1, '1'].includes(isLiked);
+    this.isLiked = this.is_liked;
+    this.is_saved = [true, 1, '1'].includes(is_saved) || [true, 1, '1'].includes(isSaved);
+    this.isSaved = this.is_saved;
+    this.is_follow = [true, 1, '1'].includes(is_follow) || [true, 1, '1'].includes(isFollow);
+    this.isFollow = this.is_follow;
     this.answers = answers;
     this.type = type || 'QUESTION';
   }
@@ -75,6 +89,13 @@ export default class Question {
       community: this.community,
       totalAnswers: this.totalAnswers,
       totalAnswerers: this.totalAnswerers,
+      score: this.score,
+      is_liked: this.is_liked,
+      isLiked: this.isLiked,
+      is_saved: this.is_saved,
+      isSaved: this.isSaved,
+      is_follow: this.is_follow,
+      isFollow: this.isFollow,
       answers: this.answers,
       type: this.type
     };

@@ -1,5 +1,18 @@
 import db from '../knexConfig.js';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  communityMemberCountAggregate,
+  postCommentCountAggregate,
+  postMediaAggregate,
+  postReactionCountAggregate,
+  studentPageAggregate,
+  userSkillsAggregate,
+  viewerCommunityAggregate,
+  viewerFollowingAggregate,
+  viewerPostReactionAggregate,
+  viewerPostReportAggregate,
+  viewerPostSaveAggregate
+} from './feedQueryAggregates.js';
 
 const parseJsonArray = (value) => {
   if (value === null || typeof value === 'undefined') return [];
@@ -13,27 +26,6 @@ const parseJsonArray = (value) => {
 };
 
 const toBool = (value) => value === true || value === 1 || value === '1';
-
-const studentPageMetadataSelects = (ownerColumn) => [
-  db.raw(`(
-    SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseOfStudy')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseName')))
-    FROM pages sp
-    WHERE sp.owner_id = ${ownerColumn}
-      AND sp.page_type = 'student'
-      AND COALESCE(sp.moderation_status, 'approved') <> 'deleted'
-    ORDER BY sp.created_at ASC
-    LIMIT 1
-  ) as user_course_name`),
-  db.raw(`(
-    SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.university')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.institution')))
-    FROM pages sp
-    WHERE sp.owner_id = ${ownerColumn}
-      AND sp.page_type = 'student'
-      AND COALESCE(sp.moderation_status, 'approved') <> 'deleted'
-    ORDER BY sp.created_at ASC
-    LIMIT 1
-  ) as user_institution`)
-];
 
 const applyPostFilters = (q, { communityId = null, communitySlug = null, publicOnly = false, search = null, status = null } = {}) => {
   if (communityId) {
@@ -186,6 +178,12 @@ export default class MysqlPostRepository {
       .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
       .leftJoin('communities as c', 'c.id', 'p.community_id')
       .leftJoin('pages as pg', 'pg.id', 'p.page_id')
+      .leftJoin(userSkillsAggregate().as('usa'), 'usa.user_id', 'p.user_id')
+      .leftJoin(studentPageAggregate().as('spa'), 'spa.owner_id', 'p.user_id')
+      .leftJoin(communityMemberCountAggregate().as('cmca'), 'cmca.community_id', 'p.community_id')
+      .leftJoin(postCommentCountAggregate().as('pcca'), 'pcca.post_id', 'p.id')
+      .leftJoin(postReactionCountAggregate().as('prca'), 'prca.post_id', 'p.id')
+      .leftJoin(postMediaAggregate().as('pma'), 'pma.post_id', 'p.id')
       .select(
         'p.*',
         'u.email as user_email',
@@ -193,46 +191,40 @@ export default class MysqlPostRepository {
         'up.avatar as user_avatar',
         'up.current_job_title as user_current_job_title',
         db.raw(`COALESCE(
-          NULLIF(CONCAT_WS(' at ',
-            NULLIF((SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseOfStudy')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseName'))) FROM pages sp WHERE sp.owner_id = p.user_id AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1), ''),
-            NULLIF((SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.university')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.institution'))) FROM pages sp WHERE sp.owner_id = p.user_id AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1), '')
-          ), ''),
+          NULLIF(CONCAT_WS(' at ', NULLIF(spa.course_name, ''), NULLIF(spa.institution, '')), ''),
           NULLIF(up.display_title, ''),
           NULLIF(CONCAT_WS(' at ', NULLIF(up.current_job_title, ''), NULLIF(up.current_workspace, '')), '')
         ) as user_display_title`),
-        ...studentPageMetadataSelects('p.user_id'),
-        db.raw(`IFNULL((
-          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', us.id, 'skill', us.skill, 'level', us.level))
-          FROM user_skills us
-          WHERE us.user_id = p.user_id
-        ), JSON_ARRAY()) as user_skills`),
+        'spa.course_name as user_course_name',
+        'spa.institution as user_institution',
+        db.raw('IFNULL(usa.skills, JSON_ARRAY()) as user_skills'),
         'c.name as community_name',
         'c.description as community_description',
         'c.is_active as community_is_active',
         'c.default_post_visibility as community_default_post_visibility',
-        db.raw('(SELECT COUNT(*) FROM community_members cm WHERE cm.community_id = p.community_id) as community_members_count'),
+        db.raw('COALESCE(cmca.members_count, 0) as community_members_count'),
         'pg.name as page_name',
         'pg.slug as page_slug',
         'pg.avatar as page_avatar',
         'pg.cover_image as page_cover_image',
         'pg.page_type as page_type',
-        db.raw("(SELECT COUNT(*) FROM comments cm WHERE cm.post_id = p.id AND COALESCE(cm.moderation_status, 'approved') NOT IN ('suspended','deleted')) as comment_count"),
-        db.raw('(SELECT COUNT(*) FROM post_reactions pr WHERE pr.post_id = p.id) as score'),
-        db.raw(`IFNULL((
-          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', pm.id, 'url', pm.url, 'media_type', pm.media_type, 'thumbnail_url', pm.thumbnail_url, 'display_order', pm.display_order, 'created_at', pm.created_at))
-          FROM post_media pm
-          WHERE pm.post_id = p.id
-          ORDER BY pm.display_order ASC, pm.created_at ASC
-        ), JSON_ARRAY()) as media_path`)
+        db.raw('COALESCE(pcca.comment_count, 0) as comment_count'),
+        db.raw('COALESCE(prca.score, 0) as score'),
+        db.raw('IFNULL(pma.media_path, JSON_ARRAY()) as media_path')
       );
 
     if (userId) {
+      q.leftJoin(viewerFollowingAggregate(userId).as('vf'), 'vf.following_id', 'p.user_id')
+        .leftJoin(viewerPostReactionAggregate(userId).as('vpr'), 'vpr.post_id', 'p.id')
+        .leftJoin(viewerPostSaveAggregate(userId).as('vps'), 'vps.post_id', 'p.id')
+        .leftJoin(viewerPostReportAggregate(userId).as('vprep'), 'vprep.target_id', 'p.id')
+        .leftJoin(viewerCommunityAggregate(userId).as('vcm'), 'vcm.community_id', 'p.community_id');
       q.select(
-        db.raw('EXISTS(SELECT 1 FROM followers f WHERE f.follower_id = ? AND f.following_id = p.user_id) as is_follow', [userId]),
-        db.raw('EXISTS(SELECT 1 FROM post_reactions pr2 WHERE pr2.user_id = ? AND pr2.post_id = p.id) as is_liked', [userId]),
-        db.raw('EXISTS(SELECT 1 FROM post_saves ps WHERE ps.user_id = ? AND ps.post_id = p.id) as is_saved', [userId]),
-        db.raw('EXISTS(SELECT 1 FROM generic_reports r WHERE r.user_id = ? AND r.target_id = p.id AND r.target_type = ?) as is_report', [userId, 'post']),
-        db.raw('EXISTS(SELECT 1 FROM community_members cmv WHERE cmv.user_id = ? AND cmv.community_id = p.community_id) as community_is_joined', [userId])
+        db.raw('vf.following_id IS NOT NULL as is_follow'),
+        db.raw('vpr.post_id IS NOT NULL as is_liked'),
+        db.raw('vps.post_id IS NOT NULL as is_saved'),
+        db.raw('vprep.target_id IS NOT NULL as is_report'),
+        db.raw('vcm.community_id IS NOT NULL as community_is_joined')
       );
     } else {
       q.select(
@@ -254,8 +246,9 @@ export default class MysqlPostRepository {
     return this.mapPost(row);
   }
 
-  async list({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, communityId = null, communitySlug = null, publicOnly = false, search = null, sortField = null, sortDirection = null, includeHidden = false, status = null } = {}) {
+  async list({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, communityId = null, communitySlug = null, publicOnly = false, search = null, sortField = null, sortDirection = null, includeHidden = false, status = null, includeTotal = false } = {}) {
     const q = this.basePostQuery(userId).limit(limit);
+    if (includeTotal) q.select(db.raw('COUNT(*) OVER() as _total_count'));
     applyPostFilters(q, { communityId, communitySlug, publicOnly, search, status });
     applyPostModerationFilter(q, includeHidden);
     applyPostOrdering(q, { sortField, sortDirection });
@@ -269,7 +262,9 @@ export default class MysqlPostRepository {
       q.offset(offset);
     }
     const rows = await q;
-    return (rows || []).map(row => this.mapPost(row));
+    const data = (rows || []).map(row => this.mapPost(row));
+    if (includeTotal) data.total = rows.length ? parseInt(rows[0]._total_count || 0, 10) : 0;
+    return data;
   }
 
   async listByPage(pageId, { limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, includeHidden = false } = {}) {

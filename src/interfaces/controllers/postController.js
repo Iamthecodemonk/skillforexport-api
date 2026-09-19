@@ -144,10 +144,11 @@ export function makePostController({ useCase = null }) {
         const sortField = firstDefined(query.sortField, query.sort_field, nestedQueryValue(query, 'sort', 'field')) || null;
         const sortDirection = firstDefined(query.sortDirection, query.sort_direction, nestedQueryValue(query, 'sort', 'direction')) || null;
         const publicOnly = !(communityId || communitySlug);
-        const rows = await useCase.ListPosts({ limit, offset, lastCreatedAt, lastId, userId: actorId || null, communityId, communitySlug, publicOnly, search, sortField, sortDirection });
-        const total = useCase.postRepository && typeof useCase.postRepository.countAll === 'function'
-          ? await useCase.postRepository.countAll({ communityId, communitySlug, publicOnly, search })
-          : rows.length;
+        const includeTotal = !lastCreatedAt;
+        const rows = await useCase.ListPosts({ limit, offset, lastCreatedAt, lastId, userId: actorId || null, communityId, communitySlug, publicOnly, search, sortField, sortDirection, includeTotal });
+        const total = includeTotal && (rows.length || offset === 0)
+          ? Number(rows.total || 0)
+          : await useCase.postRepository.countAll({ communityId, communitySlug, publicOnly, search });
         return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
       } catch (err) {
         postLogger.error('listPosts error', { message: err.message, stack: err.stack });
@@ -189,11 +190,12 @@ export function makePostController({ useCase = null }) {
           sortField,
           sortDirection,
           includeHidden: true,
-          status
+          status,
+          includeTotal: true
         });
-        const total = useCase.postRepository && typeof useCase.postRepository.countAll === 'function'
-          ? await useCase.postRepository.countAll({ communityId, communitySlug, publicOnly: false, search, includeHidden: true, status })
-          : rows.length;
+        const total = rows.length || offset === 0
+          ? Number(rows.total || 0)
+          : await useCase.postRepository.countAll({ communityId, communitySlug, publicOnly: false, search, includeHidden: true, status });
         return reply.send(buildPaginatedResponse(req, { data: rows, page, perPage, total }));
       } catch (err) {
         postLogger.error('adminListPosts error', { message: err.message, stack: err.stack });

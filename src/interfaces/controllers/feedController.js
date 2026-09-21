@@ -2,6 +2,7 @@ import logger from '../../utils/logger.js';
 import { buildPaginatedResponse, parsePagination } from '../paginationResponse.js';
 import db from '../../infrastructure/knexConfig.js';
 import { rememberFeedResponse } from '../../utils/feedCache.js';
+import MysqlPostRepository from '../../infrastructure/repositories/mysqlPostRepository.js';
 
 const feedLogger = logger.child('FEED_CONTROLLER');
 
@@ -116,6 +117,7 @@ const compactCommunity = (row) => {
 const compactPost = (row) => ({
   type: 'post',
   id: row.id,
+  parent: row.parent || null,
   title: row.title,
   content: row.content,
   createdAt: row.created_at || row.createdAt,
@@ -284,6 +286,7 @@ export async function getCompactPostItem({ postId, actorId = null } = {}) {
       'p.user_id',
       'p.community_id',
       'p.page_id',
+      'p.parent_post_id',
       'p.title',
       'p.content',
       'p.created_at',
@@ -326,6 +329,9 @@ export async function getCompactPostItem({ postId, actorId = null } = {}) {
   }
 
   const row = await q.first();
+  if (row && row.parent_post_id) {
+    row.parent = await new MysqlPostRepository().findById(row.parent_post_id, { userId: actorId });
+  }
   return row ? compactPost(row) : null;
 }
 

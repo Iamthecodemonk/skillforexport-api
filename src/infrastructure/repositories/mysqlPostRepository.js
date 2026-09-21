@@ -140,6 +140,7 @@ export default class MysqlPostRepository {
       page_id: row.page_id,
       parent_post_id: row.parent_post_id,
       originalPostId: row.parent_post_id || null,
+      parent: null,
       visibility: row.visibility,
       moderation_status: row.moderation_status || 'approved',
       moderationStatus: row.moderation_status || 'approved',
@@ -241,11 +242,25 @@ export default class MysqlPostRepository {
     return q;
   }
 
+  async attachParents(posts, { userId = null, includeHidden = false } = {}) {
+    const parentIds = [...new Set(posts.map((post) => post.parent_post_id).filter(Boolean))];
+    if (parentIds.length === 0) return posts;
+
+    const query = this.basePostQuery(userId).whereIn('p.id', parentIds);
+    applyPostModerationFilter(query, includeHidden);
+    const parentRows = await query;
+    const parents = new Map(parentRows.map((row) => [row.id, this.mapPost(row)]));
+    for (const post of posts) post.parent = parents.get(post.parent_post_id) || null;
+    return posts;
+  }
+
   async findById(id, { userId = null, includeHidden = false } = {}) {
     const q = this.basePostQuery(userId).where('p.id', id);
     applyPostModerationFilter(q, includeHidden);
     const row = await q.first();
-    return this.mapPost(row);
+    if (!row) return null;
+    const [post] = await this.attachParents([this.mapPost(row)], { userId, includeHidden });
+    return post;
   }
 
   async list({ limit = 20, offset = 0, lastCreatedAt = null, lastId = null, userId = null, communityId = null, communitySlug = null, publicOnly = false, search = null, sortField = null, sortDirection = null, includeHidden = false, status = null, includeTotal = false } = {}) {
@@ -265,6 +280,7 @@ export default class MysqlPostRepository {
     }
     const rows = await q;
     const data = (rows || []).map(row => this.mapPost(row));
+    await this.attachParents(data, { userId, includeHidden });
     if (includeTotal) data.total = rows.length ? parseInt(rows[0]._total_count || 0, 10) : 0;
     return data;
   }
@@ -281,7 +297,7 @@ export default class MysqlPostRepository {
       q.offset(offset);
     }
     const rows = await q;
-    return (rows || []).map(row => this.mapPost(row));
+    return this.attachParents((rows || []).map(row => this.mapPost(row)), { userId, includeHidden });
   }
 
   async listByUser(ownerUserId, { limit = 20, offset = 0, actorId = null, includeHidden = false, search = null } = {}) {
@@ -299,7 +315,7 @@ export default class MysqlPostRepository {
     }
     applyPostModerationFilter(q, includeHidden);
     const rows = await q;
-    return (rows || []).map(row => this.mapPost(row));
+    return this.attachParents((rows || []).map(row => this.mapPost(row)), { userId: actorId || ownerUserId, includeHidden });
   }
 
   async countAll({ communityId = null, communitySlug = null, publicOnly = false, search = null, includeHidden = false, status = null } = {}) {

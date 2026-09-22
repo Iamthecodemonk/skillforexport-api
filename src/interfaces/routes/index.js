@@ -651,6 +651,41 @@ export default async function registerRoutes(fastify, deps) {
       response: { 200: genericPaginatedResponse, 401: schemas.AuthErrorResponse }
     }
   }, handler('listCompactFeed'));
+  fastify.get('/share-metadata/:type/:id', {
+    schema: {
+      operationId: 'getShareMetadata',
+      tags: ['Meta'],
+      description: 'Public SEO/share-preview metadata for a post, question, job, freelance job, page, community, or user profile. The shared web page should render these values as Open Graph and Twitter meta tags server-side.',
+      params: {
+        type: 'object',
+        required: ['type', 'id'],
+        properties: {
+          type: { type: 'string', enum: ['post', 'question', 'job', 'freelance-job', 'page', 'community', 'user'] },
+          id: { type: 'string', description: 'Resource UUID, or slug for jobs, freelance jobs, pages, and communities.' }
+        }
+      },
+      response: {
+        200: dataResponse({
+          type: 'object',
+          properties: {
+            type: { type: 'string' },
+            id: { type: 'string' },
+            title: { type: 'string' },
+            description: { type: 'string' },
+            image: { type: ['string', 'null'] },
+            url: { type: 'string' },
+            canonicalUrl: { type: 'string' },
+            authorName: { type: ['string', 'null'] },
+            siteName: { type: 'string' },
+            openGraph: { type: 'object', additionalProperties: true },
+            twitter: { type: 'object', additionalProperties: true }
+          }
+        }),
+        404: schemas.GenericErrorResponse,
+        422: schemas.GenericErrorResponse
+      }
+    }
+  }, handler('getShareMetadata'));
   fastify.get('/enums', { schema: { operationId: 'legacyListEnums', tags: ['Meta'], description: 'Legacy enum bootstrap endpoint. Includes backward-compatible `experience`, `states`, and `job_types` keys plus current camelCase enum keys.', response: { 200: enumBootstrapResponse } } }, handler('listEnums'));
   fastify.get('/legal-documents', { schema: { operationId: 'listLegalDocuments', tags: ['Legal'], description: 'Return all published legal/static documents as one grouped payload for easy frontend bootstrap.', response: { 200: dataResponse(schemas.LegalDocumentsGroupedResponse) } } }, handler('listLegalDocuments'));
   fastify.get('/legal-documents/:slug', { schema: { operationId: 'getLegalDocument', tags: ['Legal'], description: 'Return one published legal/static document by slug.', params: idParam('slug'), response: { 200: dataResponse(schemas.LegalDocumentResponse), 404: schemas.GenericErrorResponse } } }, handler('getLegalDocument'));

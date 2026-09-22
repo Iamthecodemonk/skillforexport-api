@@ -103,6 +103,7 @@ import MysqlNotificationRepository from './infrastructure/repositories/mysqlNoti
 import { makeNotificationController } from './interfaces/controllers/notificationController.js';
 import LegalDocumentUseCase from './application/use-cases/legalDocumentUseCase.js';
 import { makeLegalDocumentController } from './interfaces/controllers/legalDocumentController.js';
+import { makeShareMetadataController } from './interfaces/controllers/shareMetadataController.js';
 
 const serverLogger = logger.child('SERVER');
 const queueLogger = logger.child('EMAIL_QUEUE');
@@ -384,6 +385,7 @@ export default async function startServer() {
   // register app routes
   const controllers = {
     ...healthController,
+    ...makeShareMetadataController(),
     ...makePerformanceController({
       getRequestMetrics: () => performanceMonitor.snapshot(),
       getDatabaseMetrics,

@@ -74,7 +74,7 @@ const parseJson = (value, fallback = null) => {
   }
 };
 
-const displayName = (user) => user && (user.display_name || user.username || null);
+const displayName = (user) => user && (user.display_name || user.username || user.email || null);
 
 const relativeTime = (value) => {
   const date = value ? new Date(value) : null;
@@ -98,7 +98,9 @@ const notificationText = ({ row = {}, actor = null, target = {}, meta = {} }) =>
   const excerpt = meta.commentExcerpt || meta.answerExcerpt || meta.excerpt || meta.content || null;
   const raw = row.body || row.message || row.title || meta.title || null;
   if (raw) {
-    const withActor = String(raw).replace(/^Someone\b/, actorName);
+    const withActor = String(raw)
+      .replace(/^Someone you follow\b/, actorName)
+      .replace(/^Someone\b/, actorName);
     if (excerpt && !withActor.includes(excerpt)) return `${withActor}: ${excerpt}`;
     return withActor;
   }
@@ -141,6 +143,18 @@ async function existingColumnPayload(tableName, payload = {}) {
 }
 
 export default class MysqlNotificationRepository {
+  notificationQuery() {
+    return db('notifications as n')
+      .leftJoin('users as au', 'au.id', 'n.actor_user_id')
+      .leftJoin('user_profiles as aup', 'aup.user_id', 'au.id')
+      .select(
+        'n.*',
+        'aup.username as actor_username',
+        'aup.avatar as actor_avatar',
+        db.raw("COALESCE(NULLIF(aup.display_name, ''), NULLIF(aup.username, ''), au.email) as actor_name")
+      );
+  }
+
   defaults() {
     return JSON.parse(JSON.stringify(DEFAULT_PREFERENCES));
   }
@@ -159,12 +173,13 @@ export default class MysqlNotificationRepository {
     const row = await db('users as u')
       .leftJoin('user_profiles as up', 'up.user_id', 'u.id')
       .where('u.id', actorUserId)
-      .select('u.id', 'up.username', 'up.display_name', 'up.avatar')
+      .select('u.id', 'u.email', 'up.username', 'up.display_name', 'up.avatar')
       .first();
     if (!row) return null;
     return {
       id: row.id,
       name: displayName(row) || 'Someone',
+      username: row.username || null,
       avatar: row.avatar || null
     };
   }
@@ -172,7 +187,16 @@ export default class MysqlNotificationRepository {
   map(row) {
     if (!row) return null;
     const meta = parseJson(row.metadata, {});
-    const actor = parseJson(row.actor, null) || meta.actor || null;
+    const storedActor = parseJson(row.actor, null) || meta.actor || null;
+    const hydratedActor = row.actor_user_id && !meta.anonymous
+      ? {
+          id: row.actor_user_id,
+          name: row.actor_name || (storedActor && storedActor.name) || 'Someone',
+          username: row.actor_username || (storedActor && storedActor.username) || null,
+          avatar: row.actor_avatar || (storedActor && storedActor.avatar) || null
+        }
+      : null;
+    const actor = meta.anonymous ? null : hydratedActor || storedActor;
     const target = {
       type: row.target_type || (meta.target && meta.target.type) || null,
       id: row.target_id || (meta.target && meta.target.id) || null,
@@ -184,7 +208,7 @@ export default class MysqlNotificationRepository {
       id: row.id,
       type: row.type,
       title: row.title || meta.title || row.message || null,
-      body: row.body || row.message || null,
+      body: text,
       text,
       message: text,
       avatar: actor && actor.avatar ? actor.avatar : null,
@@ -341,9 +365,9 @@ export default class MysqlNotificationRepository {
   }
 
   async list(userId, { limit = 20, offset = 0 } = {}) {
-    const rows = await db('notifications')
-      .where({ user_id: userId })
-      .orderBy('created_at', 'desc')
+    const rows = await this.notificationQuery()
+      .where('n.user_id', userId)
+      .orderBy('n.created_at', 'desc')
       .limit(limit)
       .offset(offset);
     return rows.map(row => this.map(row));
@@ -361,7 +385,7 @@ export default class MysqlNotificationRepository {
 
   async markRead(userId, id) {
     await db('notifications').where({ user_id: userId, id }).update({ is_read: 1, read_at: new Date(), updated_at: new Date() });
-    const row = await db('notifications').where({ user_id: userId, id }).first();
+    const row = await this.notificationQuery().where({ 'n.user_id': userId, 'n.id': id }).first();
     return this.map(row);
   }
 

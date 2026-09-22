@@ -65,7 +65,7 @@ export function makeReactionController({ useCase = null, notificationRepository 
                 actorUserId: actorId,
                 type: 'post_score',
                 title: 'New reaction on your post',
-                body: 'Someone reacted to your post.',
+                body: 'Someone scored your post.',
                 target: { type: 'post', id: postId, title: post && post.title, url: `/posts/${postId}` },
                 metadata: { reactionType: type || 'like' }
               });
@@ -108,7 +108,7 @@ export function makeReactionController({ useCase = null, notificationRepository 
               actorUserId: actorId,
               type: 'comment_score',
               title: 'New reaction on your comment',
-              body: 'Someone reacted to your comment.',
+              body: 'Someone scored your comment.',
               target: { type: 'comment', id: commentId, title: null, url: comment ? `/posts/${comment.post_id}` : null },
               metadata: { reactionType: type || 'like' }
             });
@@ -162,7 +162,7 @@ export function makeReactionController({ useCase = null, notificationRepository 
               actorUserId: actorId,
               type: 'question_score',
               title: 'New reaction on your question',
-              body: 'Someone reacted to your question.',
+              body: 'Someone scored your question.',
               target: { type: 'question', id: questionId, title: question.title, url: `/questions/${questionId}` },
               metadata: { reactionType: type || 'like' }
             });

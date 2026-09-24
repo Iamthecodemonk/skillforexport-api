@@ -26,6 +26,7 @@ export function makePostController({ useCase = null }) {
         const body = req.body || {};
         const actorId = req.user && req.user.id;
         const communityId = firstDefined(body.communityId, body.community_id);
+        const communitySlug = firstDefined(body.communitySlug, body.community_slug);
         const pageId = firstDefined(body.pageId, body.page_id);
         const mediaAssetIds = firstDefined(body.mediaAssetIds, body.media_asset_ids, body.assetIds, body.asset_ids) || [];
         const { title, content, visibility } = body;
@@ -35,7 +36,7 @@ export function makePostController({ useCase = null }) {
         if (!title || !content) {
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
         }
-        const created = await useCase.CreatePost({ userId: actorId, communityId, pageId, title, content, visibility, mediaAssetIds, actorRole: req.user && req.user.role });
+        const created = await useCase.CreatePost({ userId: actorId, communityId, communitySlug, pageId, title, content, visibility, mediaAssetIds, actorRole: req.user && req.user.role });
 
         // Invalidate simple feed caches when a new post is created
         try {

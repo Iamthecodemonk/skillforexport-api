@@ -9,14 +9,22 @@ export default class PostUseCase {
     this.notificationRepository = notificationRepository;
   }
 
-  async CreatePost({ userId, communityId = null, pageId = null, title, content, visibility = null, parentPostId = null, originalPostId = null, mediaAssetIds = [], actorRole = null, skipFollowerNotification = false }) {
+  async CreatePost({ userId, communityId = null, communitySlug = null, pageId = null, title, content, visibility = null, parentPostId = null, originalPostId = null, mediaAssetIds = [], actorRole = null, skipFollowerNotification = false }) {
     if (!userId) throw new Error('user_required');
     if (!title || String(title).trim() === '') throw new Error('title_required');
     if (!content || String(content).trim() === '') throw new Error('content_required');
     // If posting to a community, ensure community exists and user is allowed
     let community = null;
+    if (!communityId && communitySlug) {
+      if (!this.communityRepository || typeof this.communityRepository.findBySlug !== 'function') {
+        throw new Error('community_not_found');
+      }
+      community = await this.communityRepository.findBySlug(String(communitySlug).trim().toLowerCase());
+      if (!community) throw new Error('community_not_found');
+      communityId = community.id;
+    }
     if (communityId) {
-      if (this.communityRepository && typeof this.communityRepository.findById === 'function') {
+      if (!community && this.communityRepository && typeof this.communityRepository.findById === 'function') {
         community = await this.communityRepository.findById(communityId);
         if (!community) throw new Error('community_not_found');
         if (typeof community.is_active !== 'undefined' && parseInt(community.is_active, 10) === 0) {

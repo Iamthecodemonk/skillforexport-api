@@ -1990,6 +1990,19 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('listCommunities'));
 
+  fastify.get('/communities/slug/:slug', {
+    schema: {
+      operationId: 'getCommunityBySlug',
+      tags: ['Communities'],
+      description: 'Resolve a stable community/channel/topic slug to its current community record and UUID.',
+      params: idParam('slug'),
+      response: {
+        200: dataResponse(schemas.CommunityResponse),
+        404: schemas.GenericErrorResponse
+      }
+    }
+  }, handler('getCommunityBySlug'));
+
   fastify.get('/communities/:id', {
     schema: {
       operationId: 'getCommunity',

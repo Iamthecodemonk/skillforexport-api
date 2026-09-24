@@ -125,11 +125,16 @@ export default class MysqlCommunityRepository {
     return this.mapCommunity(row);
   }
 
-  async findBySlug(slug, { communityType = null, parentCommunityId = null } = {}) {
+  async findBySlug(slug, { communityType = null, parentCommunityId = null, userId = null } = {}) {
     const query = db('communities as c')
       .leftJoin('communities as parent', 'parent.id', 'c.parent_community_id')
       .where('c.slug', slug)
       .select('c.*', 'parent.slug as parent_slug');
+    if (userId) {
+      query.select(db.raw('EXISTS(SELECT 1 FROM community_members cmv WHERE cmv.community_id = c.id AND cmv.user_id = ?) as is_joined', [userId]));
+    } else {
+      query.select(db.raw('false as is_joined'));
+    }
     if (communityType) query.where('c.community_type', communityType);
     if (parentCommunityId) query.where('c.parent_community_id', parentCommunityId);
     const row = await query.first();

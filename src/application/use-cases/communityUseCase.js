@@ -148,6 +148,11 @@ export default class CommunityUseCase {
     if (!id) throw new Error('id_required');
     return this.communityRepository.findById(id, { userId });
   }
+
+  async getCommunityBySlug(slug, { userId = null } = {}) {
+    if (!slug) throw new Error('slug_required');
+    return this.communityRepository.findBySlug(String(slug).trim().toLowerCase(), { userId });
+  }
   
   async updateCommunity({ id, updates = {} }) {
     const existing = await this.communityRepository.findById(id);

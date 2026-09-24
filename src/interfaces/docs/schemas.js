@@ -455,6 +455,8 @@ export const PostCreateBody = {
     userId: { type: 'string', description: 'Ignored for authenticated requests; backend uses the bearer token user.' },
     communityId: { type: ['string','null'], description: 'Use null or omit for Everyone/public home feed. Use a community id only for community feed posts.' },
     community_id: { type: ['string','null'], description: 'Legacy/request-map alias for communityId.' },
+    communitySlug: { type: ['string','null'], description: 'Stable alternative to communityId, for example `jokes`. The backend resolves and stores the current community UUID.' },
+    community_slug: { type: ['string','null'], description: 'Snake-case alias for communitySlug.' },
     pageId: { type: ['string','null'], description: 'Optional page id when posting as/under a page.' },
     page_id: { type: ['string','null'], description: 'Legacy/request-map alias for pageId.' },
     title: { type: 'string' },
@@ -465,7 +467,7 @@ export const PostCreateBody = {
   },
   examples: [
     { summary: 'Everyone / home feed post', value: { communityId: null, title: 'Hello world', content: 'Public home feed post.', mediaAssetIds: ['asset-uuid-123'] } },
-    { summary: 'Community feed post', value: { communityId: 'community-uuid', title: 'Community update', content: 'Post shown in this community feed.', mediaAssetIds: [] } }
+    { summary: 'Community feed post by stable slug', value: { communitySlug: 'jokes', title: 'Community update', content: 'Post shown in this community feed.', mediaAssetIds: [] } }
   ]
 };
 PostCreateBody.example = { communityId: null, title: 'Hello world', content: 'Hello world - this is a test post.', mediaAssetIds: ['asset-uuid-123'] };

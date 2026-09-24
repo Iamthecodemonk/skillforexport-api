@@ -247,6 +247,18 @@ export function makeCommunityController({ useCase = null }) {
       }
     },
 
+    getCommunityBySlug: async (req, reply) => {
+      try {
+        const userId = req.user && req.user.id || null;
+        const row = await useCase.getCommunityBySlug(req.params.slug, { userId });
+        if (!row) return reply.code(404).send({ success: false, error: { code: 'community_not_found' } });
+        return reply.send({ success: true, data: row });
+      } catch (err) {
+        log.error('getCommunityBySlug error', { message: err.message });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
     updateCommunity: async (req, reply) => {
       try {
         const actorId = req.user && req.user.id;

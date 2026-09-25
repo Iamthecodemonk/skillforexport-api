@@ -25,10 +25,16 @@ export function buildPaginatedResponse(req, { data, page, perPage, total }) {
   const currentPage = Math.min(safePage, lastPage);
   const from = safeTotal === 0 ? null : ((currentPage - 1) * safePerPage) + 1;
   const to = safeTotal === 0 ? null : Math.min((currentPage - 1) * safePerPage + data.length, safeTotal);
-  const protocol = req.protocol || 'http';
-  const host = req.headers && req.headers.host ? req.headers.host : 'localhost';
-  const baseUrl = new URL(req.url, `${protocol}://${host}`);
-  const path = `${protocol}://${host}${baseUrl.pathname}`;
+  const headers = req.headers || {};
+  const firstForwardedValue = (value) => String(value || '').split(',')[0].trim();
+  const configuredOrigin = String(process.env.PUBLIC_API_URL || '').trim().replace(/\/$/, '');
+  const forwardedProtocol = firstForwardedValue(headers['x-forwarded-proto']);
+  const forwardedHost = firstForwardedValue(headers['x-forwarded-host']);
+  const protocol = forwardedProtocol || req.protocol || 'http';
+  const host = forwardedHost || headers.host || 'localhost';
+  const origin = configuredOrigin || `${protocol}://${host}`;
+  const baseUrl = new URL(req.url, `${origin}/`);
+  const path = `${origin}${baseUrl.pathname}`;
 
   const pageUrl = (targetPage) => {
     if (targetPage < 1 || targetPage > lastPage) return null;

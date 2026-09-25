@@ -154,6 +154,9 @@ function parseCorsOrigins() {
 export default async function startServer() {
   const app = Fastify({
     logger: isProd ? false : true,
+    // APISIX/Nginx terminates TLS before forwarding requests to Fastify.
+    // Trust forwarded protocol/host so generated absolute URLs remain HTTPS.
+    trustProxy: true,
     // logger:false,
     ajv: {
       customOptions: {

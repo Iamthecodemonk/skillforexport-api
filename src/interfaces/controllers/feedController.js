@@ -47,18 +47,34 @@ const splitSkills = (value) => String(value || '')
   .filter(Boolean)
   .slice(0, 3);
 
-const studentAuthorSelects = (ownerColumn) => [
-  db.raw(`(SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseOfStudy')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseName')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.course_name')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.course'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1) as author_course_name`),
-  db.raw(`(SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.university')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.institution')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.institutionName')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.institution_name')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.school'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1) as author_institution`),
-  db.raw(`COALESCE(
-    NULLIF(CONCAT_WS(' at ',
-      NULLIF((SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseOfStudy')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.courseName'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1), ''),
-      NULLIF((SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.university')), JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.institution'))) FROM pages sp WHERE sp.owner_id = ${ownerColumn} AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.created_at ASC LIMIT 1), '')
-    ), ''),
-    NULLIF(up.display_title, ''),
-    NULLIF(CONCAT_WS(' at ', NULLIF(up.current_job_title, ''), NULLIF(up.current_workspace, '')), '')
-  ) as author_display_title`)
-];
+const studentMetadataExpression = (keys) => `COALESCE(${keys
+  .map((key) => `NULLIF(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.${key}')), '')`)
+  .join(', ')})`;
+
+const studentMetadataSubquery = (ownerColumn, expression) => `(SELECT ${expression}
+  FROM pages sp
+  WHERE sp.owner_id = ${ownerColumn}
+    AND sp.page_type = 'student'
+    AND COALESCE(sp.moderation_status, 'approved') <> 'deleted'
+  ORDER BY (${expression}) IS NULL, sp.updated_at DESC, sp.created_at DESC
+  LIMIT 1)`;
+
+const studentAuthorSelects = (ownerColumn) => {
+  const course = studentMetadataSubquery(ownerColumn, studentMetadataExpression(['courseOfStudy', 'courseName', 'course_name', 'course']));
+  const institution = studentMetadataSubquery(ownerColumn, studentMetadataExpression(['university', 'universityName', 'university_name', 'institution', 'institutionName', 'institution_name', 'school', 'schoolName', 'school_name']));
+  return [
+    db.raw(`${course} as author_course_name`),
+    db.raw(`${institution} as author_institution`),
+    db.raw(`COALESCE(
+      NULLIF(CONCAT_WS(' at ',
+        NULLIF(${course}, ''),
+        NULLIF(${institution}, '')
+      ), ''),
+      NULLIF(up.display_title, ''),
+      NULLIF(CONCAT_WS(' at ', NULLIF(up.current_job_title, ''), NULLIF(up.current_workspace, '')), '')
+    ) as author_display_title`)
+  ];
+};
 
 const authorStudentFields = (row) => ({
   courseName: row.author_course_name || null,

@@ -9,17 +9,21 @@ export const studentPageAggregate = () => db('pages')
   .select('owner_id')
   .select(
     db.raw(`MAX(COALESCE(
-      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.courseOfStudy')),
-      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.courseName')),
-      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.course_name')),
-      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.course'))
+      NULLIF(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.courseOfStudy')), ''),
+      NULLIF(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.courseName')), ''),
+      NULLIF(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.course_name')), ''),
+      NULLIF(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.course')), '')
     )) as course_name`),
     db.raw(`MAX(COALESCE(
-      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.university')),
-      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.institution')),
-      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.institutionName')),
-      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.institution_name')),
-      JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.school'))
+      NULLIF(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.university')), ''),
+      NULLIF(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.universityName')), ''),
+      NULLIF(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.university_name')), ''),
+      NULLIF(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.institution')), ''),
+      NULLIF(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.institutionName')), ''),
+      NULLIF(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.institution_name')), ''),
+      NULLIF(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.school')), ''),
+      NULLIF(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.schoolName')), ''),
+      NULLIF(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.school_name')), '')
     )) as institution`)
   )
   .where('page_type', 'student')

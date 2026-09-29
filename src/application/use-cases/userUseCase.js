@@ -195,6 +195,34 @@ export default class UserUseCase {
       const certifications = parse(row.certifications) || [];
       const education = parse(row.education) || [];
       const experiences = parse(row.experiences) || [];
+      const studentPageMetadata = parse(row.student_page_metadata) || {};
+      const firstText = (...values) => values.find((value) => typeof value === 'string' && value.trim())?.trim() || null;
+      const courseName = firstText(
+        studentPageMetadata.courseOfStudy
+      );
+      const institutionName = firstText(
+        studentPageMetadata.university
+      );
+      const isStudent = parseInt(row.count_student_pages || 0, 10) > 0;
+      const explicitDisplayTitle = profile && firstText(profile.display_title, profile.displayTitle);
+      const studentDisplayTitle = [courseName, institutionName].filter(Boolean).join(' at ') || null;
+      const employmentDisplayTitle = [
+        profile && firstText(profile.current_job_title, profile.currentJobTitle),
+        profile && firstText(profile.current_workspace, profile.currentWorkspace)
+      ].filter(Boolean).join(' at ') || null;
+      const displayTitle = (isStudent ? studentDisplayTitle : null) || explicitDisplayTitle || employmentDisplayTitle;
+      const resolvedProfile = profile && typeof profile === 'object'
+        ? {
+            ...profile,
+            display_title: displayTitle,
+            displayTitle,
+            course_name: courseName,
+            courseName,
+            institution: institutionName,
+            institution_name: institutionName,
+            institutionName
+          }
+        : profile;
       const followerUsers = parse(row.followers) || [];
       const followingUsers = parse(row.following_users) || [];
       const followingPages = parse(row.following_pages) || [];
@@ -230,8 +258,8 @@ export default class UserUseCase {
         profile_image: profile && (profile.avatar || profile.profile_image || profile.profileImage) || null,
         location: profile && profile.location || null,
         bio: profile && profile.bio || null,
-        display_title: profile && (profile.display_title || profile.displayTitle) || null,
-        displayTitle: profile && (profile.display_title || profile.displayTitle) || null,
+        display_title: displayTitle,
+        displayTitle,
         current_job_title: profile && (profile.current_job_title || profile.currentJobTitle) || null,
         current_workspace: profile && (profile.current_workspace || profile.currentWorkspace) || null,
         notification_email: rawSettings && rawSettings.notification_email || null,
@@ -267,7 +295,7 @@ export default class UserUseCase {
         created_at_human: humanDate(createdAt),
         referral_code: row.referral_code || null,
         user: { id: row.user_id, name, email: row.email, role: row.role, created_at: row.user_created_at },
-        profile,
+        profile: resolvedProfile,
         oauthAccounts
       };
     }

@@ -42,12 +42,8 @@ export default class PageUseCase {
     return typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {};
   }
 
-  mergePageMetadata(baseMetadata = null, submittedMetadata = null, topLevelFields = {}) {
-    const merged = {
-      ...this.normalizeMetadata(baseMetadata),
-      ...this.normalizeMetadata(submittedMetadata)
-    };
-    const data = this.normalizeMetadata(topLevelFields);
+  canonicalizePageMetadata(metadata = null) {
+    const normalized = { ...this.normalizeMetadata(metadata) };
     const aliases = {
       contact_email: 'contactEmail',
       staff_size: 'staffSize',
@@ -58,20 +54,28 @@ export default class PageUseCase {
       institution: 'university',
       institution_name: 'university',
       institutionName: 'university',
+      university_name: 'university',
+      universityName: 'university',
       school: 'university',
+      school_name: 'university',
+      schoolName: 'university',
       graduation_date: 'graduationDate'
     };
-    if (typeof merged.courseOfStudy === 'undefined' && typeof merged.courseName !== 'undefined') {
-      merged.courseOfStudy = merged.courseName;
-    }
-    if (typeof merged.university === 'undefined' && typeof merged.institution !== 'undefined') {
-      merged.university = merged.institution;
-    }
-    for (const [legacyKey, canonicalKey] of Object.entries(aliases)) {
-      if (typeof data[legacyKey] !== 'undefined' && typeof data[canonicalKey] === 'undefined') {
-        merged[canonicalKey] = data[legacyKey];
+    for (const [alias, canonical] of Object.entries(aliases)) {
+      if (typeof normalized[canonical] === 'undefined' && typeof normalized[alias] !== 'undefined') {
+        normalized[canonical] = normalized[alias];
       }
+      delete normalized[alias];
     }
+    return normalized;
+  }
+
+  mergePageMetadata(baseMetadata = null, submittedMetadata = null, topLevelFields = {}) {
+    const merged = {
+      ...this.canonicalizePageMetadata(baseMetadata),
+      ...this.canonicalizePageMetadata(submittedMetadata)
+    };
+    const data = this.canonicalizePageMetadata(topLevelFields);
     for (const key of ['slogan', 'contactEmail', 'website', 'staffSize', 'businessCategory', 'email', 'phone', 'courseOfStudy', 'university', 'graduationDate', 'skills']) {
       if (typeof data[key] !== 'undefined') {
         merged[key] = data[key];

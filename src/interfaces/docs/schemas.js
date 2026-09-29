@@ -1904,8 +1904,13 @@ export const PageCreateBody = {
     phone: { type: 'string', description: 'Student page metadata shortcut.' },
     courseOfStudy: { type: 'string', description: 'Student page metadata shortcut.' },
     courseName: { type: 'string', description: 'Alias for courseOfStudy.' },
+    course_name: { type: 'string', description: 'Alias for courseOfStudy.' },
     institution: { type: 'string', description: 'Student institution/university.' },
+    institutionName: { type: 'string', description: 'Alias for university.' },
+    institution_name: { type: 'string', description: 'Alias for university.' },
     university: { type: 'string', description: 'Alias for institution.' },
+    universityName: { type: 'string', description: 'Alias for university.' },
+    university_name: { type: 'string', description: 'Alias for university.' },
     graduationDate: { type: 'string', format: 'date', description: 'Student page metadata shortcut.' },
     skills: { anyOf: [{ type: 'array', items: { type: 'string' } }, { type: 'string' }], description: 'Student page metadata shortcut.' },
     metadata: {
@@ -1921,8 +1926,13 @@ export const PageCreateBody = {
         phone: { type: 'string' },
         courseOfStudy: { type: 'string' },
         courseName: { type: 'string' },
+        course_name: { type: 'string' },
         institution: { type: 'string' },
+        institutionName: { type: 'string' },
+        institution_name: { type: 'string' },
         university: { type: 'string' },
+        universityName: { type: 'string' },
+        university_name: { type: 'string' },
         graduationDate: { type: 'string', format: 'date' },
         skills: { anyOf: [{ type: 'array', items: { type: 'string' } }, { type: 'string' }] }
       }

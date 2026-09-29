@@ -60,8 +60,8 @@ const studentMetadataSubquery = (ownerColumn, expression) => `(SELECT ${expressi
   LIMIT 1)`;
 
 const studentAuthorSelects = (ownerColumn) => {
-  const course = studentMetadataSubquery(ownerColumn, studentMetadataExpression(['courseOfStudy', 'courseName', 'course_name', 'course']));
-  const institution = studentMetadataSubquery(ownerColumn, studentMetadataExpression(['university', 'universityName', 'university_name', 'institution', 'institutionName', 'institution_name', 'school', 'schoolName', 'school_name']));
+  const course = studentMetadataSubquery(ownerColumn, studentMetadataExpression(['courseOfStudy']));
+  const institution = studentMetadataSubquery(ownerColumn, studentMetadataExpression(['university']));
   return [
     db.raw(`${course} as author_course_name`),
     db.raw(`${institution} as author_institution`),

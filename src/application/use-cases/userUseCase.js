@@ -195,32 +195,12 @@ export default class UserUseCase {
       const certifications = parse(row.certifications) || [];
       const education = parse(row.education) || [];
       const experiences = parse(row.experiences) || [];
-      const studentPageMetadata = parse(row.student_page_metadata) || {};
-      const firstText = (...values) => values.find((value) => typeof value === 'string' && value.trim())?.trim() || null;
-      const courseName = firstText(
-        studentPageMetadata.courseOfStudy
-      );
-      const institutionName = firstText(
-        studentPageMetadata.university
-      );
-      const isStudent = parseInt(row.count_student_pages || 0, 10) > 0;
-      const explicitDisplayTitle = profile && firstText(profile.display_title, profile.displayTitle);
-      const studentDisplayTitle = [courseName, institutionName].filter(Boolean).join(' at ') || null;
-      const employmentDisplayTitle = [
-        profile && firstText(profile.current_job_title, profile.currentJobTitle),
-        profile && firstText(profile.current_workspace, profile.currentWorkspace)
-      ].filter(Boolean).join(' at ') || null;
-      const displayTitle = (isStudent ? studentDisplayTitle : null) || explicitDisplayTitle || employmentDisplayTitle;
+      const displayTitle = profile && (profile.display_title ?? profile.displayTitle) || null;
       const resolvedProfile = profile && typeof profile === 'object'
         ? {
             ...profile,
             display_title: displayTitle,
-            displayTitle,
-            course_name: courseName,
-            courseName,
-            institution: institutionName,
-            institution_name: institutionName,
-            institutionName
+            displayTitle
           }
         : profile;
       const followerUsers = parse(row.followers) || [];

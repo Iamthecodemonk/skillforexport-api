@@ -261,16 +261,8 @@ export function makeUserController({ useCase = null, followerRepository = null, 
         const updated = await useCase.updateProfile(id, patch);
         if (!updated) 
           return reply.code(404).send({ success: false, error: { code: 'profile_not_found' } });
-        // Invalidate cached profile for this user if Redis is available
-        try {
-          const redis = req.server && (req.server.redisManager || req.server.redisClient);
-          if (redis) {
-            const cacheKey = `user:profile:${id}`;
-            await redis.del(cacheKey);
-          }
-        } catch (e) {
-          userLogger.warn('Failed to invalidate profile cache', { err: e.message });
-        }
+        await invalidateUserProfileCaches(req, [id]);
+        await invalidateCompactFeedCache(req);
         const data = typeof updated.toPlainObject === 'function' ? updated.toPlainObject() : { ...updated };
         const displayTitle = data.displayTitle || data.display_title || null;
         data.displayTitle = displayTitle;

@@ -86,8 +86,8 @@ export default class MysqlQuestionRepository {
           institution: user_institution || null,
           institution_name: user_institution || null,
           institutionName: user_institution || null,
-          display_title: user_display_title || user_current_job_title || null,
-          displayTitle: user_display_title || user_current_job_title || null,
+          display_title: user_display_title ?? null,
+          displayTitle: user_display_title ?? null,
           skills: parseJsonArray(user_skills),
           is_follow: toBool(is_follow),
           isFollow: toBool(is_follow)
@@ -170,11 +170,7 @@ export default class MysqlQuestionRepository {
         'up.current_job_title as user_current_job_title',
         'spa.course_name as user_course_name',
         'spa.institution as user_institution',
-        db.raw(`COALESCE(
-          NULLIF(CONCAT_WS(' at ', NULLIF(spa.course_name, ''), NULLIF(spa.institution, '')), ''),
-          NULLIF(up.display_title, ''),
-          NULLIF(CONCAT_WS(' at ', NULLIF(up.current_job_title, ''), NULLIF(up.current_workspace, '')), '')
-        ) as user_display_title`),
+        'up.display_title as user_display_title',
         db.raw('IFNULL(usa.skills, JSON_ARRAY()) as user_skills'),
         'c.name as community_name',
         'c.description as community_description',

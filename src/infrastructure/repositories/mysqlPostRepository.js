@@ -109,8 +109,8 @@ export default class MysqlPostRepository {
       institution: row.user_institution || null,
       institution_name: row.user_institution || null,
       institutionName: row.user_institution || null,
-      display_title: row.user_display_title || row.user_current_job_title || null,
-      displayTitle: row.user_display_title || row.user_current_job_title || null,
+      display_title: row.user_display_title ?? null,
+      displayTitle: row.user_display_title ?? null,
       skills: parseJsonArray(row.user_skills),
       is_follow: toBool(row.is_follow),
       isFollow: toBool(row.is_follow)
@@ -193,11 +193,7 @@ export default class MysqlPostRepository {
         db.raw('COALESCE(NULLIF(up.display_name, \'\'), NULLIF(up.username, \'\'), u.email) as user_name'),
         'up.avatar as user_avatar',
         'up.current_job_title as user_current_job_title',
-        db.raw(`COALESCE(
-          NULLIF(CONCAT_WS(' at ', NULLIF(spa.course_name, ''), NULLIF(spa.institution, '')), ''),
-          NULLIF(up.display_title, ''),
-          NULLIF(CONCAT_WS(' at ', NULLIF(up.current_job_title, ''), NULLIF(up.current_workspace, '')), '')
-        ) as user_display_title`),
+        'up.display_title as user_display_title',
         'spa.course_name as user_course_name',
         'spa.institution as user_institution',
         db.raw('IFNULL(usa.skills, JSON_ARRAY()) as user_skills'),

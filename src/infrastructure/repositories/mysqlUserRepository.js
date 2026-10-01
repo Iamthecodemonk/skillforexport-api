@@ -236,8 +236,6 @@ export default class MysqlUserRepository {
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', c.id, 'name', c.name, 'issuer', c.issuer, 'issue_date', c.issue_date)) FROM user_certifications c WHERE c.user_id = u.id), JSON_ARRAY()) as certifications,
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', e.id, 'school', e.school, 'degree', e.degree, 'field', e.field, 'start_date', e.start_date, 'end_date', e.end_date)) FROM user_education e WHERE e.user_id = u.id), JSON_ARRAY()) as education,
         IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', ex.id, 'company', ex.company, 'title', ex.title, 'employment_type', ex.employment_type, 'start_date', ex.start_date, 'end_date', ex.end_date, 'is_current', ex.is_current, 'description', ex.description)) FROM user_experiences ex WHERE ex.user_id = u.id), JSON_ARRAY()) as experiences,
-        (SELECT COUNT(*) FROM pages sp WHERE sp.owner_id = u.id AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted') as count_student_pages,
-        (SELECT sp.metadata FROM pages sp WHERE sp.owner_id = u.id AND sp.page_type = 'student' AND COALESCE(sp.moderation_status, 'approved') <> 'deleted' ORDER BY sp.updated_at DESC, sp.created_at DESC LIMIT 1) as student_page_metadata,
         (SELECT COUNT(*) FROM pages pg WHERE pg.owner_id = u.id) as count_pages,
         (SELECT COUNT(*) FROM community_members cm WHERE cm.user_id = u.id) as count_communities,
         (SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id AND (p.moderation_status IS NULL OR p.moderation_status NOT IN ('suspended', 'deleted'))) as count_posts,

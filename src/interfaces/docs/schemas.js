@@ -30,6 +30,7 @@ export const UserPublic = {
   properties: {
     id: { type: 'string' },
     email: { type: 'string' },
+    accountType: { type: 'string' },
     username: { type: ['string','null'] },
     api_token: { type: ['string','null'] }
   },
@@ -1423,6 +1424,7 @@ export const FullProfileResponse = {
   properties: {
     id: { type: 'string' },
     uuid: { type: 'string' },
+    accountType: { type: 'string' },
     name: { type: ['string','null'] },
     email: { type: 'string' },
     is_admin: { type: 'boolean' },
@@ -1439,6 +1441,7 @@ export const FullProfileResponse = {
         name: { type: ['string','null'] },
         email: { type: 'string' },
         role: { type: 'string' },
+        accountType: { type: 'string' },
         created_at: { type: 'string' }
       }
     },

@@ -8,6 +8,7 @@ import Follower from '../../domain/entities/Follower.js';
 import UserOauthAccount from '../../domain/entities/UserOauthAccount.js';
 import UserLoginHistory from '../../domain/entities/UserLoginHistory.js';
 import { isStrongPassword } from './authUseCase.js';
+import { accountTypeFromSettings } from '../accountType.js';
 
 const toBool = (value, fallback = false) => {
   if (typeof value === 'boolean') return value;
@@ -188,6 +189,7 @@ export default class UserUseCase {
         ? await this.settingsRepository.get(userId)
         : null;
       const setting = profileSettingsShape(rawSettings);
+      const accountType = accountTypeFromSettings(rawSettings);
       const privacy = rawSettings && rawSettings.privacy ? rawSettings.privacy : {};
       const name = (profile && (profile.displayName || profile.username)) || row.email || null;
       const skills = parse(row.skills) || [];
@@ -232,6 +234,7 @@ export default class UserUseCase {
       return {
         id: row.user_id,
         uuid: row.user_id,
+        accountType,
         name,
         email: row.email,
         is_admin: row.role === 'admin',
@@ -274,7 +277,7 @@ export default class UserUseCase {
         created_at: createdAt,
         created_at_human: humanDate(createdAt),
         referral_code: row.referral_code || null,
-        user: { id: row.user_id, name, email: row.email, role: row.role, created_at: row.user_created_at },
+        user: { id: row.user_id, name, email: row.email, role: row.role, accountType, created_at: row.user_created_at },
         profile: resolvedProfile,
         oauthAccounts
       };

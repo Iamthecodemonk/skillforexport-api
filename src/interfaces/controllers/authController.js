@@ -193,6 +193,7 @@ export function makeAuthController({ useCase }) {
         if (!token) authLogger.warn('CompleteRegistration produced no token', { user: user && user.id });
         const userObj = (user && typeof user.toPlainObject === 'function') ? user.toPlainObject() : (user || null);
         if (userObj) userObj.api_token = token || null;
+        if (userObj) userObj.accountType = await useCase.getAccountType(user.id);
         const data = userObj
           ? {
               ...userObj,
@@ -269,6 +270,7 @@ export function makeAuthController({ useCase }) {
         if (!token) authLogger.warn('LoginUserWithEmailPassword produced no token', { email });
         const userObj = (user && typeof user.toPlainObject === 'function') ? user.toPlainObject() : (user || null);
         if (userObj) userObj.api_token = token || null;
+        if (userObj) userObj.accountType = await useCase.getAccountType(user.id);
         if (session && clientType === 'web') reply.header('Set-Cookie', refreshCookie(session.refreshToken));
         return reply.header('Cache-Control', 'no-store').code(200).send({
           ...buildSuccessResponse({ data: userObj, token }),
@@ -506,6 +508,7 @@ export function makeAuthController({ useCase }) {
         }
         const userObj = (result.user && typeof result.user.toPlainObject === 'function') ? result.user.toPlainObject() : (result.user || null);
         if (userObj) userObj.api_token = result.token || null;
+        if (userObj) userObj.accountType = await useCase.getAccountType(result.user.id);
         return reply.code(200).send(buildSuccessResponse({
           message: 'Login successful',
           data: userObj,
@@ -524,6 +527,7 @@ export function makeAuthController({ useCase }) {
           const session = await useCase.refreshRememberedSession(suppliedRefreshToken);
           const userObj = session.user && typeof session.user.toPlainObject === 'function' ? session.user.toPlainObject() : session.user;
           if (userObj) userObj.api_token = session.token;
+          if (userObj) userObj.accountType = await useCase.getAccountType(session.user.id);
           const cookieMode = !req.body?.refreshToken;
           if (cookieMode) reply.header('Set-Cookie', refreshCookie(session.refreshToken));
           return reply.header('Cache-Control', 'no-store').code(200).send({
@@ -551,6 +555,7 @@ export function makeAuthController({ useCase }) {
         const newToken = jwt.sign({ sub: user.id, email: user.email, tv: user.tokenVersion || user.token_version || 0 }, useCase.jwtSecret || process.env.JWT_SECRET, { expiresIn: useCase.jwtExpiresIn || '7d' });
         const userObj = user && typeof user.toPlainObject === 'function' ? user.toPlainObject() : (user || null);
         if (userObj) userObj.api_token = newToken;
+        if (userObj) userObj.accountType = await useCase.getAccountType(user.id);
         return reply.code(200).send(buildSuccessResponse({
           message: 'Token refreshed successfully',
           token: newToken,

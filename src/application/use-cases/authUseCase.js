@@ -8,6 +8,7 @@ import UserEducation from '../../domain/entities/UserEducation.js';
 import UserExperience from '../../domain/entities/UserExperience.js';
 import logger from '../../utils/logger.js';
 import dotenv from 'dotenv';
+import { accountTypeFromSettings } from '../accountType.js';
 dotenv.config();
 const authLogger = logger.child('AUTH_USECASE');
 
@@ -95,6 +96,11 @@ export default class AuthUseCase {
 
   toPlain(value) {
     return value && typeof value.toPlainObject === 'function' ? value.toPlainObject() : value;
+  }
+
+  async getAccountType(userId) {
+    const settings = this.settingsRepository && await this.settingsRepository.get(userId);
+    return accountTypeFromSettings(settings);
   }
 
   normalizeOnboarding(onboarding = {}) {

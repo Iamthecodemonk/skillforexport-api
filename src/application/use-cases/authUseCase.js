@@ -20,7 +20,7 @@ export function isStrongPassword(password) {
 }
 
 export default class AuthUseCase {
-  constructor({ userRepository, profileRepository = null, educationRepository = null, experienceRepository = null, settingsRepository = null, pageRepository = null, emailQueue, jwtSecret, jwtExpiresIn, passwordResetRepository = null }) {
+  constructor({ userRepository, profileRepository = null, educationRepository = null, experienceRepository = null, settingsRepository = null, pageRepository = null, emailQueue, jwtSecret, jwtExpiresIn, passwordResetRepository = null, authSessionRepository = null }) {
     this.userRepository = userRepository;
     this.profileRepository = profileRepository;
     this.educationRepository = educationRepository;
@@ -31,6 +31,44 @@ export default class AuthUseCase {
     this.jwtSecret = jwtSecret || process.env.JWT_SECRET || 'secret';
     this.jwtExpiresIn = jwtExpiresIn || '7d';
     this.passwordResetRepository = passwordResetRepository;
+    this.authSessionRepository = authSessionRepository;
+  }
+
+  sessionTokenHash(token) {
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  async createRememberedSession(user) {
+    if (!this.authSessionRepository) throw new Error('sessions_unavailable');
+    const refreshToken = crypto.randomBytes(32).toString('base64url');
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    await this.authSessionRepository.create({
+      id: uuidv4(), user_id: user.id, token_hash: this.sessionTokenHash(refreshToken),
+      token_version: Number(user.tokenVersion || user.token_version || 0),
+      expires_at: expiresAt, created_at: now, updated_at: now
+    });
+    const token = jwt.sign({ sub: user.id, email: user.email, tv: Number(user.tokenVersion || user.token_version || 0) }, this.jwtSecret, { expiresIn: '15m' });
+    return { token, refreshToken, refreshTokenExpiresAt: expiresAt.toISOString() };
+  }
+
+  async refreshRememberedSession(refreshToken) {
+    if (!this.authSessionRepository || typeof refreshToken !== 'string' || !refreshToken) throw new Error('invalid_refresh_token');
+    const nextRefreshToken = crypto.randomBytes(32).toString('base64url');
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const oldHash = this.sessionTokenHash(refreshToken);
+    const session = await this.authSessionRepository.rotate({
+      oldHash, newHash: this.sessionTokenHash(nextRefreshToken), now, expiresAt
+    });
+    if (!session) throw new Error('invalid_refresh_token');
+    const user = await this.userRepository.findById(session.user_id);
+    if (!user || Number(user.tokenVersion || user.token_version || 0) !== Number(session.token_version)) {
+      await this.authSessionRepository.revoke(this.sessionTokenHash(nextRefreshToken));
+      throw new Error('invalid_refresh_token');
+    }
+    const token = jwt.sign({ sub: user.id, email: user.email, tv: Number(user.tokenVersion || user.token_version || 0) }, this.jwtSecret, { expiresIn: '15m' });
+    return { user, token, refreshToken: nextRefreshToken, refreshTokenExpiresAt: expiresAt.toISOString() };
   }
 
   async RegisterWithEmailPassword({ email, password, refCode = null }) {

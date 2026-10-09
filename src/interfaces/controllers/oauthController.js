@@ -57,7 +57,7 @@ export function makeOauthController({ useCase }) {
     // Accept ID token from client (mobile/SPAs) to register/login with Google
     TokenSignIn: async (req, reply) => {
       try {
-        const { idToken } = req.body ;
+        const { idToken, rememberMe = false, clientType = 'mobile' } = req.body || {};
         if (!idToken)
           return reply.code(400).send({
             error: 'idToken_required'
@@ -66,10 +66,20 @@ export function makeOauthController({ useCase }) {
         const payload = ticket.getPayload();
         const profile = { email: payload.email, name: payload.name, googleId: payload.sub };
         const result = await useCase.LoginWithGoogle({ profile });
-        const decoded = jwt.decode(result.token) || {};
+        const session = rememberMe ? await useCase.createRememberedSession(result.user) : null;
+        const token = session ? session.token : result.token;
+        const decoded = jwt.decode(token) || {};
         const now = Math.floor(Date.now() / 1000);
         const expiresIn = decoded.exp ? Math.max(0, decoded.exp - now) : 0;
-        return reply.code(200).send({ success: true, data: { accessToken: result.token, tokenType: 'Bearer', expiresIn } });
+        if (session && clientType === 'web') reply.header('Set-Cookie', `s4e_refresh=${encodeURIComponent(session.refreshToken)}; Path=/api; Max-Age=2592000; HttpOnly; Secure; SameSite=Lax`);
+        return reply.header('Cache-Control', 'no-store').code(200).send({
+          success: true,
+          data: { accessToken: token, tokenType: 'Bearer', expiresIn },
+          ...(session ? {
+            ...(clientType === 'web' ? {} : { refreshToken: session.refreshToken }),
+            refreshTokenExpiresAt: session.refreshTokenExpiresAt
+          } : {})
+        });
       } catch (err) {
         log.error('TokenSignIn invalid id token', { error: err && err.message });
         return reply.code(400).send({ error: 'invalid_id_token' });

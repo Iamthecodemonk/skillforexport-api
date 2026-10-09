@@ -18,9 +18,9 @@ export const LoginBody = {
   type: 'object',
   required: ['email', 'password'],
   description: 'Standard email/password login request. This endpoint does not require an OTP for normal authentication flows.',
-  properties: { email: { type: 'string' }, password: { type: 'string' } }
+  properties: { email: { type: 'string' }, password: { type: 'string' }, rememberMe: { type: 'boolean', description: 'Issue a renewable session when true.' }, clientType: { type: 'string', enum: ['mobile', 'web'], description: 'Web uses a secure HttpOnly refresh cookie; mobile receives refreshToken in the response.' } }
 };
-LoginBody.example = { email: 'user@example.com', password: 'P@ssw0rd' };
+LoginBody.example = { email: 'user@example.com', password: 'P@ssw0rd', rememberMe: true, clientType: 'mobile' };
 
 
 
@@ -210,7 +210,7 @@ export const TokenSignInBody = {
   type: 'object',
   required: ['id_token'],
   description: 'Google ID token obtained from the client after a successful Google sign-in flow.',
-  properties: { id_token: { type: 'string' } }
+  properties: { id_token: { type: 'string' }, rememberMe: { type: 'boolean' }, clientType: { type: 'string', enum: ['mobile', 'web'] } }
 };
 TokenSignInBody.example = { id_token: 'eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...' };
 
@@ -303,6 +303,8 @@ export const RegisterCompleteBody = {
     name: { type: 'string', example: 'Jane Doe' },
     password: { type: 'string', minLength: 8, pattern: '^(?=.*\\d).{8,}$', description: 'Optional if password was already set during registration; otherwise password must be at least 8 characters and include at least one number.', example: 'password1' },
     ref_code: { type: 'string', example: 'ABC123' },
+    rememberMe: { type: 'boolean' },
+    clientType: { type: 'string', enum: ['mobile', 'web'] },
     onboarding: {
       type: 'object',
       additionalProperties: true,
@@ -356,6 +358,8 @@ export const AuthSuccessResponse = {
     success: { type: 'boolean' },
     message: { type: ['string', 'null'] },
     token: { type: ['string', 'null'] },
+    refreshToken: { type: 'string', description: 'Returned for mobile remembered sessions only.' },
+    refreshTokenExpiresAt: { type: 'string', format: 'date-time' },
     data: {
       type: 'object',
       additionalProperties: true,

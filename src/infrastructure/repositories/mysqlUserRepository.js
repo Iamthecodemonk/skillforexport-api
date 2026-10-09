@@ -200,6 +200,7 @@ export default class MysqlUserRepository {
     await db('users').where({ id: userId }).update({
       password: hashedPassword,
       updated_at: now,
+      token_version: db.raw('token_version + 1'),
     });
     return { id: userId, updated_at: now };
   }

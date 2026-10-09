@@ -50,6 +50,7 @@ import { makePostMediaController } from './interfaces/controllers/postController
 import PostMediaUseCase from './application/use-cases/postMediaUseCase.js';
 import AuthUseCase from './application/use-cases/authUseCase.js';
 import MysqlPasswordResetRepository from './infrastructure/repositories/mysqlPasswordResetRepository.js';
+import MysqlAuthSessionRepository from './infrastructure/repositories/mysqlAuthSessionRepository.js';
 import { makeAuthController } from './interfaces/controllers/authController.js';
 import { makeOauthController } from './interfaces/controllers/oauthController.js';
 import UserUseCase from './application/use-cases/userUseCase.js';
@@ -375,7 +376,7 @@ export default async function startServer() {
     const authPageRepo = new PageRepositoryImpl({ adapter: authPageAdapter });
     userSettingsRepo = new MysqlUserSettingsRepository();
     const passwordResetAdapter = new MysqlPasswordResetRepository();
-    authUseCase = new AuthUseCase({ userRepository: userRepo, profileRepository: profileRepo, educationRepository: authEducationRepo, experienceRepository: authExperienceRepo, settingsRepository: userSettingsRepo, pageRepository: authPageRepo, emailQueue: emailQueue, jwtSecret: process.env.JWT_SECRET, jwtExpiresIn: process.env.JWT_EXPIRES_IN, passwordResetRepository: passwordResetAdapter });
+    authUseCase = new AuthUseCase({ userRepository: userRepo, profileRepository: profileRepo, educationRepository: authEducationRepo, experienceRepository: authExperienceRepo, settingsRepository: userSettingsRepo, pageRepository: authPageRepo, emailQueue: emailQueue, jwtSecret: process.env.JWT_SECRET, jwtExpiresIn: process.env.JWT_EXPIRES_IN, passwordResetRepository: passwordResetAdapter, authSessionRepository: new MysqlAuthSessionRepository() });
     authController = makeAuthController({ useCase: authUseCase });
     // oauth controller (Google)
     const oauthController = makeOauthController({ useCase: authUseCase });
@@ -678,6 +679,16 @@ export default async function startServer() {
     if (typeof loginHistoryRepo !== 'undefined' && loginHistoryRepo) {
       controllers.Logout = async (req, reply) => {
         try {
+          const suppliedRefreshToken = req.body && req.body.refreshToken;
+          const cookieEntry = String(req.headers.cookie || '').split(';').find((part) => part.trim().startsWith('s4e_refresh='));
+          const refreshToken = suppliedRefreshToken || (cookieEntry && cookieEntry.trim().slice('s4e_refresh='.length));
+          if (refreshToken && authUseCase && authUseCase.authSessionRepository) {
+            const revoked = await authUseCase.authSessionRepository.revoke(authUseCase.sessionTokenHash(refreshToken));
+            reply.header('Set-Cookie', 's4e_refresh=; Path=/api; Max-Age=0; HttpOnly; Secure; SameSite=Lax');
+            return reply.code(revoked ? 200 : 401).send(revoked
+              ? { success: true, message: 'Logged out successfully' }
+              : { success: false, message: 'Session invalid or expired' });
+          }
           const authHeader = req.headers && (req.headers.authorization || req.headers.Authorization);
           if (!authHeader)
             return reply.code(401).send({
@@ -703,6 +714,9 @@ export default async function startServer() {
               message: 'Token missing subject',
               data: null
             });
+          if (!req.user || req.user.id !== userId) {
+            return reply.code(401).send({ success: false, message: 'Token invalid or revoked', data: null });
+          }
 
           await loginHistoryRepo.create({
             id: uuidv4(),
@@ -718,6 +732,7 @@ export default async function startServer() {
             if (userRepo && typeof userRepo.incrementTokenVersion === 'function') {
               await userRepo.incrementTokenVersion(userId);
             }
+            if (authUseCase && authUseCase.authSessionRepository) await authUseCase.authSessionRepository.revokeAll(userId);
           } catch (revErr) {
             serverLogger.warn('Failed to increment token version on logout', { message: revErr.message });
           }

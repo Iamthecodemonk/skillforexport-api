@@ -41,6 +41,13 @@ function weakPasswordResponse(reply) {
   return reply.code(422).send(buildValidationResponse({ password: [PASSWORD_POLICY_MESSAGE] }));
 }
 
+const refreshCookie = (token, maxAge = 30 * 24 * 60 * 60) => `s4e_refresh=${encodeURIComponent(token)}; Path=/api; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
+const cookieRefreshToken = (req) => {
+  const cookies = String(req.headers && req.headers.cookie || '').split(';');
+  const entry = cookies.find((part) => part.trim().startsWith('s4e_refresh='));
+  return entry ? entry.trim().slice('s4e_refresh='.length) : null;
+};
+
 export function makeAuthController({ useCase }) {
   return {
     RequestRegistrationOtp: async (req, reply) => {
@@ -143,7 +150,7 @@ export function makeAuthController({ useCase }) {
 
     CompleteRegistration: async (req, reply) => {
       try {
-        const { email, name, ref_code: refCode, otpCode, password, onboarding } = req.body || {};
+        const { email, name, ref_code: refCode, otpCode, password, onboarding, rememberMe = false, clientType = 'mobile' } = req.body || {};
         const validationErrors = {};
         if (!email) validationErrors.email = ['email is required'];
         if (!name) validationErrors.name = ['name is required'];
@@ -153,7 +160,7 @@ export function makeAuthController({ useCase }) {
         }
 
         // password is optional here because a temporary hashed password may be stored with the OTP
-        const { user, token, profile = null, education = [], experiences = [], studentPage = null, onboardingCompleted = false, settings = null } = await useCase.CompleteRegistration({
+        const { user, token: registrationToken, profile = null, education = [], experiences = [], studentPage = null, onboardingCompleted = false, settings = null } = await useCase.CompleteRegistration({
           email,
           name,
           refCode,
@@ -161,6 +168,8 @@ export function makeAuthController({ useCase }) {
           password,
           onboarding
         });
+        const session = rememberMe ? await useCase.createRememberedSession(user) : null;
+        const token = session ? session.token : registrationToken;
         const decoded = jwt.decode(token) || {};
         const now = Math.floor(Date.now() / 1000);
         const expiresIn = decoded.exp ? Math.max(0, decoded.exp - now) : 0;
@@ -196,10 +205,14 @@ export function makeAuthController({ useCase }) {
               onboardingCompleted
             }
           : null;
-        return reply.code(201).send(buildSuccessResponse({
-          data,
-          token
-        }));
+        if (session && clientType === 'web') reply.header('Set-Cookie', refreshCookie(session.refreshToken));
+        return reply.header('Cache-Control', 'no-store').code(201).send({
+          ...buildSuccessResponse({ data, token }),
+          ...(session ? {
+            ...(clientType === 'web' ? {} : { refreshToken: session.refreshToken }),
+            refreshTokenExpiresAt: session.refreshTokenExpiresAt
+          } : {})
+        });
       } catch (err) {
         if (err.message === 'invalid_or_expired_otp') {
           authLogger.warn('CompleteRegistration invalid or expired OTP', { email: req.body && req.body.email });
@@ -221,7 +234,7 @@ export function makeAuthController({ useCase }) {
 
     LoginUserWithEmailPassword: async (req, reply) => {
       try {
-        const { email, password } = req.body;
+        const { email, password, rememberMe = false, clientType = 'mobile' } = req.body;
         const validationErrors = {};
         if (!email) validationErrors.email = ['email is required'];
         if (!password) validationErrors.password = ['password is required'];
@@ -230,7 +243,10 @@ export function makeAuthController({ useCase }) {
           return reply.code(422).send(buildValidationResponse(validationErrors));
         }
 
-        const { user, token } = await useCase.LoginWithEmailPassword({ email, password });
+        const login = await useCase.LoginWithEmailPassword({ email, password });
+        const { user } = login;
+        const session = rememberMe ? await useCase.createRememberedSession(user) : null;
+        const token = session ? session.token : login.token;
         const decoded = jwt.decode(token) || {};
         const now = Math.floor(Date.now() / 1000);
         const expiresIn = decoded.exp ? Math.max(0, decoded.exp - now) : 0;
@@ -253,10 +269,14 @@ export function makeAuthController({ useCase }) {
         if (!token) authLogger.warn('LoginUserWithEmailPassword produced no token', { email });
         const userObj = (user && typeof user.toPlainObject === 'function') ? user.toPlainObject() : (user || null);
         if (userObj) userObj.api_token = token || null;
-        return reply.code(200).send(buildSuccessResponse({
-          data: userObj,
-          token
-        }));
+        if (session && clientType === 'web') reply.header('Set-Cookie', refreshCookie(session.refreshToken));
+        return reply.header('Cache-Control', 'no-store').code(200).send({
+          ...buildSuccessResponse({ data: userObj, token }),
+          ...(session ? {
+            ...(clientType === 'web' ? {} : { refreshToken: session.refreshToken }),
+            refreshTokenExpiresAt: session.refreshTokenExpiresAt
+          } : {})
+        });
       } catch (err) {
         if (err.message === 'invalid_email_format') {
           return reply.code(422).send(buildValidationResponse({ email: ['email must be a valid email address'] }));
@@ -499,6 +519,19 @@ export function makeAuthController({ useCase }) {
 
     RefreshToken: async (req, reply) => {
       try {
+        const suppliedRefreshToken = req.body && req.body.refreshToken || cookieRefreshToken(req);
+        if (suppliedRefreshToken) {
+          const session = await useCase.refreshRememberedSession(suppliedRefreshToken);
+          const userObj = session.user && typeof session.user.toPlainObject === 'function' ? session.user.toPlainObject() : session.user;
+          if (userObj) userObj.api_token = session.token;
+          const cookieMode = !req.body?.refreshToken;
+          if (cookieMode) reply.header('Set-Cookie', refreshCookie(session.refreshToken));
+          return reply.header('Cache-Control', 'no-store').code(200).send({
+            ...buildSuccessResponse({ message: 'Token refreshed successfully', token: session.token, data: userObj }),
+            ...(cookieMode ? {} : { refreshToken: session.refreshToken }),
+            refreshTokenExpiresAt: session.refreshTokenExpiresAt
+          });
+        }
         const auth = req.headers && (req.headers.authorization || req.headers.Authorization);
         if (!auth) 
           return reply.code(401).send(buildErrorResponse('Authorization header missing'));
@@ -511,8 +544,11 @@ export function makeAuthController({ useCase }) {
         } catch (e) {
           return reply.code(401).send(buildErrorResponse('Token invalid or expired'));
         }
-        const newToken = jwt.sign({ sub: payload.sub, email: payload.email, tv: payload.tv || 0 }, useCase.jwtSecret || process.env.JWT_SECRET, { expiresIn: useCase.jwtExpiresIn || '7d' });
         const user = await useCase.userRepository.findById(payload.sub);
+        if (!user || Number(user.tokenVersion || user.token_version || 0) !== Number(payload.tv || 0)) {
+          return reply.code(401).send(buildErrorResponse('Token invalid or revoked'));
+        }
+        const newToken = jwt.sign({ sub: user.id, email: user.email, tv: user.tokenVersion || user.token_version || 0 }, useCase.jwtSecret || process.env.JWT_SECRET, { expiresIn: useCase.jwtExpiresIn || '7d' });
         const userObj = user && typeof user.toPlainObject === 'function' ? user.toPlainObject() : (user || null);
         if (userObj) userObj.api_token = newToken;
         return reply.code(200).send(buildSuccessResponse({
@@ -521,6 +557,7 @@ export function makeAuthController({ useCase }) {
           data: userObj || { api_token: newToken }
         }));
       } catch (err) {
+        if (err.message === 'invalid_refresh_token') return reply.code(401).send(buildErrorResponse('Refresh token invalid or expired'));
         authLogger.error('RefreshToken error', { message: err.message, stack: err.stack });
         return reply.code(500).send(buildErrorResponse('Unable to refresh token'));
       }

@@ -909,11 +909,11 @@ export default async function registerRoutes(fastify, deps) {
   fastify.post(
     '/logout',
     {
-      preHandler: authPre,
       schema: {
         operationId: 'logoutUser',
         tags: ['Auth'],
-        description: 'Invalidate the current authenticated session or token.',
+        description: 'Revoke a remembered session with refreshToken or the secure web cookie. Legacy bearer-only logout revokes all sessions.',
+        body: { type: 'object', properties: { refreshToken: { type: 'string' } } },
         response: {
           200: schemas.SimpleSuccessResponse,
           401: schemas.AuthErrorResponse
@@ -926,11 +926,11 @@ export default async function registerRoutes(fastify, deps) {
   fastify.post(
     '/refresh-token',
     {
-      preHandler: authPre,
       schema: {
         operationId: 'refreshAuthToken',
         tags: ['Auth'],
-        description: 'Refresh the current authentication token and return a new token payload.',
+        description: 'Rotate a remembered session using refreshToken in JSON or the secure web cookie. An expired access token is not required.',
+        body: { type: 'object', properties: { refreshToken: { type: 'string' } } },
         response: {
           200: schemas.AuthSuccessResponse,
           401: schemas.AuthErrorResponse

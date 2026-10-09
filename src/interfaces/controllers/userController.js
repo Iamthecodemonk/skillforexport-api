@@ -145,13 +145,9 @@ export function makeUserController({ useCase = null, followerRepository = null, 
         const body = req.body || {};
         const actor = req.user || null;
         const updated = await useCase.updateUserDisplayName(id, actor, body);
-        try {
-          const redis = req.server && req.server.redisClient;
-          if (redis) await redis.del(`user:profile:${id}`);
-        } catch (e) {
-          userLogger.warn('Failed to invalidate profile cache', { err: e.message });
-        }
-        return reply.send({ success: true, data: updated });
+        await invalidateUserProfileCaches(req, [id]);
+        await invalidateCompactFeedCache(req);
+        return reply.send({ success: true, message: 'Profile updated successfully', data: updated });
       } catch (err) {
         if (err.message === 'unauthorized') return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
         if (err.message === 'forbidden') return reply.code(403).send({ success: false, error: { code: 'forbidden' } });

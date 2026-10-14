@@ -47,6 +47,11 @@ const splitSkills = (value) => String(value || '')
   .filter(Boolean)
   .slice(0, 3);
 
+const authorDisplayTitle = ({ institution, courseName, displayTitle }) => {
+  if (institution || courseName) return [institution, courseName].filter(Boolean).join(' | ');
+  return displayTitle ?? null;
+};
+
 const studentMetadataExpression = (keys) => `COALESCE(${keys
   .map((key) => `NULLIF(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.${key}')), '')`)
   .join(', ')})`;
@@ -75,8 +80,16 @@ const authorStudentFields = (row) => ({
   institution: row.author_institution || null,
   institutionName: row.author_institution || null,
   institution_name: row.author_institution || null,
-  displayTitle: row.author_display_title ?? null,
-  display_title: row.author_display_title ?? null
+  displayTitle: authorDisplayTitle({
+    institution: row.author_institution || null,
+    courseName: row.author_course_name || null,
+    displayTitle: row.author_display_title
+  }),
+  display_title: authorDisplayTitle({
+    institution: row.author_institution || null,
+    courseName: row.author_course_name || null,
+    displayTitle: row.author_display_title
+  })
 });
 
 const mapMedia = (value) => parseJsonArray(value).map((item) => ({
@@ -146,8 +159,16 @@ const compactPost = (row) => ({
       institution: firstDefined(row.user.institution, row.user.institutionName, row.user.institution_name) || null,
       institutionName: firstDefined(row.user.institutionName, row.user.institution_name, row.user.institution) || null,
       institution_name: firstDefined(row.user.institution_name, row.user.institutionName, row.user.institution) || null,
-      displayTitle: firstDefined(row.user.displayTitle, row.user.display_title) ?? null,
-      display_title: firstDefined(row.user.display_title, row.user.displayTitle) ?? null
+      displayTitle: authorDisplayTitle({
+        institution: firstDefined(row.user.institution, row.user.institutionName, row.user.institution_name),
+        courseName: firstDefined(row.user.courseName, row.user.course_name),
+        displayTitle: firstDefined(row.user.displayTitle, row.user.display_title)
+      }),
+      display_title: authorDisplayTitle({
+        institution: firstDefined(row.user.institution, row.user.institutionName, row.user.institution_name),
+        courseName: firstDefined(row.user.courseName, row.user.course_name),
+        displayTitle: firstDefined(row.user.display_title, row.user.displayTitle)
+      })
     } : authorStudentFields(row)),
     skills: compactSkills(row.user ? row.user.skills : row.author_skills)
   },
@@ -191,8 +212,16 @@ const compactQuestion = (row) => ({
       institution: firstDefined(row.user.institution, row.user.institutionName, row.user.institution_name) || null,
       institutionName: firstDefined(row.user.institutionName, row.user.institution_name, row.user.institution) || null,
       institution_name: firstDefined(row.user.institution_name, row.user.institutionName, row.user.institution) || null,
-      displayTitle: firstDefined(row.user.displayTitle, row.user.display_title) ?? null,
-      display_title: firstDefined(row.user.display_title, row.user.displayTitle) ?? null
+      displayTitle: authorDisplayTitle({
+        institution: firstDefined(row.user.institution, row.user.institutionName, row.user.institution_name),
+        courseName: firstDefined(row.user.courseName, row.user.course_name),
+        displayTitle: firstDefined(row.user.displayTitle, row.user.display_title)
+      }),
+      display_title: authorDisplayTitle({
+        institution: firstDefined(row.user.institution, row.user.institutionName, row.user.institution_name),
+        courseName: firstDefined(row.user.courseName, row.user.course_name),
+        displayTitle: firstDefined(row.user.display_title, row.user.displayTitle)
+      })
     } : authorStudentFields(row)),
     skills: compactSkills(row.user ? row.user.skills : row.author_skills)
   },

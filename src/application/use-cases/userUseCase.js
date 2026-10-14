@@ -197,7 +197,17 @@ export default class UserUseCase {
       const certifications = parse(row.certifications) || [];
       const education = parse(row.education) || [];
       const experiences = parse(row.experiences) || [];
-      const displayTitle = profile && (profile.display_title ?? profile.displayTitle) || null;
+      const savedDisplayTitle = profile && (profile.display_title ?? profile.displayTitle) || null;
+      const studentEducation = education.find((item) => item && (item.school || item.field)) || {};
+      const studentInstitution = studentEducation.school || studentEducation.institution || null;
+      const studentCourse = studentEducation.field || studentEducation.courseOfStudy || studentEducation.course_of_study || null;
+      const currentJobTitle = profile && (profile.current_job_title || profile.currentJobTitle) || null;
+      const currentWorkspace = profile && (profile.current_workspace || profile.currentWorkspace) || null;
+      const displayTitle = savedDisplayTitle || (accountType === 'student'
+        ? [studentInstitution, studentCourse].filter(Boolean).join(' | ') || null
+        : currentJobTitle
+          ? `${currentJobTitle}${currentWorkspace ? ` at ${currentWorkspace}` : ''}`
+          : null);
       const resolvedProfile = profile && typeof profile === 'object'
         ? {
             ...profile,
@@ -243,6 +253,10 @@ export default class UserUseCase {
         bio: profile && profile.bio || null,
         display_title: displayTitle,
         displayTitle,
+        institution: accountType === 'student' ? studentInstitution : null,
+        institution_name: accountType === 'student' ? studentInstitution : null,
+        courseOfStudy: accountType === 'student' ? studentCourse : null,
+        course_name: accountType === 'student' ? studentCourse : null,
         current_job_title: profile && (profile.current_job_title || profile.currentJobTitle) || null,
         current_workspace: profile && (profile.current_workspace || profile.currentWorkspace) || null,
         notification_email: rawSettings && rawSettings.notification_email || null,

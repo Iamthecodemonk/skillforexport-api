@@ -52,6 +52,17 @@ const authorDisplayTitle = ({ institution, courseName, displayTitle }) => {
   return displayTitle ?? null;
 };
 
+const normalizeFeedItemStudentTitle = (item) => {
+  if (!item || !item.user || typeof item.user !== 'object') return item;
+  const user = item.user;
+  const displayTitle = authorDisplayTitle({
+    institution: firstDefined(user.institution, user.institutionName, user.institution_name),
+    courseName: firstDefined(user.courseName, user.course_name),
+    displayTitle: firstDefined(user.displayTitle, user.display_title)
+  });
+  return { ...item, user: { ...user, displayTitle, display_title: displayTitle } };
+};
+
 const studentMetadataExpression = (keys) => `COALESCE(${keys
   .map((key) => `NULLIF(JSON_UNQUOTE(JSON_EXTRACT(sp.metadata, '$.${key}')), '')`)
   .join(', ')})`;
@@ -555,6 +566,7 @@ export function makeFeedController({ postUseCase = null, questionUseCase = null 
               if (av > bv) return 1 * direction;
               return String(a.id || '').localeCompare(String(b.id || '')) * direction;
             })
+            .map(normalizeFeedItemStudentTitle)
             .slice(offset, offset + limit);
           return buildPaginatedResponse(req, {
             data,

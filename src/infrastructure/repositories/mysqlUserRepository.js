@@ -55,20 +55,20 @@ async function countUserOwnedRows(tableName, userId, ownerColumns = ['user_id'])
 export default class MysqlUserRepository {
   async isSuperAdmin(userId) {
     if (!userId) return false;
-    const row = await db('super_admins as sa')
-      .join('users as u', 'u.id', 'sa.user_id')
-      .where('sa.user_id', userId)
-      .where('u.role', 'admin')
-      .first('sa.user_id');
-    return Boolean(row);
+    const [grant, user] = await Promise.all([
+      db('super_admins').where({ user_id: userId }).first('user_id'),
+      db('users').where({ id: userId, role: 'admin' }).first('id')
+    ]);
+    return Boolean(grant && user);
   }
 
   async listAdminUsers() {
-    return db('users as u')
-      .leftJoin('super_admins as sa', 'sa.user_id', 'u.id')
-      .where('u.role', 'admin')
-      .select('u.id', 'u.email', 'u.role', 'u.created_at', 'sa.user_id as super_admin_id')
-      .orderBy('u.created_at', 'desc');
+    const [admins, grants] = await Promise.all([
+      db('users').where({ role: 'admin' }).select('id', 'email', 'role', 'created_at').orderBy('created_at', 'desc'),
+      db('super_admins').select('user_id')
+    ]);
+    const superAdminIds = new Set(grants.map((row) => row.user_id));
+    return admins.map((admin) => ({ ...admin, super_admin_id: superAdminIds.has(admin.id) ? admin.id : null }));
   }
 
   async grantSuperAdmin(userId, grantedBy) {

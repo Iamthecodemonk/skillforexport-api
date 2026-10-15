@@ -8,9 +8,9 @@ CREATE TABLE IF NOT EXISTS super_admins (
 SET @first_super_admin_email = 'superadmin@skillsforexport.com';
 INSERT INTO super_admins (user_id, granted_by)
 SELECT id, NULL FROM users
-WHERE email = @first_super_admin_email AND role = 'admin'
+WHERE BINARY email = BINARY @first_super_admin_email AND role = 'admin'
 ON DUPLICATE KEY UPDATE user_id = VALUES(user_id);
 
 SELECT u.id, u.email, u.role
-FROM users u JOIN super_admins sa ON sa.user_id = u.id
-WHERE u.email = @first_super_admin_email;
+FROM users u JOIN super_admins sa ON BINARY sa.user_id = BINARY u.id
+WHERE BINARY u.email = BINARY @first_super_admin_email;

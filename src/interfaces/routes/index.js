@@ -1070,32 +1070,58 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('getPublicProfile'));
 
-  const auditResponse = { 200: genericSuccess, 201: genericSuccess,
-    401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse,
-    404: schemas.GenericErrorResponse, 409: schemas.GenericErrorResponse };
+  const auditErrorResponse = { 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse,
+    404: schemas.GenericErrorResponse, 409: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse };
+  const auditResponse = (dataSchema, status = 200) => ({
+    [status]: dataResponse(dataSchema), ...auditErrorResponse
+  });
+  const auditUnit = { type: 'object', properties: {
+    id: { type: 'string' }, name: { type: 'string' }, is_active: { type: 'boolean' },
+    sort_order: { type: 'integer' }, created_at: { type: 'string' }, updated_at: { type: 'string' },
+    total: { type: 'integer' }, pending: { type: 'integer' }, checked: { type: 'integer' }
+  } };
+  const auditSettings = { type: 'object', properties: { copiesPerItem: { type: 'integer' } } };
+  const auditAssignment = { type: 'object', properties: {
+    id: { type: 'string' }, unit_id: { type: 'string' },
+    item_type: { type: 'string', enum: ['post', 'question'] }, item_id: { type: 'string' },
+    source_created_at: { type: 'string' }, assigned_at: { type: 'string' },
+    checked_at: { type: ['string', 'null'] }, checked_by: { type: ['string', 'null'] },
+    report_id: { type: ['string', 'null'] }
+  } };
+  const auditItem = { type: 'object', properties: {
+    ...auditAssignment.properties,
+    item: { type: ['object', 'null'], additionalProperties: true },
+    author: { type: ['object', 'null'], additionalProperties: true },
+    auditor: { type: ['object', 'null'], additionalProperties: true },
+    report: { type: ['object', 'null'], additionalProperties: true }
+  } };
   const auditUnitBody = { type: 'object', required: ['name'], properties: {
     name: { type: 'string', minLength: 1, maxLength: 120 },
     sortOrder: { type: 'integer', minimum: 0 }
   } };
   fastify.get('/admin/post-audit/units', { preHandler: deps.authRequired,
-    schema: { tags: ['Admin', 'Post Audit'], response: auditResponse }
+    schema: { tags: ['Admin', 'Post Audit'], description: 'List audit units and counts. Admin access.', response: auditResponse({ type: 'object', properties: {
+      settings: auditSettings, units: { type: 'array', items: auditUnit }
+    } }) }
   }, handler('listAuditUnits'));
   fastify.post('/admin/post-audit/units', { preHandler: deps.authRequired,
-    schema: { tags: ['Admin', 'Post Audit'], body: auditUnitBody, response: auditResponse }
+    schema: { tags: ['Admin', 'Post Audit'], description: 'Create an audit unit. Superadmin only.', body: auditUnitBody, response: auditResponse(auditUnit, 201) }
   }, handler('createAuditUnit'));
   fastify.patch('/admin/post-audit/units/:id', { preHandler: deps.authRequired,
     schema: { tags: ['Admin', 'Post Audit'], params: idParam(), body: { ...auditUnitBody, required: [], properties: {
       ...auditUnitBody.properties, isActive: { type: 'boolean' }
-    } }, response: auditResponse }
+    } }, description: 'Edit an audit unit. Superadmin only.', response: auditResponse(auditUnit) }
   }, handler('updateAuditUnit'));
   fastify.put('/admin/post-audit/settings', { preHandler: deps.authRequired,
     schema: { tags: ['Admin', 'Post Audit'], body: { type: 'object', required: ['copiesPerItem'],
-      properties: { copiesPerItem: { type: 'integer', minimum: 1, maximum: 20 } } }, response: auditResponse }
+      properties: { copiesPerItem: { type: 'integer', minimum: 1, maximum: 20 } } }, description: 'Set copies per item. Superadmin only.', response: auditResponse(auditSettings) }
   }, handler('updateAuditSettings'));
   fastify.post('/admin/post-audit/dispatch', { preHandler: deps.authRequired,
     schema: { tags: ['Admin', 'Post Audit'], body: { type: 'object', properties: {
       limit: { type: 'integer', minimum: 1, maximum: 500 }
-    } }, response: auditResponse }
+    } }, description: 'Dispatch historical posts and questions. Superadmin only.', response: auditResponse({ type: 'object', properties: {
+      post: { type: 'integer' }, question: { type: 'integer' }, assignments: { type: 'integer' }
+    } }) }
   }, handler('dispatchAuditItems'));
   fastify.post('/admin/post-audit/items/:type/:id/assign', { preHandler: deps.authRequired,
     schema: { tags: ['Admin', 'Post Audit'], params: { type: 'object', required: ['type', 'id'],
@@ -1103,40 +1129,53 @@ export default async function registerRoutes(fastify, deps) {
     body: { type: 'object', required: ['unitIds'], properties: {
       unitIds: { type: 'array', minItems: 1, uniqueItems: true, items: { type: 'string' } },
       replace: { type: 'boolean' }
-    } }, response: auditResponse }
+    } }, description: 'Assign one post or question to units. Superadmin only.', response: auditResponse({ type: 'object', properties: {
+      assignments: { type: 'array', items: auditAssignment }
+    } }) }
   }, handler('assignAuditItem'));
   fastify.get('/admin/post-audit/units/:id/items', { preHandler: deps.authRequired,
     schema: { tags: ['Admin', 'Post Audit'], params: idParam(), querystring: { type: 'object', properties: {
       status: { type: 'string', enum: ['pending', 'checked'] }, page: { type: 'integer', minimum: 1 },
       per_page: { type: 'integer', minimum: 1, maximum: 50 }
-    } }, response: auditResponse }
+    } }, description: 'List pending or checked assignments for a unit. Admin access.', response: auditResponse({ type: 'object', properties: {
+      current_page: { type: 'integer' }, per_page: { type: 'integer' }, total: { type: 'integer' },
+      last_page: { type: 'integer' }, data: { type: 'array', items: auditItem }
+    } }) }
   }, handler('listAuditItems'));
   fastify.post('/admin/post-audit/units/:id/items/:assignmentId/report', { preHandler: deps.authRequired,
     schema: { tags: ['Admin', 'Post Audit'], params: twoIdParams('id', 'assignmentId'),
       body: { type: 'object', required: ['reason'], properties: {
         reason: { type: 'string', minLength: 1, maxLength: 255 }, details: { type: 'string', maxLength: 5000 }
-      } }, response: auditResponse }
+      } }, description: 'Report an assigned item. Admin access; does not suspend content.', response: auditResponse({ type: 'object', properties: {
+        assignmentId: { type: 'string' }, reportId: { type: 'string' }, itemType: { type: 'string' }, itemId: { type: 'string' }
+      } }, 201) }
   }, handler('reportAuditItem'));
   fastify.post('/admin/post-audit/units/:id/checkpoint', { preHandler: deps.authRequired,
     schema: { tags: ['Admin', 'Post Audit'], params: idParam(), body: { type: 'object',
-      properties: { throughAssignmentId: { type: 'string' } } }, response: auditResponse }
+      properties: { throughAssignmentId: { type: 'string' } } }, description: 'Check all pending assignments or through one assignment. Admin access.', response: auditResponse({ type: 'object', properties: {
+        unitId: { type: 'string' }, checkedCount: { type: 'integer' }, throughAssignmentId: { type: ['string', 'null'] }
+      } }) }
   }, handler('checkpointAuditUnit'));
 
   fastify.get('/admin/users/me', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: { tags: ['Admin', 'Users'], description: 'Return the current admin and superadmin access flags.', response: { 200: dataResponse({ type: 'object', properties: { isAdmin: { type: 'boolean' }, isSuperAdmin: { type: 'boolean' } } }), 401: schemas.AuthErrorResponse } }
   }, handler('getAdminAccess'));
+  const adminUserResponse = { type: 'object', properties: {
+    id: { type: 'string' }, email: { type: 'string' }, role: { type: 'string', enum: ['admin'] },
+    created_at: { type: 'string' }, isSuperAdmin: { type: 'boolean' }
+  } };
   fastify.get('/admin/users', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { tags: ['Admin', 'Users'], description: 'List admin accounts. Superadmin only.', response: { 200: dataResponse({ type: 'array', items: anyObject }), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse } }
+    schema: { tags: ['Admin', 'Users'], description: 'List admin accounts. Superadmin only.', response: { 200: dataResponse({ type: 'array', items: adminUserResponse }), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse } }
   }, handler('listAdminUsers'));
   fastify.post('/admin/users', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { tags: ['Admin', 'Users'], description: 'Create an admin account. Superadmin only.', body: { type: 'object', required: ['email', 'password'], properties: { email: { type: 'string', format: 'email' }, password: { type: 'string', minLength: 8, pattern: '^(?=.*\\d).{8,}$' } } }, response: { 201: genericSuccess, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } }
+    schema: { tags: ['Admin', 'Users'], description: 'Create an admin account. Superadmin only.', body: { type: 'object', required: ['email', 'password'], properties: { email: { type: 'string', format: 'email' }, password: { type: 'string', minLength: 8, pattern: '^(?=.*\\d).{8,}$' } } }, response: { 201: dataResponse(adminUserResponse), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 409: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } }
   }, handler('createAdminUser'));
   fastify.put('/admin/users/:id/super-admin', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
-    schema: { tags: ['Admin', 'Users'], description: 'Grant superadmin access to an existing admin. Superadmin only.', params: idParam(), response: { 200: genericSuccess, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } }
+    schema: { tags: ['Admin', 'Users'], description: 'Grant superadmin access to an existing admin. Superadmin only.', params: idParam(), response: { 200: dataResponse({ type: 'object', properties: { id: { type: 'string' }, isSuperAdmin: { type: 'boolean' } } }), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } }
   }, handler('grantSuperAdmin'));
 
   fastify.post('/users', {

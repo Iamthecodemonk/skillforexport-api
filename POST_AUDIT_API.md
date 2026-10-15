@@ -41,3 +41,28 @@ To move pending work into checked history, call `POST /api/admin/post-audit/unit
 The response includes `data.checkedCount`. A checkpoint changes only the chosen unit's assignments; the same post or question remains pending in other units. Reports and checked history remain available after checkpointing.
 
 Errors use `{ "success": false, "error": { "code": "..." } }`. Common codes: `unauthorized` (401), `forbidden` (403), `unit_not_found` or `assignment_not_found` (404), and `assignment_already_checked`, `assignment_already_reported`, or `reviewed_assignment_cannot_be_removed` (409).
+
+## Admin accounts
+
+Run `scripts/add-super-admins.sql` once with the email of an existing admin account to grant the first superadmin. The script does not create that account. Thereafter, an authenticated superadmin can manage admin accounts through these routes:
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| GET | `/api/admin/users/me` | Return `{ "success": true, "data": { "isAdmin": true, "isSuperAdmin": true } }` for the current token. |
+| GET | `/api/admin/users` | List admin accounts, including `isSuperAdmin`. Superadmin only. |
+| POST | `/api/admin/users` | Create an admin with `{ "email": "admin@example.com", "password": "Password1" }`. Returns 201 with `data.id`, `data.email`, `data.role`, and `data.isSuperAdmin: false`. Superadmin only. |
+| PUT | `/api/admin/users/:id/super-admin` | Grant superadmin access to an existing admin. Returns `data: { "id": "...", "isSuperAdmin": true }`. Superadmin only. |
+
+Passwords require at least eight characters and one digit. There is no revoke, delete-admin, or assign-auditor-to-unit endpoint here; do not show controls for those actions. Any admin can review any audit unit. Never expose the initial SQL grant or accept a `role`/`isSuperAdmin` value in the create-admin form.
+
+## Frontend handoff prompt
+
+> Implement the admin account and post-audit pages using the existing admin application's layout and API client. Send `Authorization: Bearer <token>` on every request. On load, call `GET /api/admin/users/me`; use `data.isAdmin` to gate audit review and `data.isSuperAdmin` to show account management and audit configuration. Handle 401 by requesting sign-in and 403 with an access-denied state. Do not assume the account's role from a locally stored label.
+>
+> For superadmins, add an Admin Users page: list accounts via `GET /api/admin/users`, create one with email and password via `POST /api/admin/users`, and offer a clearly confirmed Grant Superadmin action via `PUT /api/admin/users/:id/super-admin`. The password must have at least eight characters and a digit. Refresh the list after changes. Do not offer revoke, delete, or password viewing, because those APIs do not exist.
+>
+> Add a Post Audit configuration view for superadmins: load `GET /api/admin/post-audit/units`, create units, edit their name/order/active status, set `copiesPerItem` from 1 to 20 (up to the active-unit count), and optionally trigger `POST /api/admin/post-audit/dispatch` for historical content. Show each unit's total/pending/checked counts. Keep historical assignments visible after deactivation.
+>
+> Add Post Audit review for all admins: open a unit and show pending and checked tabs from `GET /api/admin/post-audit/units/:id/items?status=pending|checked&page=1&per_page=20`. Show the returned content, author, auditor, timestamps, and report status. Keep the API's newest-first order. Report an item with its **assignment ID** using `POST /api/admin/post-audit/units/:id/items/:assignmentId/report`, and checkpoint all pending items or through a chosen assignment with `POST /api/admin/post-audit/units/:id/checkpoint`. Confirm bulk checkpointing, refresh counts/lists after mutations, and surface API errors without claiming a report suspends content. Superadmins may also assign a specific post/question using `POST /api/admin/post-audit/items/:type/:id/assign`.
+>
+> Use the response and error shapes documented above. Do not invent endpoints or infer whether an item is checked from its position in a list. Test with one ordinary admin and one superadmin so hidden controls and 403 states are covered.

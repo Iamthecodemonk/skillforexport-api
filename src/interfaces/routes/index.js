@@ -1070,6 +1070,58 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('getPublicProfile'));
 
+  const auditResponse = { 200: genericSuccess, 201: genericSuccess,
+    401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse,
+    404: schemas.GenericErrorResponse, 409: schemas.GenericErrorResponse };
+  const auditUnitBody = { type: 'object', required: ['name'], properties: {
+    name: { type: 'string', minLength: 1, maxLength: 120 },
+    sortOrder: { type: 'integer', minimum: 0 }
+  } };
+  fastify.get('/admin/post-audit/units', { preHandler: deps.authRequired,
+    schema: { tags: ['Admin', 'Post Audit'], response: auditResponse }
+  }, handler('listAuditUnits'));
+  fastify.post('/admin/post-audit/units', { preHandler: deps.authRequired,
+    schema: { tags: ['Admin', 'Post Audit'], body: auditUnitBody, response: auditResponse }
+  }, handler('createAuditUnit'));
+  fastify.patch('/admin/post-audit/units/:id', { preHandler: deps.authRequired,
+    schema: { tags: ['Admin', 'Post Audit'], params: idParam(), body: { ...auditUnitBody, required: [], properties: {
+      ...auditUnitBody.properties, isActive: { type: 'boolean' }
+    } }, response: auditResponse }
+  }, handler('updateAuditUnit'));
+  fastify.put('/admin/post-audit/settings', { preHandler: deps.authRequired,
+    schema: { tags: ['Admin', 'Post Audit'], body: { type: 'object', required: ['copiesPerItem'],
+      properties: { copiesPerItem: { type: 'integer', minimum: 1, maximum: 20 } } }, response: auditResponse }
+  }, handler('updateAuditSettings'));
+  fastify.post('/admin/post-audit/dispatch', { preHandler: deps.authRequired,
+    schema: { tags: ['Admin', 'Post Audit'], body: { type: 'object', properties: {
+      limit: { type: 'integer', minimum: 1, maximum: 500 }
+    } }, response: auditResponse }
+  }, handler('dispatchAuditItems'));
+  fastify.post('/admin/post-audit/items/:type/:id/assign', { preHandler: deps.authRequired,
+    schema: { tags: ['Admin', 'Post Audit'], params: { type: 'object', required: ['type', 'id'],
+      properties: { type: { type: 'string', enum: ['post', 'question'] }, id: { type: 'string' } } },
+    body: { type: 'object', required: ['unitIds'], properties: {
+      unitIds: { type: 'array', minItems: 1, uniqueItems: true, items: { type: 'string' } },
+      replace: { type: 'boolean' }
+    } }, response: auditResponse }
+  }, handler('assignAuditItem'));
+  fastify.get('/admin/post-audit/units/:id/items', { preHandler: deps.authRequired,
+    schema: { tags: ['Admin', 'Post Audit'], params: idParam(), querystring: { type: 'object', properties: {
+      status: { type: 'string', enum: ['pending', 'checked'] }, page: { type: 'integer', minimum: 1 },
+      per_page: { type: 'integer', minimum: 1, maximum: 50 }
+    } }, response: auditResponse }
+  }, handler('listAuditItems'));
+  fastify.post('/admin/post-audit/units/:id/items/:assignmentId/report', { preHandler: deps.authRequired,
+    schema: { tags: ['Admin', 'Post Audit'], params: twoIdParams('id', 'assignmentId'),
+      body: { type: 'object', required: ['reason'], properties: {
+        reason: { type: 'string', minLength: 1, maxLength: 255 }, details: { type: 'string', maxLength: 5000 }
+      } }, response: auditResponse }
+  }, handler('reportAuditItem'));
+  fastify.post('/admin/post-audit/units/:id/checkpoint', { preHandler: deps.authRequired,
+    schema: { tags: ['Admin', 'Post Audit'], params: idParam(), body: { type: 'object',
+      properties: { throughAssignmentId: { type: 'string' } } }, response: auditResponse }
+  }, handler('checkpointAuditUnit'));
+
   fastify.get('/admin/users/me', {
     preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
     schema: { tags: ['Admin', 'Users'], description: 'Return the current admin and superadmin access flags.', response: { 200: dataResponse({ type: 'object', properties: { isAdmin: { type: 'boolean' }, isSuperAdmin: { type: 'boolean' } } }), 401: schemas.AuthErrorResponse } }

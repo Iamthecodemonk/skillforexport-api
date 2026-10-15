@@ -31,6 +31,7 @@ logs/
 
 # Docs and notes
 *.md
+!POST_AUDIT_API.md
 *.txt
 
 # Database

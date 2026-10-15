@@ -12,6 +12,7 @@ import MysqlPageRepository from './infrastructure/repositories/mysqlPageReposito
 import MysqlUserAssetRepository from './infrastructure/repositories/mysqlUserAssetRepository.js';
 import { MysqlUserProfileRepository } from './infrastructure/repositories/index.js';
 import { PageRepositoryImpl } from './domain/repositories/pageRepository.js';
+import MysqlPostAuditRepository from './infrastructure/repositories/mysqlPostAuditRepository.js';
 import { UserProfileRepositoryImpl } from './domain/repositories/userProfileRepository.js';
 
 const workerLogger = logger.child('WORKER');
@@ -44,14 +45,28 @@ const mediaWorker = createMediaWorker(connection, {
   concurrency: parseInt(process.env.MEDIA_WORKER_CONCURRENCY || '2', 10)
 });
 
+const auditRepository = new MysqlPostAuditRepository();
+let auditDispatchPromise = null;
+const dispatchAudit = () => {
+  if (auditDispatchPromise) return;
+  auditDispatchPromise = auditRepository.dispatch(100)
+    .catch((err) => workerLogger.warn('Post audit dispatch failed', { message: err.message }))
+    .finally(() => { auditDispatchPromise = null; });
+};
+const auditTimer = process.env.POST_AUDIT_ENABLED === 'false' ? null
+  : setInterval(dispatchAudit, parseInt(process.env.POST_AUDIT_DISPATCH_INTERVAL_MS || '30000', 10));
+if (auditTimer) auditTimer.unref();
+
 let shuttingDown = false;
 async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
+  if (auditTimer) clearInterval(auditTimer);
   workerLogger.info('Worker shutdown signal received', { signal });
   const timeout = setTimeout(() => process.exit(1), parseInt(process.env.SHUTDOWN_TIMEOUT_MS || '30000', 10));
   timeout.unref();
   await Promise.allSettled([emailWorker.close(), mediaWorker.close()]);
+  if (auditDispatchPromise) await auditDispatchPromise;
   await redisClient.quit().catch(() => redisClient.disconnect());
   await db.destroy();
   clearTimeout(timeout);

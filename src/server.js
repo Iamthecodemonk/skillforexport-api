@@ -25,6 +25,8 @@ import { UserCertificationRepositoryImpl } from './domain/repositories/userCerti
 import { UserEducationRepositoryImpl } from './domain/repositories/userEducationRepository.js';
 import { UserExperienceRepositoryImpl } from './domain/repositories/userExperienceRepository.js';
 import { makeUserController } from './interfaces/controllers/userController.js';
+import { makePostAuditController } from './interfaces/controllers/postAuditController.js';
+import MysqlPostAuditRepository from './infrastructure/repositories/mysqlPostAuditRepository.js';
 import { makePostController } from './interfaces/controllers/postController.js';
 import PostUseCase from './application/use-cases/postUseCase.js';
 import PageUseCase from './application/use-cases/pageUseCase.js';
@@ -817,6 +819,12 @@ export default async function startServer() {
   app.addHook('preHandler', makePopulateUser({ userRepository: userRepo, jwtSecret: process.env.JWT_SECRET }));
 
   // authRequired is provided from interfaces/middleware/authRequired.js
+
+  Object.assign(controllers, makePostAuditController({
+    repository: new MysqlPostAuditRepository(),
+    userRepository: userRepo,
+    notificationRepository
+  }));
 
   serverLogger.debug('Registering API routes...');
   // Mount application routes under /api so endpoints become /api/<route>

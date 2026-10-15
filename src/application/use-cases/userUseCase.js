@@ -142,6 +142,39 @@ export default class UserUseCase {
     return this.userRepository.create(user);
   }
 
+  async requireSuperAdmin(actor) {
+    if (!actor || !actor.id) throw new Error('unauthorized');
+    if (actor.role !== 'admin' || !await this.userRepository.isSuperAdmin(actor.id)) {
+      throw new Error('forbidden');
+    }
+  }
+
+  async getAdminAccess(actor) {
+    if (!actor || !actor.id) throw new Error('unauthorized');
+    const isAdmin = actor.role === 'admin';
+    return { isAdmin, isSuperAdmin: isAdmin && await this.userRepository.isSuperAdmin(actor.id) };
+  }
+
+  async createAdminUser(actor, credentials) {
+    await this.requireSuperAdmin(actor);
+    return this.createUser({ ...credentials, role: 'admin' });
+  }
+
+  async listAdminUsers(actor) {
+    await this.requireSuperAdmin(actor);
+    const rows = await this.userRepository.listAdminUsers();
+    return rows.map(({ super_admin_id: superAdminId, ...row }) => ({
+      ...row,
+      isSuperAdmin: Boolean(superAdminId)
+    }));
+  }
+
+  async grantSuperAdmin(actor, userId) {
+    await this.requireSuperAdmin(actor);
+    if (!await this.userRepository.grantSuperAdmin(userId, actor.id)) throw new Error('admin_not_found');
+    return { id: userId, isSuperAdmin: true };
+  }
+
   async getProfile(userId) {
     return this.profileRepository.findByUserId(userId);
   }

@@ -53,6 +53,32 @@ async function countUserOwnedRows(tableName, userId, ownerColumns = ['user_id'])
 }
 
 export default class MysqlUserRepository {
+  async isSuperAdmin(userId) {
+    if (!userId) return false;
+    const row = await db('super_admins as sa')
+      .join('users as u', 'u.id', 'sa.user_id')
+      .where('sa.user_id', userId)
+      .where('u.role', 'admin')
+      .first('sa.user_id');
+    return Boolean(row);
+  }
+
+  async listAdminUsers() {
+    return db('users as u')
+      .leftJoin('super_admins as sa', 'sa.user_id', 'u.id')
+      .where('u.role', 'admin')
+      .select('u.id', 'u.email', 'u.role', 'u.created_at', 'sa.user_id as super_admin_id')
+      .orderBy('u.created_at', 'desc');
+  }
+
+  async grantSuperAdmin(userId, grantedBy) {
+    const user = await db('users').where({ id: userId, role: 'admin' }).first('id');
+    if (!user) return false;
+    await db('super_admins').insert({ user_id: userId, granted_by: grantedBy, created_at: new Date() })
+      .onConflict('user_id').ignore();
+    return true;
+  }
+
   async findByEmail(email) {
     const user = await db('users').where({ email }).first();
     if (!user) return null;

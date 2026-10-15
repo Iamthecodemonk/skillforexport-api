@@ -1070,11 +1070,28 @@ export default async function registerRoutes(fastify, deps) {
     }
   }, handler('getPublicProfile'));
 
+  fastify.get('/admin/users/me', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { tags: ['Admin', 'Users'], description: 'Return the current admin and superadmin access flags.', response: { 200: dataResponse({ type: 'object', properties: { isAdmin: { type: 'boolean' }, isSuperAdmin: { type: 'boolean' } } }), 401: schemas.AuthErrorResponse } }
+  }, handler('getAdminAccess'));
+  fastify.get('/admin/users', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { tags: ['Admin', 'Users'], description: 'List admin accounts. Superadmin only.', response: { 200: dataResponse({ type: 'array', items: anyObject }), 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse } }
+  }, handler('listAdminUsers'));
+  fastify.post('/admin/users', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { tags: ['Admin', 'Users'], description: 'Create an admin account. Superadmin only.', body: { type: 'object', required: ['email', 'password'], properties: { email: { type: 'string', format: 'email' }, password: { type: 'string', minLength: 8, pattern: '^(?=.*\\d).{8,}$' } } }, response: { 201: genericSuccess, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } }
+  }, handler('createAdminUser'));
+  fastify.put('/admin/users/:id/super-admin', {
+    preHandler: deps && deps.authRequired ? deps.authRequired : undefined,
+    schema: { tags: ['Admin', 'Users'], description: 'Grant superadmin access to an existing admin. Superadmin only.', params: idParam(), response: { 200: genericSuccess, 401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse, 404: schemas.GenericErrorResponse } }
+  }, handler('grantSuperAdmin'));
+
   fastify.post('/users', {
     schema: {
       operationId: 'createUser',
       tags: ['Users'],
-      description: 'Create a user',
+      description: 'Create a regular user. Elevated roles are rejected.',
       body: {
         type: 'object',
         required: ['email', 'password'],
@@ -1086,7 +1103,7 @@ export default async function registerRoutes(fastify, deps) {
             pattern: '^(?=.*\\d).{8,}$',
             description: 'Password must be at least 8 characters and include at least one number.'
           },
-          role: { type: 'string', enum: ['user', 'admin'] }
+          role: { type: 'string', enum: ['user', 'admin'], description: 'Only user is allowed here. Use /admin/users to create admins.' }
         },
         example: { email: 'user@example.com', password: 'P@ssw0rd', role: 'user' }
       },

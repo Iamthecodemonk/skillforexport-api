@@ -92,6 +92,55 @@ export function makeUserController({ useCase = null, followerRepository = null, 
   }
 
   return {
+    getAdminAccess: async (req, reply) => {
+      try {
+        return reply.send({ success: true, data: await useCase.getAdminAccess(req.user) });
+      } catch (err) {
+        if (err.message === 'unauthorized') return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        userLogger.error('getAdminAccess error', { message: err.message });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    listAdminUsers: async (req, reply) => {
+      try {
+        const admins = await useCase.listAdminUsers(req.user);
+        return reply.send({ success: true, data: admins });
+      } catch (err) {
+        if (err.message === 'unauthorized') return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        if (err.message === 'forbidden') return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+        userLogger.error('listAdminUsers error', { message: err.message });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    createAdminUser: async (req, reply) => {
+      try {
+        const created = await useCase.createAdminUser(req.user, req.body || {});
+        return reply.code(201).send({ success: true, data: { id: created.id, email: created.email, role: 'admin', isSuperAdmin: false } });
+      } catch (err) {
+        if (err.message === 'unauthorized') return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        if (err.message === 'forbidden') return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+        if (err.message === 'email_taken') return reply.code(409).send({ success: false, error: { code: 'email_already_exists' } });
+        if (err.message === 'invalid_email_format' || err.message === 'weak_password') return reply.code(422).send({ success: false, error: { code: 'validation_failed', message: err.message } });
+        userLogger.error('createAdminUser error', { message: err.message });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
+    grantSuperAdmin: async (req, reply) => {
+      try {
+        const result = await useCase.grantSuperAdmin(req.user, req.params.id);
+        return reply.send({ success: true, data: result });
+      } catch (err) {
+        if (err.message === 'unauthorized') return reply.code(401).send({ success: false, error: { code: 'unauthorized' } });
+        if (err.message === 'forbidden') return reply.code(403).send({ success: false, error: { code: 'forbidden' } });
+        if (err.message === 'admin_not_found') return reply.code(404).send({ success: false, error: { code: 'admin_not_found' } });
+        userLogger.error('grantSuperAdmin error', { message: err.message });
+        return reply.code(500).send({ success: false, error: { code: 'internal_error' } });
+      }
+    },
+
     listUsers: async (req, reply) => {
       try {
         const { page, perPage, limit, offset } = parsePagination(req.query, 20);
@@ -161,23 +210,13 @@ export function makeUserController({ useCase = null, followerRepository = null, 
     createUser: async (req, reply) => {
       try {
         const { email, password, role } = req.body;
+        if (role && role !== 'user') {
+          return reply.code(403).send({ success: false, error: { code: 'forbidden', message: 'Use the superadmin endpoint to create an admin' } });
+        }
         if (!email || !password)
           return reply.code(422).send({ success: false, error: { code: 'validation_failed' } });
 
-        // Validate role if provided; only allow 'user' or 'admin'
-        const allowedRoles = ['user', 'admin'];
-        const roleToUse = role && typeof role === 'string' ? role : undefined;
-        if (typeof roleToUse !== 'undefined' && !allowedRoles.includes(roleToUse)) {
-          return reply.code(422).send({ 
-            success: false, 
-            error: { 
-              code: 'validation_failed', 
-              message: 'role must be one of: user, admin' 
-            } 
-          });
-        }
-
-        const created = await useCase.createUser({ email, password, role: roleToUse });
+        const created = await useCase.createUser({ email, password, role: 'user' });
         return reply.code(201).send({ success: true, data: created.toPlainObject() });
       } catch (err) {
         if (err.message === 'invalid_email_format')

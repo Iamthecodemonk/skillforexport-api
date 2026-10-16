@@ -161,4 +161,16 @@ export class UserRepositoryImpl extends UserRepository {
   async countComments(userId) {
     return this.adapter.countComments ? await this.adapter.countComments(userId) : 0;
   }
+
+  async isSuperAdmin(userId) {
+    return this.adapter.isSuperAdmin(userId);
+  }
+
+  async listAdminUsers() {
+    return this.adapter.listAdminUsers();
+  }
+
+  async grantSuperAdmin(userId, grantedBy) {
+    return this.adapter.grantSuperAdmin(userId, grantedBy);
+  }
 }

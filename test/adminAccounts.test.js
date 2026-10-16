@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import UserUseCase from '../src/application/use-cases/userUseCase.js';
 import { makeUserController } from '../src/interfaces/controllers/userController.js';
+import { UserRepositoryImpl } from '../src/domain/repositories/userRepository.js';
 
 function replyStub() {
   return {
@@ -53,4 +54,22 @@ test('regular admins cannot grant superadmin access', async () => {
   assert.deepEqual(await useCase.getAdminAccess(actor), { isAdmin: true, isSuperAdmin: false });
   await assert.rejects(useCase.grantSuperAdmin(actor, 'admin-2'), /forbidden/);
   assert.equal(granted, false);
+});
+
+test('admin account methods reach the persistence adapter through the repository', async () => {
+  const calls = [];
+  const repository = new UserRepositoryImpl({ adapter: {
+    isSuperAdmin: async (id) => { calls.push(['check', id]); return true; },
+    listAdminUsers: async () => [{ id: 'admin-1' }],
+    grantSuperAdmin: async (id, actorId) => { calls.push(['grant', id, actorId]); return true; }
+  } });
+  const useCase = new UserUseCase({ userRepository: repository });
+  const actor = { id: 'admin-1', role: 'admin' };
+
+  assert.deepEqual(await useCase.getAdminAccess(actor), { isAdmin: true, isSuperAdmin: true });
+  assert.deepEqual(await useCase.listAdminUsers(actor), [{ id: 'admin-1', isSuperAdmin: false }]);
+  assert.deepEqual(await useCase.grantSuperAdmin(actor, 'admin-2'), { id: 'admin-2', isSuperAdmin: true });
+  assert.deepEqual(calls, [
+    ['check', 'admin-1'], ['check', 'admin-1'], ['check', 'admin-1'], ['grant', 'admin-2', 'admin-1']
+  ]);
 });

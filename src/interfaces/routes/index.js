@@ -36,6 +36,46 @@ export default async function registerRoutes(fastify, deps) {
   const anyObject = { type: 'object', additionalProperties: true };
   const anyArray = { type: 'array', items: anyObject };
   const genericSuccess = dataResponse(anyObject);
+  const appUpdatePolicyResponse = { type: 'object', properties: {
+    platform: { type: 'string', enum: ['android', 'ios'] },
+    latestVersion: { type: 'string' }, minSupportedVersion: { type: 'string' },
+    storeUrl: { type: 'string' }, releaseNotes: { type: ['string', 'null'] },
+    releasedAt: { type: ['string', 'null'] }, isPublished: { type: 'boolean' },
+    updatedBy: { type: ['string', 'null'] }, updatedAt: { type: 'string' }
+  } };
+  fastify.get('/app-update', {
+    schema: { operationId: 'checkAppUpdate', tags: ['App Updates'],
+      description: 'Public app update check. No authentication required. Only published platform policies are returned.',
+      querystring: { type: 'object', required: ['platform', 'current_version'], properties: {
+        platform: { type: 'string', enum: ['android', 'ios'] },
+        current_version: { type: 'string', maxLength: 32, pattern: '^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$' }
+      } }, response: { 200: dataResponse({ type: 'object', properties: {
+        platform: { type: 'string' }, current_version: { type: 'string' },
+        latest_version: { type: 'string' }, min_supported_version: { type: 'string' },
+        update_status: { type: 'string', enum: ['none', 'optional', 'force'] },
+        store_url: { type: 'string' }, release_notes: { type: ['string', 'null'] },
+        released_at: { type: ['string', 'null'] }
+      } }), 404: schemas.GenericErrorResponse, 422: schemas.GenericErrorResponse } }
+  }, handler('checkAppUpdate'));
+  fastify.get('/admin/app-updates', { preHandler: deps.authRequired,
+    schema: { operationId: 'listAppUpdatePolicies', tags: ['Admin', 'App Updates'],
+      description: 'List draft and published app update policies. Superadmin only.',
+      response: { 200: dataResponse({ type: 'array', items: appUpdatePolicyResponse }),
+        401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse } }
+  }, handler('listAppUpdatePolicies'));
+  fastify.put('/admin/app-updates/:platform', { preHandler: deps.authRequired,
+    schema: { operationId: 'saveAppUpdatePolicy', tags: ['Admin', 'App Updates'],
+      description: 'Replace one platform policy. Publish only after verifying the release is available in its store. Superadmin only.',
+      params: { type: 'object', required: ['platform'], properties: {
+        platform: { type: 'string', enum: ['android', 'ios'] }
+      } }, body: { type: 'object', required: ['latestVersion', 'minSupportedVersion', 'storeUrl', 'isPublished'],
+        properties: { latestVersion: { type: 'string', maxLength: 32 }, minSupportedVersion: { type: 'string', maxLength: 32 },
+          storeUrl: { type: 'string', format: 'uri', maxLength: 2048 }, releaseNotes: { type: ['string', 'null'], maxLength: 5000 },
+          releasedAt: { type: ['string', 'null'], format: 'date-time' }, isPublished: { type: 'boolean' }
+        } }, response: { 200: dataResponse(appUpdatePolicyResponse),
+        401: schemas.AuthErrorResponse, 403: schemas.GenericErrorResponse,
+        422: schemas.GenericErrorResponse } }
+  }, handler('saveAppUpdatePolicy'));
   const enumBootstrapResponse = dataResponse({
     type: 'object',
     properties: {

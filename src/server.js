@@ -27,6 +27,8 @@ import { UserExperienceRepositoryImpl } from './domain/repositories/userExperien
 import { makeUserController } from './interfaces/controllers/userController.js';
 import { makePostAuditController } from './interfaces/controllers/postAuditController.js';
 import MysqlPostAuditRepository from './infrastructure/repositories/mysqlPostAuditRepository.js';
+import MysqlAppUpdateRepository from './infrastructure/repositories/mysqlAppUpdateRepository.js';
+import { makeAppUpdateController } from './interfaces/controllers/appUpdateController.js';
 import { makePostController } from './interfaces/controllers/postController.js';
 import PostUseCase from './application/use-cases/postUseCase.js';
 import PageUseCase from './application/use-cases/pageUseCase.js';
@@ -824,6 +826,9 @@ export default async function startServer() {
     repository: new MysqlPostAuditRepository(),
     userRepository: userRepo,
     notificationRepository
+  }));
+  Object.assign(controllers, makeAppUpdateController({
+    repository: new MysqlAppUpdateRepository(), userRepository: userRepo
   }));
 
   serverLogger.debug('Registering API routes...');
